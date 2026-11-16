@@ -173,8 +173,21 @@ struct NotchView: View {
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
                 .padding(.top, 12)
-                .padding(.bottom, 20)
+                .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
+                // A tall widget is cut here rather than pushing the footer past the panel's edge.
+                .frame(
+                    maxHeight: getWidgetMaxHeight(
+                        panelHeight: NotchPanel.baseSize.height,
+                        tabBarHeight: notchSize.height + 8,
+                        footerHeight: NotchFooter.height
+                    ),
+                    alignment: .top
+                )
+                .clipped()
+
+            NotchFooter()
+                .padding(.horizontal, 24)
         }
         .foregroundStyle(.primary)
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
