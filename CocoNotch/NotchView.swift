@@ -13,9 +13,6 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     /// The tab a dragged tab is over, highlighted to show where it will land.
     @State private var dropTargetID: String?
-    // Kept here rather than read from the drag's payload, so a drop is handled at once without async loading. Only
-    // tab drags carry `widgetDragType`, so a stale value from a cancelled drag is never used by another app's drop.
-    @State private var draggedWidgetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
@@ -168,24 +165,11 @@ struct NotchView: View {
                     )
                     // Home can't be dragged; dropping a tab on it moves that tab to the front.
                     .modifier(
-                        DraggableWidget(id: widget.id, isDraggable: widget.id != homeWidgetID) {
-                            draggedWidgetID = widget.id
-                        }
+                        DraggableWidget(id: widget.id, isDraggable: widget.id != homeWidgetID)
                     )
                     .onDrop(
                         of: [widgetDragType],
-                        delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
-                            guard let draggedWidgetID else { return false }
-                            storedWidgetPreferences = encodeWidgetPreferences(
-                                moveWidget(
-                                    draggedWidgetID,
-                                    onto: widget.id,
-                                    in: NotchWidget.getPreferences(stored: storedWidgetPreferences)
-                                )
-                            )
-                            self.draggedWidgetID = nil
-                            return true
-                        }
+                        delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID)
                     )
                 }
                 Spacer()

@@ -20,7 +20,6 @@ private struct HomeView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
-    @State private var draggedWidgetID: String?
     @State private var dropTargetID: String?
 
     var body: some View {
@@ -46,21 +45,10 @@ private struct HomeView: View {
                             SummaryCard(widget: widget, isDropTarget: dropTargetID == widget.id) {
                                 selectedWidgetID = widget.id
                             }
-                            .modifier(DraggableWidget(id: widget.id, isDraggable: true) { draggedWidgetID = widget.id })
+                            .modifier(DraggableWidget(id: widget.id, isDraggable: true))
                             .onDrop(
                                 of: [widgetDragType],
-                                delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
-                                    guard let draggedWidgetID else { return false }
-                                    storedWidgetPreferences = encodeWidgetPreferences(
-                                        moveWidget(
-                                            draggedWidgetID,
-                                            onto: widget.id,
-                                            in: NotchWidget.getPreferences(stored: storedWidgetPreferences)
-                                        )
-                                    )
-                                    self.draggedWidgetID = nil
-                                    return true
-                                }
+                                delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID)
                             )
                         }
                     }
