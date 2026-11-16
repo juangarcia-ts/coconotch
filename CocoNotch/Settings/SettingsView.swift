@@ -15,7 +15,8 @@ struct SettingsView: View {
                 }
             }
         }
-        .frame(width: 480)
+        // Grouped forms have no natural height, so without a fixed size the window collapses to the tab bar.
+        .frame(width: 480, height: 480)
     }
 }
 
