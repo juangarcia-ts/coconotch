@@ -89,8 +89,6 @@ struct ActivityIsland: View {
     }
 }
 
-/// Places the leading view, a gap as wide as the notch, then the trailing view. Both sides take the wider side's
-/// width, so the camera stays centered and the island is only as wide as its content.
 /// Stacks the alert under the row at the row's width, so the alert never widens the island. The alert is measured at
 /// that width rather than at an ideal width, which would wrap its text one letter per line and stretch the island down.
 private struct IslandStack: Layout {
@@ -115,6 +113,8 @@ private struct IslandStack: Layout {
     }
 }
 
+/// Places the leading view, a gap as wide as the notch, then the trailing view. Both sides take the wider side's
+/// width, so the camera stays centered and the island is only as wide as its content.
 private struct IslandLayout: Layout {
     let gapWidth: CGFloat
     let maxSideWidth: CGFloat
