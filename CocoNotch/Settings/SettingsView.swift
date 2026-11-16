@@ -2,28 +2,80 @@ import CocoNotchCore
 import ServiceManagement
 import SwiftUI
 
+private enum SettingsPage: Hashable {
+    case general
+    case appearance
+    case widgets
+    case widget(String)
+}
+
 struct SettingsView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @State private var page = SettingsPage.general
+    @State private var isWidgetsExpanded = true
+
+    /// Home first, then every widget with settings in the user's order, switched on or not.
+    private var widgetsWithSettings: [NotchWidget] {
+        ([NotchWidget.home]
+            + NotchWidget.getPreferences(stored: storedWidgetPreferences).compactMap {
+                NotchWidget.find(id: $0.id)
+            })
+            .filter { $0.makeSettings != nil }
+    }
 
     var body: some View {
-        TabView {
-            GeneralSettings()
-                .tabItem { Label("General", systemImage: "gearshape") }
-            AppearanceSettings()
-                .tabItem { Label("Appearance", systemImage: "paintpalette") }
-            WidgetsSettings()
-                .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
-            HomeSettings()
-                .tabItem { Label(NotchWidget.home.title, systemImage: NotchWidget.home.systemImage) }
-            ForEach(NotchWidget.getPreferences(stored: storedWidgetPreferences)) { preference in
-                if let widget = NotchWidget.find(id: preference.id), let makeSettings = widget.makeSettings {
-                    makeSettings()
-                        .tabItem { Label(widget.title, systemImage: widget.systemImage) }
+        NavigationSplitView {
+            List(selection: $page) {
+                Label("General", systemImage: "gearshape")
+                    .tag(SettingsPage.general)
+                Label("Appearance", systemImage: "paintpalette")
+                    .tag(SettingsPage.appearance)
+                DisclosureGroup(isExpanded: $isWidgetsExpanded) {
+                    ForEach(widgetsWithSettings) { widget in
+                        Label(widget.title, systemImage: widget.systemImage)
+                            .tag(SettingsPage.widget(widget.id))
+                    }
+                } label: {
+                    Label("Widgets", systemImage: "square.grid.2x2")
+                        .tag(SettingsPage.widgets)
                 }
             }
+            .navigationSplitViewColumnWidth(200)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(getTitle(of: page))
+                    .font(.title2.weight(.semibold))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                detail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
         }
-        // Grouped forms have no natural height, so without a fixed size the window collapses to the tab bar.
-        .frame(width: 480, height: 480)
+        // Grouped forms have no natural height, so without a fixed size the window collapses.
+        .frame(width: 720, height: 520)
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch page {
+        case .general:
+            GeneralSettings()
+        case .appearance:
+            AppearanceSettings()
+        case .widgets:
+            WidgetsSettings()
+        case .widget(let id):
+            NotchWidget.find(id: id)?.makeSettings?()
+        }
+    }
+
+    private func getTitle(of page: SettingsPage) -> String {
+        switch page {
+        case .general: "General"
+        case .appearance: "Appearance"
+        case .widgets: "Widgets"
+        case .widget(let id): NotchWidget.find(id: id)?.title ?? ""
+        }
     }
 }
 

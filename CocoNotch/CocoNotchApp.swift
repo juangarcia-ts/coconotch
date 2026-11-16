@@ -24,7 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var settingsWindow: NSWindow = {
         let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
         window.title = "CocoNotch Settings"
-        window.styleMask = [.titled, .closable]
+        // Lets the sidebar run up under the traffic lights, like System Settings.
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.center()
         return window
