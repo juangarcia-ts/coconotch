@@ -237,8 +237,7 @@ private struct NextMeetingCard: View {
             Spacer()
             if MeetingsStore.shared.headsUpMeetingID == meeting.id {
                 Button("Hide Reminder", systemImage: "bell.slash") { MeetingsStore.shared.dismissHeadsUp() }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.bordered)
                     .help("Hide this meeting's reminder in the closed notch")
             }
             if let link = meeting.link {
