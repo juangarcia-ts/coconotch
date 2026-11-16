@@ -100,6 +100,9 @@ struct NotchView: View {
                 .frame(maxWidth: .infinity)
         }
         .foregroundStyle(.primary)
+        // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
+        .frame(maxHeight: NotchPanel.size.height, alignment: .top)
+        .clipped()
     }
 }
 

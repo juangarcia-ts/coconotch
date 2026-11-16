@@ -8,7 +8,9 @@ Hover (or click) the notch to expand it; each widget is a tab. Open **Settingsâ€
 
 - **Time Zones**: your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back.
 
-Planned: meetings, Claude Code usage, now playing, clipboard history.
+- **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar.
+
+Planned: Claude Code usage, now playing, clipboard history.
 
 ## Build
 

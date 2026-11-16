@@ -9,5 +9,5 @@ struct NotchWidget: Identifiable {
     var makeSettings: (() -> AnyView)? = nil
 
     // Tabs appear in this order.
-    static let all: [NotchWidget] = [.timezones]
+    static let all: [NotchWidget] = [.timezones, .meetings]
 }
