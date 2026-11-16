@@ -22,13 +22,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // An AppKit window rather than a SwiftUI Settings scene, which the notch panel has no way to open.
     private lazy var settingsWindow: NSWindow = {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
+        let hostingController = NSHostingController(rootView: SettingsView())
+        // The window has a fixed size. Letting SwiftUI resize it to fit loops with the full-size content view's safe
+        // area during layout, and AppKit aborts the app.
+        hostingController.sizingOptions = []
+        let window = NSWindow(contentViewController: hostingController)
         window.title = "CocoNotch Settings"
         // Lets the sidebar run up under the traffic lights, like System Settings.
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
+        window.setContentSize(SettingsView.size)
         window.center()
         return window
     }()

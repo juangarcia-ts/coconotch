@@ -10,6 +10,8 @@ private enum SettingsPage: Hashable {
 }
 
 struct SettingsView: View {
+    static let size = CGSize(width: 720, height: 520)
+
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @State private var page = SettingsPage.general
     @State private var isWidgetsExpanded = true
@@ -53,7 +55,7 @@ struct SettingsView: View {
             }
         }
         // Grouped forms have no natural height, so without a fixed size the window collapses.
-        .frame(width: 720, height: 520)
+        .frame(width: Self.size.width, height: Self.size.height)
     }
 
     @ViewBuilder private var detail: some View {
