@@ -18,7 +18,7 @@ struct CocoNotchApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panels: [NotchPanel] = []
-    private var placedDisplayChoice: NotchDisplayChoice?
+    private var placedSettings: PlacementSettings?
 
     // An AppKit window rather than a SwiftUI Settings scene, which the notch panel has no way to open.
     private lazy var settingsWindow: NSWindow = {
@@ -38,11 +38,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
-        // Fires for every settings write, possibly off the main thread, so hop to main and act only on a new choice.
+        // Fires for every settings write, possibly off the main thread, so hop to main and act only when the display
+        // or size changed.
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.readDisplayChoice() != self.placedDisplayChoice else { return }
+                guard let self, PlacementSettings.read() != self.placedSettings else { return }
                 self.placePanels()
             }
         }
@@ -54,14 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow.makeKeyAndOrderFront(nil)
     }
 
-    private func readDisplayChoice() -> NotchDisplayChoice {
-        UserDefaults.standard.string(forKey: PreferenceKey.notchDisplay).flatMap { NotchDisplayChoice(rawValue: $0) }
-            ?? .main
-    }
-
     @objc private func placePanels() {
-        let choice = readDisplayChoice()
-        placedDisplayChoice = choice
+        let settings = PlacementSettings.read()
+        placedSettings = settings
+        let choice = settings.display
         let screens = NSScreen.screens
         let indices = getNotchDisplayIndices(hasNotch: screens.map { $0.safeAreaInsets.top > 0 }, choice: choice)
 
@@ -72,7 +69,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panels.removeLast().close()
         }
         for (panel, index) in zip(panels, indices) {
-            panel.place(on: screens[index])
+            panel.place(on: screens[index], scale: settings.scale)
         }
+    }
+}
+
+/// The settings that decide where the notch panels go and how big they are.
+private struct PlacementSettings: Equatable {
+    let display: NotchDisplayChoice
+    let scale: Double
+
+    static func read() -> PlacementSettings {
+        let defaults = UserDefaults.standard
+        return PlacementSettings(
+            display: defaults.string(forKey: PreferenceKey.notchDisplay).flatMap { NotchDisplayChoice(rawValue: $0) }
+                ?? .main,
+            scale: clampNotchScale(defaults.object(forKey: PreferenceKey.notchScale) as? Double)
+        )
     }
 }
