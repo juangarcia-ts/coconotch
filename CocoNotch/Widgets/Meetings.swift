@@ -243,6 +243,11 @@ private struct MeetingsView: View {
                         }
                     }
                     .padding(.horizontal, 10)
+                    if agenda.hiddenEarlierCount > 0 {
+                        Text("+\(agenda.hiddenEarlierCount) earlier")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(agenda.earlier) { meeting in
                         MeetingRow(meeting: meeting)
                             .opacity(0.5)

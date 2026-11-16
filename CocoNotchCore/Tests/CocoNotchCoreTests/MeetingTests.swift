@@ -94,6 +94,7 @@ func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
     let meetings = (0..<count).map { Meeting(id: "\($0)", title: "\($0)", start: start, end: start + 60) }
     let agenda = makeAgenda(meetings, now: start, limit: 3)
     #expect(agenda.earlier.isEmpty)
+    #expect(agenda.hiddenEarlierCount == 0)
     #expect((agenda.next != nil) == hasNext)
     #expect(agenda.rest.count == restCount)
     #expect(agenda.hiddenCount == hiddenCount)
@@ -111,24 +112,28 @@ func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
     #expect(morning.earlier.map(\.id) == ["ended3", "ended4"])
     #expect(morning.next?.id == "next")
     #expect(morning.rest.map(\.id) == ["later"])
-    #expect(morning.hiddenCount == 2)
+    #expect(morning.hiddenEarlierCount == 2)
+    #expect(morning.hiddenCount == 0)
 
     let busy = makeAgenda(ended + (1...5).map { meeting("up\($0)", endsIn: Double($0 * 60)) }, now: now, limit: 3)
     #expect(busy.earlier.map(\.id) == ["ended4"])
     #expect(busy.rest.count == 3)
-    #expect(busy.hiddenCount == 4)
+    #expect(busy.hiddenEarlierCount == 3)
+    #expect(busy.hiddenCount == 1)
 
     let pastDay = makeAgenda(ended, now: now, limit: 3)
     #expect(pastDay.next == nil)
     #expect(pastDay.earlier.count == 3)
-    #expect(pastDay.hiddenCount == 1)
+    #expect(pastDay.earlier.map(\.id) == ["ended2", "ended3", "ended4"])
+    #expect(pastDay.hiddenEarlierCount == 1)
+    #expect(pastDay.hiddenCount == 0)
     #expect(!pastDay.isEmpty)
     #expect(makeAgenda([], now: now, limit: 3).isEmpty)
 }
 
 @Test(arguments: [
     (false, false, ["now", "later"]), (true, false, ["ended", "now", "later"]),
-    (false, true, ["ended", "now", "later"]),
+    (false, true, ["ended", "now", "later"]), (true, true, ["ended", "now", "later"]),
 ])
 func getsAgendaMeetings(showsPastEvents: Bool, isPickedDay: Bool, expected: [String]) {
     let now = Date(timeIntervalSince1970: 100_000)

@@ -90,8 +90,11 @@ public func formatTimeRange(_ meeting: Meeting) -> String {
 public struct Agenda: Equatable, Sendable {
     /// Meetings that already ended, shown dimmed above the next one.
     public let earlier: [Meeting]
+    /// Ended meetings that did not fit, all before `earlier`.
+    public let hiddenEarlierCount: Int
     public let next: Meeting?
     public let rest: [Meeting]
+    /// Upcoming meetings that did not fit, all after `rest`.
     public let hiddenCount: Int
 
     public var isEmpty: Bool { earlier.isEmpty && next == nil }
@@ -102,9 +105,15 @@ public struct Agenda: Equatable, Sendable {
 public func makeAgenda(_ meetings: [Meeting], now: Date, limit: Int) -> Agenda {
     let upcoming = meetings.filter { $0.end > now }
     let rest = Array(upcoming.dropFirst().prefix(limit))
-    let earlier = Array(meetings.filter { $0.end <= now }.suffix(max(limit - rest.count, 1)))
-    let shownCount = earlier.count + rest.count + (upcoming.isEmpty ? 0 : 1)
-    return Agenda(earlier: earlier, next: upcoming.first, rest: rest, hiddenCount: meetings.count - shownCount)
+    let ended = meetings.filter { $0.end <= now }
+    let earlier = Array(ended.suffix(max(limit - rest.count, 1)))
+    return Agenda(
+        earlier: earlier,
+        hiddenEarlierCount: ended.count - earlier.count,
+        next: upcoming.first,
+        rest: rest,
+        hiddenCount: max(upcoming.count - 1 - rest.count, 0)
+    )
 }
 
 /// The meetings the Meetings tab lists. `day` is nil for today, where ended meetings show only with
