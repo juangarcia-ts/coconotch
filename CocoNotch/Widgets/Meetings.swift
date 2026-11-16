@@ -389,7 +389,7 @@ private struct MeetingsSummary: View {
                         .padding(.leading, 13)
                     }
                 } else {
-                    Text(formatEmptyAgenda(day: nil))
+                    Text(formatMeetingsSummaryEmpty(hasCalendarAccess: store.accessStatus == .fullAccess))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

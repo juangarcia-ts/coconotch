@@ -24,7 +24,7 @@ private struct HomeView: View {
 
     var body: some View {
         let widgets = getHomeSummaryIDs(
-            NotchWidget.getPreferences(stored: storedWidgetPreferences).map(\.id),
+            getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)),
             summaryIDs: NotchWidget.summaryIDs,
             hiddenIDs: decodeIDSet(storedHiddenIDs)
         )
@@ -105,8 +105,9 @@ struct HomeSettings: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                ForEach(NotchWidget.getPreferences(stored: storedWidgetPreferences)) { preference in
-                    if let widget = NotchWidget.find(id: preference.id), widget.makeSummary != nil {
+                ForEach(getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)), id: \.self) {
+                    id in
+                    if let widget = NotchWidget.find(id: id), widget.makeSummary != nil {
                         Toggle(isOn: makeVisibilityBinding(for: widget.id)) {
                             Label(widget.title, systemImage: widget.systemImage)
                         }
