@@ -88,15 +88,61 @@ public func formatTimeRange(_ meeting: Meeting) -> String {
 }
 
 public struct Agenda: Equatable, Sendable {
+    /// Meetings that already ended, shown dimmed above the next one.
+    public let earlier: [Meeting]
     public let next: Meeting?
     public let rest: [Meeting]
     public let hiddenCount: Int
+
+    public var isEmpty: Bool { earlier.isEmpty && next == nil }
 }
 
-/// Splits upcoming meetings into the featured next one, up to `limit` more, and how many did not fit.
-public func makeAgenda(_ upcoming: [Meeting], limit: Int) -> Agenda {
+/// Splits meetings into ended ones, the featured next one, up to `limit` more, and how many did not fit.
+/// Ended meetings fill the rows the upcoming ones leave free, keeping at least the latest one.
+public func makeAgenda(_ meetings: [Meeting], now: Date, limit: Int) -> Agenda {
+    let upcoming = meetings.filter { $0.end > now }
     let rest = Array(upcoming.dropFirst().prefix(limit))
-    return Agenda(next: upcoming.first, rest: rest, hiddenCount: max(upcoming.count - 1 - rest.count, 0))
+    let earlier = Array(meetings.filter { $0.end <= now }.suffix(max(limit - rest.count, 1)))
+    let shownCount = earlier.count + rest.count + (upcoming.isEmpty ? 0 : 1)
+    return Agenda(earlier: earlier, next: upcoming.first, rest: rest, hiddenCount: meetings.count - shownCount)
+}
+
+/// The meetings the Meetings tab lists. `day` is nil for today, where ended meetings show only with
+/// `showsPastEvents`; a picked day shows all of its meetings.
+public func getAgendaMeetings(
+    _ meetings: [Meeting],
+    day: Date?,
+    now: Date,
+    showsPastEvents: Bool,
+    hidesAllDay: Bool,
+    hidesDeclined: Bool,
+    hiddenCalendarIDs: Set<String>
+) -> [Meeting] {
+    getUpcomingMeetings(
+        meetings,
+        now: showsPastEvents || day != nil ? .distantPast : now,
+        hidesAllDay: hidesAllDay,
+        hidesDeclined: hidesDeclined,
+        hiddenCalendarIDs: hiddenCalendarIDs
+    )
+}
+
+/// The day to show for a date picked in the calendar: nil for today, so the agenda follows today past midnight.
+public func getSelectedDay(picked: Date, now: Date, calendar: Calendar) -> Date? {
+    calendar.isDate(picked, inSameDayAs: now) ? nil : picked
+}
+
+/// The bounds to load a day's meetings with: its start, and the next day's start.
+public func getDayInterval(for date: Date, calendar: Calendar) -> DateInterval? {
+    calendar.dateInterval(of: .day, for: date)
+}
+
+public func formatAgendaTitle(day: Date?) -> String {
+    day?.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()) ?? "Today"
+}
+
+public func formatEmptyAgenda(day: Date?) -> String {
+    day == nil ? "No more meetings today" : "No meetings"
 }
 
 /// The meeting to show in the closed notch: the first one that starts within `leadTime`, or started less than
