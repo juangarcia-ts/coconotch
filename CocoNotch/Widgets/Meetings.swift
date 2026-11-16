@@ -88,6 +88,8 @@ final class MeetingsStore {
     func refreshAccessStatus() {
         accessStatus = EKEventStore.authorizationStatus(for: .event)
         todaysMeetings = getMeetings(on: .now)
+        // A picked day becomes today at midnight, and then follows today like an unpicked one.
+        selectedDay = selectedDay.flatMap { getSelectedDay(picked: $0, now: .now, calendar: .current) }
         loadSelectedDay()
         updateHeadsUp()
     }
