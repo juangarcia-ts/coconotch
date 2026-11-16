@@ -38,12 +38,8 @@ private func getZone(for entry: TimeZoneEntry) -> TimeZone? {
             entry.identifier, localIdentifier: TimeZone.autoupdatingCurrent.identifier))
 }
 
-private func getZoneTitle(identifier: String, label: String?, showsFlag: Bool) -> String {
-    getDisplayTitle(
-        label: label,
-        identifier: identifier,
-        flag: showsFlag ? getFlag(forTimeZoneIdentifier: identifier) : nil
-    )
+private func getZoneTitle(identifier: String, label: String?) -> String {
+    getDisplayTitle(label: label, identifier: identifier)
 }
 
 private struct TimezonesView: View {
@@ -95,7 +91,7 @@ private struct ZoneColumn: View {
     private var isLocal: Bool { zone.identifier == TimeZone.autoupdatingCurrent.identifier }
 
     private var title: String {
-        getZoneTitle(identifier: zone.identifier, label: label, showsFlag: false)
+        getZoneTitle(identifier: zone.identifier, label: label)
     }
 
     private var detail: String {
@@ -151,7 +147,7 @@ private struct TimezonesSummary: View {
                                     Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
                             )
                             .font(.headline.monospacedDigit())
-                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label, showsFlag: false))
+                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)

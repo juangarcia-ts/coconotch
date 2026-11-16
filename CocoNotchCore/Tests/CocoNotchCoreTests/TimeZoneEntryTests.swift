@@ -102,8 +102,8 @@ func normalizesLabel(text: String, expected: String?) {
 }
 
 @Test func buildsDisplayTitle() {
-    #expect(getDisplayTitle(label: nil, identifier: "Asia/Tokyo", flag: "🇯🇵") == "🇯🇵 Tokyo")
-    #expect(getDisplayTitle(label: "Office", identifier: "Asia/Tokyo", flag: nil) == "Office")
+    #expect(getDisplayTitle(label: nil, identifier: "Asia/Tokyo") == "Tokyo")
+    #expect(getDisplayTitle(label: "Office", identifier: "Asia/Tokyo") == "Office")
 }
 
 @Test func formatsTimeZoneCaption() {

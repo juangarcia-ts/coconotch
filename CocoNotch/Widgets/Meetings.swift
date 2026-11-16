@@ -324,6 +324,7 @@ private struct MeetingRow: View {
                     Image(systemName: "video")
                 }
                 .help("Join")
+                .accessibilityLabel("Join meeting")
             }
         }
         .padding(.horizontal, 10)
@@ -372,6 +373,7 @@ private struct MeetingsSummary: View {
                                     Image(systemName: "video")
                                 }
                                 .help("Join")
+                                .accessibilityLabel("Join meeting")
                             }
                         }
                     }

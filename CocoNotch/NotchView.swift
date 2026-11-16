@@ -14,7 +14,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     /// The tab a dragged tab is over, highlighted to show where it will land.
     @State private var dropTargetID: String?
-    // Kept here rather than read from the drag's payload, so a drop is handled at once without async loading.
+    // Kept here rather than read from the drag's payload, so a drop is handled at once without async loading. Only
+    // tab drags carry `tabDragType`, so a stale value from a cancelled drag is never used by another app's drop.
     @State private var draggedWidgetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
@@ -173,7 +174,7 @@ struct NotchView: View {
                         }
                     )
                     .onDrop(
-                        of: [.text],
+                        of: [tabDragType],
                         delegate: TabDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
                             guard let draggedWidgetID else { return false }
                             storedWidgetPreferences = encodeWidgetPreferences(
@@ -213,6 +214,9 @@ struct NotchView: View {
     }
 }
 
+/// A private, undeclared type for tab drags: nothing outside CocoNotch offers it, so other apps' drops are ignored.
+private let tabDragType = UTType(tag: "coconotch-tab", tagClass: .filenameExtension, conformingTo: .data) ?? .data
+
 private struct DraggableTab: ViewModifier {
     let id: String
     let isDraggable: Bool
@@ -222,7 +226,16 @@ private struct DraggableTab: ViewModifier {
         if isDraggable {
             content.onDrag {
                 onStart()
-                return NSItemProvider(object: id as NSString)
+                let provider = NSItemProvider()
+                let data = Data(id.utf8)
+                // Visible only inside CocoNotch, so the tab can't be dropped into other apps either.
+                provider.registerDataRepresentation(forTypeIdentifier: tabDragType.identifier, visibility: .ownProcess)
+                {
+                    completion in
+                    completion(data, nil)
+                    return nil
+                }
+                return provider
             }
         } else {
             content
