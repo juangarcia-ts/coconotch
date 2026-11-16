@@ -6,14 +6,21 @@ struct NotchView: View {
     let showSettings: () -> Void
 
     @State private var isExpanded = false
-    @AppStorage("selectedWidget") private var selectedWidgetID = NotchWidget.all[0].id
+    @AppStorage("selectedWidget") private var selectedWidgetID = ""
+    @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
 
+    private var enabledWidgets: [NotchWidget] {
+        getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
+            .compactMap { NotchWidget.find(id: $0) }
+    }
+
+    // Falls back to the first enabled widget when the last selected one was switched off.
     private var selectedWidget: NotchWidget {
-        NotchWidget.all.first { $0.id == selectedWidgetID } ?? NotchWidget.all[0]
+        enabledWidgets.first { $0.id == selectedWidgetID } ?? enabledWidgets.first ?? NotchWidget.all[0]
     }
 
     private var usesDarkText: Bool {
@@ -66,7 +73,7 @@ struct NotchView: View {
     private var expandedContent: some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
-                ForEach(NotchWidget.all) { widget in
+                ForEach(enabledWidgets) { widget in
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
