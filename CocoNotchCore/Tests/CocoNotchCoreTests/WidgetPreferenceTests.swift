@@ -62,3 +62,15 @@ import Testing
     #expect(resolveSelectedWidgetID("", enabledIDs: ["meetings"]) == "meetings")
     #expect(resolveSelectedWidgetID("meetings", enabledIDs: []) == nil)
 }
+
+@Test func movesWidgetOntoTarget() {
+    let preferences = ["a", "b", "c", "d"].map { WidgetPreference(id: $0) }
+    func move(_ id: String, onto target: String) -> [String] {
+        moveWidget(id, onto: target, in: preferences).map(\.id)
+    }
+    #expect(move("a", onto: "c") == ["b", "c", "a", "d"])
+    #expect(move("d", onto: "b") == ["a", "d", "b", "c"])
+    #expect(move("c", onto: homeWidgetID) == ["c", "a", "b", "d"])
+    #expect(move("b", onto: "b") == ["a", "b", "c", "d"])
+    #expect(move(homeWidgetID, onto: "c") == ["a", "b", "c", "d"])
+}

@@ -488,21 +488,24 @@ private struct WeatherSummary: View {
 
     var body: some View {
         if let report = store.report {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
                     Text(formatTemperature(report.current.temperature))
-                        .font(.title.weight(.semibold).monospacedDigit())
+                        .font(.title2.weight(.semibold).monospacedDigit())
                     Image(systemName: getWeatherSymbol(code: report.current.code, isDay: report.current.isDay))
                         .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                 }
-                Text(getWeatherDescription(code: report.current.code))
-                    .font(.caption.weight(.medium))
-                if showsHighLow, let today = report.days.first {
-                    Text("H \(formatTemperature(today.high))  L \(formatTemperature(today.low))")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(getWeatherDescription(code: report.current.code))
+                        .font(.caption.weight(.medium))
+                    if showsHighLow, let today = report.days.first {
+                        Text("H \(formatTemperature(today.high))  L \(formatTemperature(today.low))")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .lineLimit(1)
                 if showsPlace, let placeName = store.placeName {
                     Text(placeName)
                         .font(.caption2)

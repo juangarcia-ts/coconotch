@@ -11,6 +11,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
+    /// The tab a dragged tab is over, highlighted to show where it will land.
+    @State private var dropTargetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
@@ -157,6 +159,18 @@ struct NotchView: View {
                     }
                     .buttonStyle(.plain)
                     .help(widget.title)
+                    .background(
+                        Capsule().strokeBorder(
+                            Color.primary.opacity(dropTargetID == widget.id ? 0.35 : 0), lineWidth: 1)
+                    )
+                    // Home can't be dragged; dropping a tab on it moves that tab to the front.
+                    .modifier(
+                        DraggableWidget(id: widget.id, isDraggable: widget.id != homeWidgetID)
+                    )
+                    .onDrop(
+                        of: [widgetDragType],
+                        delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID)
+                    )
                 }
                 Spacer()
                 Button("Settings", systemImage: "gearshape", action: showSettings)

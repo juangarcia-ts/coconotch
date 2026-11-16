@@ -9,3 +9,8 @@ public func formatOffset(seconds: Int) -> String {
     let duration = Duration.seconds(abs(seconds)).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
     return (seconds < 0 ? "−" : "+") + duration
 }
+
+/// "Here" for the Mac's own zone, where "+0m" would read as a glitch; otherwise the offset from it.
+public func formatOffsetLabel(seconds: Int, isLocal: Bool) -> String {
+    isLocal ? "Here" : formatOffset(seconds: seconds)
+}

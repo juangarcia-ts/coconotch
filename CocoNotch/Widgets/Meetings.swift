@@ -324,6 +324,7 @@ private struct MeetingRow: View {
                     Image(systemName: "video")
                 }
                 .help("Join")
+                .accessibilityLabel("Join meeting")
             }
         }
         .padding(.horizontal, 10)
@@ -348,7 +349,7 @@ private struct MeetingsSummary: View {
                 hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
             )
             .prefix(homeCount)
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
                 if let next = meetings.first {
                     HStack(spacing: 10) {
                         RoundedRectangle(cornerRadius: 1.5)
@@ -356,7 +357,7 @@ private struct MeetingsSummary: View {
                             .frame(width: 3)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(next.title)
-                                .font(.headline)
+                                .font(.callout.weight(.semibold))
                                 .lineLimit(1)
                             Text(formatTimeRange(next))
                                 .font(.caption.monospacedDigit())
@@ -368,9 +369,11 @@ private struct MeetingsSummary: View {
                                 .font(.caption.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(Color.accentColor)
                             if let link = next.link {
-                                Link("Join", destination: link)
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
+                                Link(destination: link) {
+                                    Image(systemName: "video")
+                                }
+                                .help("Join")
+                                .accessibilityLabel("Join meeting")
                             }
                         }
                     }
