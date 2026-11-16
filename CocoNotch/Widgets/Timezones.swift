@@ -126,6 +126,7 @@ private struct TimezonesSettings: View {
                 ForEach($entries) { $entry in
                     let isLocal = entry.identifier == TimeZone.current.identifier
                     HStack {
+                        DragHandle()
                         Toggle("Show \(getCityName(forTimeZoneIdentifier: entry.identifier))", isOn: $entry.isVisible)
                             .labelsHidden()
                             .disabled(isLocal)

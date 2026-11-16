@@ -124,10 +124,15 @@ private struct WidgetsSettings: View {
             List {
                 ForEach($preferences) { $preference in
                     if let widget = NotchWidget.find(id: preference.id) {
-                        Toggle(isOn: $preference.isEnabled) {
+                        HStack {
+                            DragHandle()
                             Label(widget.title, systemImage: widget.systemImage)
+                            Spacer()
+                            Toggle("Show \(widget.title)", isOn: $preference.isEnabled)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .disabled(!canToggleWidget(preference.id, in: preferences))
                         }
-                        .disabled(!canToggleWidget(preference.id, in: preferences))
                     }
                 }
                 .onMove { preferences.move(fromOffsets: $0, toOffset: $1) }
@@ -136,5 +141,16 @@ private struct WidgetsSettings: View {
         .padding(20)
         .onAppear { preferences = NotchWidget.getPreferences(stored: storedWidgetPreferences) }
         .onChange(of: preferences) { storedWidgetPreferences = encodeWidgetPreferences(preferences) }
+    }
+}
+
+/// macOS only starts a row drag from a spot that isn't a control, so rows full of controls get this as a grip.
+struct DragHandle: View {
+    var body: some View {
+        Image(systemName: "line.3.horizontal")
+            .foregroundStyle(.tertiary)
+            .frame(width: 20, height: 24)
+            .contentShape(Rectangle())
+            .help("Drag to reorder")
     }
 }
