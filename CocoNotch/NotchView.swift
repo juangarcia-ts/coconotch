@@ -80,6 +80,7 @@ struct NotchView: View {
             }
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)
+            .padding(.top, 8)
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
