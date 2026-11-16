@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MeetingsStore.shared.start()
         WeatherStore.shared.start()
+        AIUsageStore.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,

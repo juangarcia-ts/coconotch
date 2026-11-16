@@ -386,7 +386,7 @@ public func formatDayLabel(_ date: Date, now: Date, calendar: Calendar) -> Strin
     calendar.isDate(date, inSameDayAs: now) ? "Today" : date.formatted(.dateTime.weekday(.abbreviated))
 }
 
-public func isWeatherStale(updatedAt: Date?, now: Date, maxAge: TimeInterval) -> Bool {
+public func isStale(updatedAt: Date?, now: Date, maxAge: TimeInterval) -> Bool {
     updatedAt.map { now.timeIntervalSince($0) > maxAge } ?? true
 }
 
