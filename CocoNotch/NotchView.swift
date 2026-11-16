@@ -6,6 +6,8 @@ struct NotchView: View {
     let showSettings: () -> Void
 
     @State private var isExpanded = false
+    /// The top activity whose alert is showing, as an `alertKey`.
+    @State private var alertingKey: String?
     @AppStorage("selectedWidget") private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
@@ -49,18 +51,21 @@ struct NotchView: View {
     }
 
     var body: some View {
-        let radius: CGFloat = isExpanded ? 28 : 10
+        let radius: CGFloat = isExpanded || alertingKey != nil ? 28 : 10
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
+        let alertKey = activities.first.map { "\($0.id)-\($0.priority.rawValue)" }
 
         ScaledLayout(scale: scale) {
-            panel(shape: shape, activities: activities)
+            panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
                 .scaleEffect(scale, anchor: .topLeading)
         }
         .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
+        .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
+        .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
         .contentShape(Rectangle())
         .onHover { isHovering in
             // Opening the notch from an activity shows the widget it came from.
@@ -74,8 +79,9 @@ struct NotchView: View {
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
-    private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity]) -> some View {
+    private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity], isAlerting: Bool) -> some View {
         let island = isExpanded ? nil : activities.first
+        let isAlerting = island != nil && isAlerting
         return ZStack(alignment: .top) {
             if !isExpanded {
                 shape.fill(.black)
@@ -90,16 +96,31 @@ struct NotchView: View {
                 expandedContent(activities: activities)
                     .transition(.opacity)
             } else if let island {
-                ActivityIsland(activity: island, notchSize: notchSize, otherCount: activities.count - 1)
-                    .transition(.opacity)
+                ActivityIsland(
+                    activity: island,
+                    notchSize: notchSize,
+                    otherCount: activities.count - 1,
+                    isAlerting: isAlerting
+                )
+                .transition(.opacity)
             }
         }
         // Expanded, the height follows the widget's content; with an activity, the closed notch widens to fit it.
         .frame(
             width: isExpanded ? 600 : (island == nil ? notchSize.width : nil),
-            height: isExpanded ? nil : notchSize.height
+            height: isExpanded || isAlerting ? nil : notchSize.height
         )
-        .fixedSize(horizontal: island != nil, vertical: isExpanded)
+        .fixedSize(horizontal: island != nil, vertical: isExpanded || isAlerting)
+    }
+
+    /// Shows the new top activity's alert, then folds it back into the island.
+    private func showAlert(key: String?) {
+        alertingKey = key
+        guard let key else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            if alertingKey == key { alertingKey = nil }
+        }
     }
 
     private func setExpanded(_ isExpanded: Bool) {

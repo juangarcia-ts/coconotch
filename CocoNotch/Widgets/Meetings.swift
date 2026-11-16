@@ -119,9 +119,16 @@ final class MeetingsStore {
                 priority: getHeadsUpPriority(start: meeting.start, now: now),
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
-                makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) }
+                makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
+                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) }
             )
         )
+    }
+
+    /// Asks remote calendars such as Google to sync now; `EKEventStoreChanged` reloads meetings if anything changed.
+    func refresh() {
+        eventStore.refreshSourcesIfNecessary()
+        refreshAccessStatus()
     }
 
     func requestAccess() async {
@@ -179,8 +186,19 @@ private struct MeetingsView: View {
                 ),
                 limit: agendaLimit
             )
-            if let next = agenda.next {
-                VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Today")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Refresh", systemImage: "arrow.clockwise") { store.refresh() }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .help("Sync your calendars now")
+                }
+                .padding(.horizontal, 10)
+                if let next = agenda.next {
                     NextMeetingCard(meeting: next, now: context.date)
                     ForEach(agenda.rest) { meeting in
                         MeetingRow(meeting: meeting)
@@ -190,12 +208,12 @@ private struct MeetingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                } else {
+                    Text("No more meetings today")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
                 }
-            } else {
-                Text("No more meetings today")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
             }
         }
     }
@@ -342,5 +360,24 @@ private struct HeadsUpCountdown: View {
                     .monospacedDigit()
             }
         }
+    }
+}
+
+/// Drops down under the heads-up when it appears and when the meeting starts, so it is hard to miss.
+private struct HeadsUpAlert: View {
+    let meeting: Meeting
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(meeting.title)
+                .font(.title3.bold())
+                .lineLimit(1)
+            Text("\(formatTimeRange(meeting)) · \(formatCountdown(now: .now, start: meeting.start))")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 4)
+        .padding(.bottom, 16)
     }
 }

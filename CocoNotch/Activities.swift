@@ -12,6 +12,8 @@ struct NotchActivity: Identifiable {
     let sortDate: Date
     let makeLeading: () -> AnyView
     let makeTrailing: () -> AnyView
+    /// A bigger view shown under the island for a few seconds when the activity appears or its priority rises.
+    var makeAlert: (() -> AnyView)?
 
     var summary: ActivitySummary {
         ActivitySummary(id: id, widgetID: widgetID, priority: priority, sortDate: sortDate)
@@ -48,11 +50,23 @@ struct ActivityIsland: View {
     let activity: NotchActivity
     let notchSize: CGSize
     let otherCount: Int
+    let isAlerting: Bool
 
     // Both sides are the same width so the camera stays centered between them.
-    static let sideWidth: CGFloat = 90
+    static let sideWidth: CGFloat = 140
 
     var body: some View {
+        VStack(spacing: 0) {
+            row
+            if isAlerting, let makeAlert = activity.makeAlert {
+                makeAlert()
+                    .frame(width: Self.sideWidth * 2 + notchSize.width, alignment: .leading)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 0) {
             activity.makeLeading()
                 .lineLimit(1)
