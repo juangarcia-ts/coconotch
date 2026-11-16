@@ -1,5 +1,8 @@
 import Foundation
 
+/// The entry for the Mac's own time zone, which follows the Mac when the user travels.
+public let localTimeZoneEntryID = "local"
+
 public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
     public var identifier: String
     public var label: String?
@@ -16,6 +19,7 @@ public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
 
 /// Reads the stored JSON list, or the comma-separated identifiers that versions before 0.2 stored.
 /// Blank and repeated identifiers are dropped, because the identifier is each entry's `id` in SwiftUI lists.
+/// The local entry is added first when missing, where the local time used to always show; it can be hidden, not removed.
 public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
     let entries: [TimeZoneEntry]
     if let decoded = try? JSONDecoder().decode([TimeZoneEntry].self, from: Data(stored.utf8)) {
@@ -27,12 +31,14 @@ public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
     }
 
     var seenIdentifiers: Set<String> = []
-    return entries.compactMap { entry in
+    let unique: [TimeZoneEntry] = entries.compactMap { entry in
         var entry = entry
         entry.identifier = entry.identifier.trimmingCharacters(in: .whitespaces)
         guard !entry.identifier.isEmpty, seenIdentifiers.insert(entry.identifier).inserted else { return nil }
         return entry
     }
+    return seenIdentifiers.contains(localTimeZoneEntryID)
+        ? unique : [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
 }
 
 public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
@@ -40,9 +46,13 @@ public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
-/// The entries the notch shows next to the local time, which is always drawn on its own.
-public func getVisibleEntries(_ entries: [TimeZoneEntry], localIdentifier: String) -> [TimeZoneEntry] {
-    entries.filter { $0.isVisible && $0.identifier != localIdentifier }
+public func getVisibleEntries(_ entries: [TimeZoneEntry]) -> [TimeZoneEntry] {
+    entries.filter(\.isVisible)
+}
+
+/// The real time zone identifier for an entry: the Mac's current one for the local entry.
+public func resolveTimeZoneIdentifier(_ identifier: String, localIdentifier: String) -> String {
+    identifier == localTimeZoneEntryID ? localIdentifier : identifier
 }
 
 /// Matches identifiers whose city name contains the query, ignoring case and accents.

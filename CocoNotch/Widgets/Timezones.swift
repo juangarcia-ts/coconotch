@@ -19,7 +19,9 @@ private let showsFlagsKey = "timezones.showsFlags"
 private let homeCountKey = "timezones.homeCount"
 private let defaultHomeCount = 3
 private let defaultStoredEntries = encodeTimeZoneEntries(
-    ["America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map { TimeZoneEntry(identifier: $0) }
+    [localTimeZoneEntryID, "America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map {
+        TimeZoneEntry(identifier: $0)
+    }
 )
 
 private let countryCodesByTimeZone = parseZoneTab(
@@ -28,6 +30,10 @@ private let countryCodesByTimeZone = parseZoneTab(
 
 private func getFlag(forTimeZoneIdentifier identifier: String) -> String? {
     countryCodesByTimeZone[identifier].flatMap { getFlagEmoji(countryCode: $0) }
+}
+
+private func getZone(for entry: TimeZoneEntry) -> TimeZone? {
+    TimeZone(identifier: resolveTimeZoneIdentifier(entry.identifier, localIdentifier: TimeZone.current.identifier))
 }
 
 private func getZoneTitle(identifier: String, label: String?, showsFlag: Bool) -> String {
@@ -43,8 +49,8 @@ private struct TimezonesView: View {
     @AppStorage(showsFlagsKey) private var showsFlags = true
     @State private var hourOffset = 0.0
 
-    private var otherEntries: [TimeZoneEntry] {
-        getVisibleEntries(decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier)
+    private var entries: [TimeZoneEntry] {
+        getVisibleEntries(decodeTimeZoneEntries(storedEntries))
     }
 
     var body: some View {
@@ -52,9 +58,8 @@ private struct TimezonesView: View {
             let date = context.date.addingTimeInterval(hourOffset * 3600)
             VStack(spacing: 14) {
                 HStack(spacing: 0) {
-                    ZoneColumn(zone: .current, label: nil, showsFlag: showsFlags, date: date)
-                    ForEach(otherEntries) { entry in
-                        if let zone = TimeZone(identifier: entry.identifier) {
+                    ForEach(entries) { entry in
+                        if let zone = getZone(for: entry) {
                             ZoneColumn(zone: zone, label: entry.label, showsFlag: showsFlags, date: date)
                         }
                     }
@@ -119,19 +124,15 @@ private struct TimezonesSummary: View {
     var body: some View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 0) {
-                ForEach(
-                    getVisibleEntries(
-                        decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier
-                    ).prefix(homeCount)
-                ) { entry in
-                    if let zone = TimeZone(identifier: entry.identifier) {
+                ForEach(getVisibleEntries(decodeTimeZoneEntries(storedEntries)).prefix(homeCount)) { entry in
+                    if let zone = getZone(for: entry) {
                         VStack(spacing: 2) {
                             Text(
                                 context.date.formatted(
                                     Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
                             )
                             .font(.title3.weight(.semibold).monospacedDigit())
-                            Text(getZoneTitle(identifier: entry.identifier, label: entry.label, showsFlag: showsFlags))
+                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label, showsFlag: showsFlags))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -180,27 +181,32 @@ private struct TimezonesSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Show country flags", isOn: $showsFlags)
-            Text("Your local time is always shown first. Drag to reorder; the label replaces the city name.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(
+                "Drag to reorder. Type an alias to replace a city's name. Your current time zone follows your Mac when you travel."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             List {
                 ForEach($entries) { $entry in
-                    let isLocal = entry.identifier == TimeZone.current.identifier
+                    let isLocal = entry.identifier == localTimeZoneEntryID
+                    let identifier = resolveTimeZoneIdentifier(
+                        entry.identifier, localIdentifier: TimeZone.current.identifier)
                     HStack {
                         DragHandle()
-                        Toggle("Show \(getCityName(forTimeZoneIdentifier: entry.identifier))", isOn: $entry.isVisible)
+                        Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
                             .labelsHidden()
-                            .disabled(isLocal)
-                        Text(getFlag(forTimeZoneIdentifier: entry.identifier) ?? "")
+                        Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
                             .frame(width: 22)
                         TextField(
-                            getCityName(forTimeZoneIdentifier: entry.identifier),
-                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) })
+                            "Alias",
+                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) }),
+                            prompt: Text(getCityName(forTimeZoneIdentifier: identifier))
                         )
-                        .disabled(isLocal)
+                        .textFieldStyle(.roundedBorder)
+                        .labelsHidden()
                         if isLocal {
-                            Text("Your local time")
+                            Text("Current time zone")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -209,6 +215,8 @@ private struct TimezonesSettings: View {
                         }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
+                        // Hide it instead; there would be no way to add it back.
+                        .disabled(isLocal)
                     }
                 }
                 .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
