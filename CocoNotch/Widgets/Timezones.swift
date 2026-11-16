@@ -187,7 +187,9 @@ private struct TimezonesSettings: View {
     @State private var query = ""
     /// The entry whose alias is being typed; the others show their name as plain text.
     @State private var editingID: String?
-    @FocusState private var isAliasFocused: Bool
+    /// Which row's alias field has focus. Per row rather than one flag, so moving from one row's field to another's
+    /// doesn't read as clicking away and close the new one.
+    @FocusState private var focusedAliasID: String?
 
     private var suggestions: [String] {
         searchTimeZoneIdentifiers(
@@ -228,9 +230,9 @@ private struct TimezonesSettings: View {
                                 )
                                 .textFieldStyle(.roundedBorder)
                                 .labelsHidden()
-                                .focused($isAliasFocused)
+                                .focused($focusedAliasID, equals: entry.id)
                                 .onSubmit { editingID = nil }
-                                .onAppear { isAliasFocused = true }
+                                .onAppear { focusedAliasID = entry.id }
                             } else {
                                 Text(getDisplayTitle(label: entry.label, identifier: identifier))
                                     .onTapGesture(count: 2) { editingID = entry.id }
@@ -264,8 +266,10 @@ private struct TimezonesSettings: View {
                 }
                 .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
             }
-            // Clicking away from an alias saves it, like pressing Return.
-            .onChange(of: isAliasFocused) { if !isAliasFocused { editingID = nil } }
+            // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
+            .onChange(of: focusedAliasID) { lost, gained in
+                if gained == nil, lost == editingID { editingID = nil }
+            }
             .frame(height: 200)
 
             TextField("Add a time zone…", text: $query)
