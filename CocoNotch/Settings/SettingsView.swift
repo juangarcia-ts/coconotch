@@ -32,7 +32,11 @@ private struct GeneralSettings: View {
             }
             Toggle(
                 "Launch at login",
-                isOn: Binding(get: { launchAtLoginStatus == .enabled }, set: setLaunchAtLogin)
+                // Pending approval counts as on, so the user can still switch it off and withdraw the request.
+                isOn: Binding(
+                    get: { [.enabled, .requiresApproval].contains(launchAtLoginStatus) },
+                    set: setLaunchAtLogin
+                )
             )
             if launchAtLoginStatus == .requiresApproval {
                 Text("Allow CocoNotch in System Settings → General → Login Items.")
@@ -46,6 +50,11 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+        // The user may approve or remove CocoNotch in System Settings while this window stays open.
+        .onAppear { launchAtLoginStatus = SMAppService.mainApp.status }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            launchAtLoginStatus = SMAppService.mainApp.status
+        }
     }
 
     private func setLaunchAtLogin(_ isEnabled: Bool) {

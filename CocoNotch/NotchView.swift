@@ -1,3 +1,4 @@
+import CocoNotchCore
 import SwiftUI
 
 struct NotchView: View {
@@ -13,6 +14,16 @@ struct NotchView: View {
 
     private var selectedWidget: NotchWidget {
         NotchWidget.all.first { $0.id == selectedWidgetID } ?? NotchWidget.all[0]
+    }
+
+    private var usesDarkText: Bool {
+        guard isExpanded, backgroundStyle == .solid else { return false }
+        let color = Color.Resolved.decode(colorData: backgroundColorData)
+        return shouldUseDarkText(
+            linearRed: Double(color.linearRed),
+            linearGreen: Double(color.linearGreen),
+            linearBlue: Double(color.linearBlue)
+        )
     }
 
     var body: some View {
@@ -45,7 +56,7 @@ struct NotchView: View {
             if expandsOnClick && !isExpanded { setExpanded(true) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
     private func setExpanded(_ isExpanded: Bool) {
@@ -62,7 +73,7 @@ struct NotchView: View {
                         Image(systemName: widget.systemImage)
                             .frame(width: 40, height: notchSize.height - 6)
                             .background(
-                                widget.id == selectedWidget.id ? Color.white.opacity(0.15) : .clear,
+                                widget.id == selectedWidget.id ? Color.primary.opacity(0.15) : .clear,
                                 in: Capsule()
                             )
                             .contentShape(Capsule())
@@ -88,7 +99,7 @@ struct NotchView: View {
                 .padding(.bottom, 20)
                 .frame(maxWidth: .infinity)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.primary)
     }
 }
 

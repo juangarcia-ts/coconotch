@@ -32,7 +32,7 @@ private struct TimezonesView: View {
     @State private var hourOffset = 0.0
 
     private var otherEntries: [TimeZoneEntry] {
-        decodeTimeZoneEntries(storedEntries).filter { $0.isVisible && $0.identifier != TimeZone.current.identifier }
+        getVisibleEntries(decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier)
     }
 
     var body: some View {
@@ -73,9 +73,8 @@ private struct ZoneColumn: View {
     private var isLocal: Bool { zone == .current }
 
     private var title: String {
-        let name = label ?? getCityName(forTimeZoneIdentifier: zone.identifier)
-        guard showsFlag, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) else { return name }
-        return "\(flag) \(name)"
+        let flag = showsFlag ? getFlag(forTimeZoneIdentifier: zone.identifier) : nil
+        return getDisplayTitle(label: label, identifier: zone.identifier, flag: flag)
     }
 
     private var detail: String {
@@ -103,19 +102,17 @@ private struct ZoneColumn: View {
 private struct TimezonesSettings: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
     @AppStorage(showsFlagsKey) private var showsFlags = true
+    // Decoded once when the tab appears and saved on every change, instead of decoding on each access.
+    @State private var entries: [TimeZoneEntry] = []
     @State private var query = ""
 
-    private var entries: Binding<[TimeZoneEntry]> {
-        Binding(
-            get: { decodeTimeZoneEntries(storedEntries) },
-            set: { storedEntries = encodeTimeZoneEntries($0) }
-        )
-    }
-
     private var suggestions: [String] {
-        let addedIdentifiers = Set(entries.wrappedValue.map(\.identifier))
-        let candidates = TimeZone.knownTimeZoneIdentifiers.filter { !addedIdentifiers.contains($0) }
-        return searchTimeZoneIdentifiers(query, in: candidates, limit: 6)
+        searchTimeZoneIdentifiers(
+            query,
+            in: TimeZone.knownTimeZoneIdentifiers,
+            excluding: Set(entries.map(\.identifier)),
+            limit: 6
+        )
     }
 
     var body: some View {
@@ -126,24 +123,32 @@ private struct TimezonesSettings: View {
                 .foregroundStyle(.secondary)
 
             List {
-                ForEach(entries) { $entry in
+                ForEach($entries) { $entry in
+                    let isLocal = entry.identifier == TimeZone.current.identifier
                     HStack {
                         Toggle("Show \(getCityName(forTimeZoneIdentifier: entry.identifier))", isOn: $entry.isVisible)
                             .labelsHidden()
+                            .disabled(isLocal)
                         Text(getFlag(forTimeZoneIdentifier: entry.identifier) ?? "")
                             .frame(width: 22)
                         TextField(
                             getCityName(forTimeZoneIdentifier: entry.identifier),
-                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = $0.isEmpty ? nil : $0 })
+                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) })
                         )
+                        .disabled(isLocal)
+                        if isLocal {
+                            Text("Your local time")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Button("Remove", systemImage: "minus.circle") {
-                            entries.wrappedValue.removeAll { $0.id == entry.id }
+                            entries.removeAll { $0.id == entry.id }
                         }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
                     }
                 }
-                .onMove { entries.wrappedValue.move(fromOffsets: $0, toOffset: $1) }
+                .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
             }
             .frame(height: 200)
 
@@ -161,10 +166,12 @@ private struct TimezonesSettings: View {
         }
         .padding(20)
         .frame(minHeight: 420, alignment: .top)
+        .onAppear { entries = decodeTimeZoneEntries(storedEntries) }
+        .onChange(of: entries) { storedEntries = encodeTimeZoneEntries(entries) }
     }
 
     private func add(_ identifier: String) {
-        entries.wrappedValue.append(TimeZoneEntry(identifier: identifier))
+        entries.append(TimeZoneEntry(identifier: identifier))
         query = ""
     }
 }

@@ -12,10 +12,16 @@ enum PreferenceKey {
     static let expandsOnClick = "behavior.expandsOnClick"
 }
 
+extension Color.Resolved {
+    /// Restores a color saved with `Color.encodeColorData`; black when nothing usable was saved.
+    static func decode(colorData: Data) -> Color.Resolved {
+        (try? JSONDecoder().decode(Color.Resolved.self, from: colorData)) ?? Color.Resolved(red: 0, green: 0, blue: 0)
+    }
+}
+
 extension Color {
-    /// Restores a color saved with `encodeColorData`; black when nothing usable was saved.
     init(colorData: Data) {
-        self = (try? JSONDecoder().decode(Color.Resolved.self, from: colorData)).map(Color.init) ?? .black
+        self.init(Color.Resolved.decode(colorData: colorData))
     }
 
     func encodeColorData(in environment: EnvironmentValues) -> Data {
