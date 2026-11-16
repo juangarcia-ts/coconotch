@@ -102,3 +102,11 @@ func normalizesLabel(text: String, expected: String?) {
     #expect(getDisplayTitle(label: nil, identifier: "Asia/Tokyo", flag: "🇯🇵") == "🇯🇵 Tokyo")
     #expect(getDisplayTitle(label: "Office", identifier: "Asia/Tokyo", flag: nil) == "Office")
 }
+
+@Test func formatsTimeZoneCaption() {
+    #expect(
+        formatTimeZoneCaption(identifier: "America/Sao_Paulo", abbreviation: "GMT-3", isLocal: true)
+            == "America/Sao_Paulo · GMT-3 · Current time zone"
+    )
+    #expect(formatTimeZoneCaption(identifier: "Asia/Tokyo", abbreviation: nil, isLocal: false) == "Asia/Tokyo")
+}

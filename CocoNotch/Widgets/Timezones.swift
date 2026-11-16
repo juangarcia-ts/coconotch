@@ -198,17 +198,25 @@ private struct TimezonesSettings: View {
                             .labelsHidden()
                         Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
                             .frame(width: 22)
-                        TextField(
-                            "Alias",
-                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) }),
-                            prompt: Text(getCityName(forTimeZoneIdentifier: identifier))
-                        )
-                        .textFieldStyle(.roundedBorder)
-                        .labelsHidden()
-                        if isLocal {
-                            Text("Current time zone")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 3) {
+                            TextField(
+                                "Alias",
+                                text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) }),
+                                prompt: Text(getCityName(forTimeZoneIdentifier: identifier))
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .labelsHidden()
+                            // Names the real zone, which an alias would otherwise hide.
+                            Text(
+                                formatTimeZoneCaption(
+                                    identifier: identifier,
+                                    abbreviation: TimeZone(identifier: identifier)?.abbreviation(),
+                                    isLocal: isLocal
+                                )
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
                         }
                         Button("Remove", systemImage: "minus.circle") {
                             entries.removeAll { $0.id == entry.id }
@@ -223,7 +231,7 @@ private struct TimezonesSettings: View {
             }
             .frame(height: 200)
 
-            TextField("Add a city…", text: $query)
+            TextField("Add a time zone…", text: $query)
                 .onSubmit {
                     if let identifier = suggestions.first { add(identifier) }
                 }
