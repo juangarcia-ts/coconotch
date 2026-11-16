@@ -25,8 +25,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Review this PR against the rules in CLAUDE.md. The maintainer is not a Swift expert,
-            so explain each finding in plain words and say why it matters.
+            Review this PR against the rules in CLAUDE.md. For each finding, say what breaks and why it matters.
 
             Look for, in order:
             1. Bugs: wrong logic, crashes, data races, retain cycles, main-thread blocking.
