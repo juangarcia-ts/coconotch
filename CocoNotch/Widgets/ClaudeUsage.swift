@@ -6,7 +6,7 @@ extension NotchWidget {
     static let claudeUsage = NotchWidget(
         id: "claudeUsage",
         title: "Claude Code",
-        systemImage: "gauge.with.dots.needle.67percent",
+        systemImage: "sparkles",
         makeView: { AnyView(ClaudeUsageView()) },
         makeSettings: { AnyView(ClaudeUsageSettings()) },
         makeSummary: { AnyView(ClaudeUsageSummary()) },
