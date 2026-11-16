@@ -8,6 +8,7 @@ final class NotchPanel: NSPanel {
 
     private let showSettings: () -> Void
     private var placedScreenFrame: NSRect?
+    private var placedNotchSize: CGSize?
 
     init(showSettings: @escaping () -> Void) {
         self.showSettings = showSettings
@@ -28,9 +29,10 @@ final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
     func place(on screen: NSScreen) {
-        // Placing runs on every settings change, so keep the view (and whether it's open) when the screen is the same.
-        guard screen.frame != placedScreenFrame else { return }
+        // Keep the view, and whether it's open, when neither the screen nor its notch changed.
+        guard screen.frame != placedScreenFrame || screen.notchSize != placedNotchSize else { return }
         placedScreenFrame = screen.frame
+        placedNotchSize = screen.notchSize
         let hostingView = NSHostingView(rootView: NotchView(notchSize: screen.notchSize, showSettings: showSettings))
         hostingView.sizingOptions = []
         contentView = hostingView
