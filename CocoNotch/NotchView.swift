@@ -1,5 +1,6 @@
 import CocoNotchCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NotchView: View {
     let notchSize: CGSize
@@ -13,6 +14,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     /// The tab a dragged tab is over, highlighted to show where it will land.
     @State private var dropTargetID: String?
+    // Kept here rather than read from the drag's payload, so a drop is handled at once without async loading.
+    @State private var draggedWidgetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
@@ -164,17 +167,26 @@ struct NotchView: View {
                             Color.primary.opacity(dropTargetID == widget.id ? 0.35 : 0), lineWidth: 1)
                     )
                     // Home can't be dragged; dropping a tab on it moves that tab to the front.
-                    .modifier(DraggableTab(id: widget.id, isDraggable: widget.id != homeWidgetID))
-                    .dropDestination(for: String.self) { ids, _ in
-                        guard let id = ids.first else { return false }
-                        storedWidgetPreferences = encodeWidgetPreferences(
-                            moveWidget(
-                                id, onto: widget.id, in: NotchWidget.getPreferences(stored: storedWidgetPreferences))
-                        )
-                        return true
-                    } isTargeted: { isTargeted in
-                        dropTargetID = isTargeted ? widget.id : (dropTargetID == widget.id ? nil : dropTargetID)
-                    }
+                    .modifier(
+                        DraggableTab(id: widget.id, isDraggable: widget.id != homeWidgetID) {
+                            draggedWidgetID = widget.id
+                        }
+                    )
+                    .onDrop(
+                        of: [.text],
+                        delegate: TabDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
+                            guard let draggedWidgetID else { return false }
+                            storedWidgetPreferences = encodeWidgetPreferences(
+                                moveWidget(
+                                    draggedWidgetID,
+                                    onto: widget.id,
+                                    in: NotchWidget.getPreferences(stored: storedWidgetPreferences)
+                                )
+                            )
+                            self.draggedWidgetID = nil
+                            return true
+                        }
+                    )
                 }
                 Spacer()
                 Button("Settings", systemImage: "gearshape", action: showSettings)
@@ -204,13 +216,41 @@ struct NotchView: View {
 private struct DraggableTab: ViewModifier {
     let id: String
     let isDraggable: Bool
+    let onStart: () -> Void
 
     func body(content: Content) -> some View {
         if isDraggable {
-            content.draggable(id)
+            content.onDrag {
+                onStart()
+                return NSItemProvider(object: id as NSString)
+            }
         } else {
             content
         }
+    }
+}
+
+/// Proposes a move, so the cursor shows a plain reorder instead of the "+" of copying into a drop zone.
+private struct TabDropDelegate: DropDelegate {
+    let targetID: String
+    @Binding var dropTargetID: String?
+    let perform: () -> Bool
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func dropEntered(info: DropInfo) {
+        dropTargetID = targetID
+    }
+
+    func dropExited(info: DropInfo) {
+        if dropTargetID == targetID { dropTargetID = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dropTargetID = nil
+        return perform()
     }
 }
 
