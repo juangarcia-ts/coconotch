@@ -22,3 +22,14 @@ public func makeRows<Item>(_ items: [Item], columnCount: Int) -> [[Item]] {
 public func getHomeColumnCount(cardCount: Int, maxColumns: Int) -> Int {
     max(min(cardCount, maxColumns), 1)
 }
+
+/// "CocoNotch 0.1.0" for the notch footer, or nil when the bundle has no version.
+public func formatAppVersion(_ version: String?) -> String? {
+    guard let version, !version.isEmpty else { return nil }
+    return "CocoNotch \(version)"
+}
+
+/// The room left for a widget in the open panel once the tab bar and footer are placed.
+public func getWidgetMaxHeight(panelHeight: Double, tabBarHeight: Double, footerHeight: Double) -> Double {
+    max(panelHeight - tabBarHeight - footerHeight, 0)
+}
