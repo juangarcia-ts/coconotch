@@ -20,7 +20,10 @@ struct NotchView: View {
 
     // Falls back to the first enabled widget when the last selected one was switched off.
     private var selectedWidget: NotchWidget {
-        enabledWidgets.first { $0.id == selectedWidgetID } ?? enabledWidgets.first ?? NotchWidget.all[0]
+        let enabledIDs = enabledWidgets.map(\.id)
+        let id = resolveSelectedWidgetID(selectedWidgetID, enabledIDs: enabledIDs)
+        // Decoding always leaves one widget enabled, so this fallback only covers an empty widget list.
+        return id.flatMap { NotchWidget.find(id: $0) } ?? NotchWidget.all[0]
     }
 
     private var usesDarkText: Bool {

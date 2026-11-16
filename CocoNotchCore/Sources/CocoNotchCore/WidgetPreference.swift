@@ -11,13 +11,23 @@ public struct WidgetPreference: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// Reads the saved widget order, keeping only widgets that still exist and adding new ones, enabled, at the end.
+/// At least one widget always comes back enabled, even from hand-edited data, so the notch never opens empty.
 public func decodeWidgetPreferences(_ stored: String, availableIDs: [String]) -> [WidgetPreference] {
     let saved = (try? JSONDecoder().decode([WidgetPreference].self, from: Data(stored.utf8))) ?? []
     let available = Set(availableIDs)
     var seenIDs: Set<String> = []
     let kept = saved.filter { available.contains($0.id) && seenIDs.insert($0.id).inserted }
     let added = availableIDs.filter { !seenIDs.contains($0) }.map { WidgetPreference(id: $0) }
-    return kept + added
+    var preferences = kept + added
+    if !preferences.isEmpty && !preferences.contains(where: \.isEnabled) {
+        preferences[0].isEnabled = true
+    }
+    return preferences
+}
+
+/// The widget the notch opens to: the last one selected if it's still enabled, otherwise the first enabled one.
+public func resolveSelectedWidgetID(_ selectedID: String, enabledIDs: [String]) -> String? {
+    enabledIDs.contains(selectedID) ? selectedID : enabledIDs.first
 }
 
 public func encodeWidgetPreferences(_ preferences: [WidgetPreference]) -> String {

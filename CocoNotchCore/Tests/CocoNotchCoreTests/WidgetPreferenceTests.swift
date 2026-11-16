@@ -41,3 +41,24 @@ import Testing
     #expect(canToggleWidget("timezones", in: preferences))
     #expect(canToggleWidget("meetings", in: [WidgetPreference(id: "meetings"), WidgetPreference(id: "timezones")]))
 }
+
+@Test func enablesFirstWidgetWhenStoredDataHasNoneOn() {
+    let stored = encodeWidgetPreferences([
+        WidgetPreference(id: "meetings", isEnabled: false),
+        WidgetPreference(id: "timezones", isEnabled: false),
+    ])
+    #expect(
+        decodeWidgetPreferences(stored, availableIDs: ["timezones", "meetings"]) == [
+            WidgetPreference(id: "meetings"),
+            WidgetPreference(id: "timezones", isEnabled: false),
+        ]
+    )
+    #expect(decodeWidgetPreferences("", availableIDs: []).isEmpty)
+}
+
+@Test func resolvesSelectedWidget() {
+    #expect(resolveSelectedWidgetID("meetings", enabledIDs: ["timezones", "meetings"]) == "meetings")
+    #expect(resolveSelectedWidgetID("music", enabledIDs: ["timezones", "meetings"]) == "timezones")
+    #expect(resolveSelectedWidgetID("", enabledIDs: ["meetings"]) == "meetings")
+    #expect(resolveSelectedWidgetID("meetings", enabledIDs: []) == nil)
+}
