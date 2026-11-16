@@ -6,15 +6,27 @@ struct CocoNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("CocoNotch", systemImage: "rectangle.topthird.inset.filled") {
-            ForEach(NotchWidget.all) { widget in
-                if let makeMenuItems = widget.makeMenuItems {
-                    Menu(widget.title) { makeMenuItems() }
-                }
-            }
-            Divider()
-            Button("Quit CocoNotch") { NSApp.terminate(nil) }
-                .keyboardShortcut("q")
+            MenuContent()
         }
+        Settings {
+            SettingsView()
+        }
+    }
+}
+
+private struct MenuContent: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Button("Settings…") {
+            // A menu bar app is never frontmost, so without this the window opens behind other apps.
+            NSApp.activate()
+            openSettings()
+        }
+        .keyboardShortcut(",")
+        Divider()
+        Button("Quit CocoNotch") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
     }
 }
 

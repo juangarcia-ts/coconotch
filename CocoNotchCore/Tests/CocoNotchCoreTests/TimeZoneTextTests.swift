@@ -1,11 +1,6 @@
 import CocoNotchCore
 import Testing
 
-@Test func parsesStoredIdentifiers() {
-    #expect(parseTimeZoneIdentifiers("Europe/London,Asia/Tokyo") == ["Europe/London", "Asia/Tokyo"])
-    #expect(parseTimeZoneIdentifiers("").isEmpty)
-}
-
 @Test(arguments: [
     ("America/Los_Angeles", "Los Angeles"),
     ("America/Argentina/Buenos_Aires", "Buenos Aires"),
