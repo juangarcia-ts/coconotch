@@ -195,7 +195,10 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     private func loadCurrentLocation(_ coordinate: WeatherCoordinate) async {
         let placemarks = try? await CLGeocoder().reverseGeocodeLocation(
             CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
-        guard !Task.isCancelled else { return }
+        // The user may have picked a city while the fix or the geocoding was in flight.
+        guard !Task.isCancelled, readEnum(locationModeKey, default: WeatherLocationMode.current) == .current else {
+            return
+        }
         startLoad(coordinate, placeName: placemarks?.first?.locality)
     }
 
@@ -296,13 +299,14 @@ private struct WeatherView: View {
     }
 
     private func current(_ report: WeatherReport, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 4) {
+            // The number leads: SF Symbols carry side padding, so an icon first never lines up with the text below.
+            HStack(alignment: .center, spacing: 10) {
+                Text(formatTemperature(report.current.temperature))
+                    .font(.system(size: 44, weight: .semibold).monospacedDigit())
                 Image(systemName: getWeatherSymbol(code: report.current.code, isDay: report.current.isDay))
                     .symbolRenderingMode(.multicolor)
-                    .font(.system(size: 36))
-                Text(formatTemperature(report.current.temperature))
-                    .font(.system(size: 40, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 30))
             }
             Text(getWeatherDescription(code: report.current.code))
                 .font(.callout.weight(.medium))
@@ -311,29 +315,34 @@ private struct WeatherView: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading, spacing: 2) {
+            Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 5) {
                 if showsFeelsLike {
-                    Text("Feels like \(formatTemperature(report.current.apparentTemperature))")
+                    DetailRow(
+                        symbol: "thermometer.medium", label: "Feels like",
+                        value: formatTemperature(report.current.apparentTemperature))
                 }
                 if showsHumidity {
-                    Text("Humidity \(report.current.humidity)%")
+                    DetailRow(symbol: "humidity", label: "Humidity", value: "\(report.current.humidity)%")
                 }
                 if showsWind {
-                    Text("Wind \(formatWindSpeed(report.current.windSpeed, unit: windSpeedUnit))")
+                    DetailRow(
+                        symbol: "wind", label: "Wind",
+                        value: formatWindSpeed(report.current.windSpeed, unit: windSpeedUnit))
                 }
             }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .padding(.top, 8)
             if let placeName = store.placeName {
                 Label(placeName, systemImage: locationMode == .current ? "location.fill" : "mappin")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
+                    .padding(.top, 6)
             }
         }
     }
 
     private func hourly(_ hours: [HourForecast], now: Date) -> some View {
+        // Its own panel, so its centred columns read as one block instead of misaligning with the daily rows.
         HStack(spacing: 0) {
             ForEach(hours) { hour in
                 VStack(spacing: 4) {
@@ -346,13 +355,17 @@ private struct WeatherView: View {
                         .frame(height: 18)
                     Text(formatTemperature(hour.temperature))
                         .font(.callout.weight(.semibold).monospacedDigit())
-                    Text(showsPrecipitation ? formatPrecipitation(hour.precipitationProbability) ?? " " : " ")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.cyan)
+                    if showsPrecipitation {
+                        Text("\(hour.precipitationProbability)%")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.cyan)
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
         }
+        .padding(.vertical, 8)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func daily(_ days: [DayForecast], now: Date) -> some View {
@@ -367,10 +380,12 @@ private struct WeatherView: View {
                     Image(systemName: getWeatherSymbol(code: day.code, isDay: true))
                         .symbolRenderingMode(.multicolor)
                         .frame(width: 22)
-                    Text(showsPrecipitation ? formatPrecipitation(day.precipitationProbability) ?? "" : "")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.cyan)
-                        .frame(width: 30, alignment: .leading)
+                    if showsPrecipitation {
+                        Text("\(day.precipitationProbability)%")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.cyan)
+                            .frame(width: 30, alignment: .leading)
+                    }
                     Text(formatTemperature(day.low))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -384,6 +399,27 @@ private struct WeatherView: View {
                 }
             }
         }
+    }
+}
+
+/// One line of the current details: a quiet icon and label, with the value aligned on the right.
+private struct DetailRow: View {
+    let symbol: String
+    let label: String
+    let value: String
+
+    var body: some View {
+        GridRow {
+            Image(systemName: symbol)
+                .foregroundStyle(.tertiary)
+                .frame(width: 14)
+            Text(label)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .monospacedDigit()
+                .gridColumnAlignment(.trailing)
+        }
+        .font(.caption)
     }
 }
 
@@ -453,18 +489,15 @@ private struct WeatherSummary: View {
     var body: some View {
         if let report = store.report {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Text(formatTemperature(report.current.temperature))
+                        .font(.title.weight(.semibold).monospacedDigit())
                     Image(systemName: getWeatherSymbol(code: report.current.code, isDay: report.current.isDay))
                         .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 26))
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(formatTemperature(report.current.temperature))
-                            .font(.title.weight(.semibold).monospacedDigit())
-                        Text(getWeatherDescription(code: report.current.code))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                        .font(.system(size: 22))
                 }
+                Text(getWeatherDescription(code: report.current.code))
+                    .font(.caption.weight(.medium))
                 if showsHighLow, let today = report.days.first {
                     Text("H \(formatTemperature(today.high))  L \(formatTemperature(today.low))")
                         .font(.caption.monospacedDigit())

@@ -376,11 +376,6 @@ public func getWeatherProblemMessage(_ problem: WeatherProblem) -> String {
     }
 }
 
-/// A chance of rain worth showing, such as "40%"; small chances are left out to keep the forecast calm.
-public func formatPrecipitation(_ probability: Int, minimum: Int = 20) -> String? {
-    probability >= minimum ? "\(probability)%" : nil
-}
-
 /// "Now" for the hour in progress, otherwise the hour in the user's format.
 public func formatHourLabel(_ time: Date, now: Date) -> String {
     time <= now && now < time.addingTimeInterval(3600) ? "Now" : time.formatted(.dateTime.hour())

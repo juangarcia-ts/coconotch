@@ -145,8 +145,6 @@ func picksWeatherSymbol(code: Int, isDay: Bool, expected: String) {
     let hourStart = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(formatHourLabel(hourStart, now: now) == "Now")
     #expect(formatHourLabel(hourStart + 3600, now: now) == (hourStart + 3600).formatted(.dateTime.hour()))
-    #expect(formatPrecipitation(10) == nil)
-    #expect(formatPrecipitation(40) == "40%")
 
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .gmt
