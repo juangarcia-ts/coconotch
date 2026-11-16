@@ -153,7 +153,9 @@ private struct TimezonesSettings: View {
             .frame(height: 200)
 
             TextField("Add a city…", text: $query)
-                .onSubmit { suggestions.first.map(add) }
+                .onSubmit {
+                    if let identifier = suggestions.first { add(identifier) }
+                }
             ForEach(suggestions, id: \.self) { identifier in
                 Button {
                     add(identifier)
