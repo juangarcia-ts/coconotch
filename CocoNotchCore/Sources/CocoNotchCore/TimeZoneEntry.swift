@@ -19,9 +19,9 @@ public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
 
 /// Reads the stored JSON list, or the comma-separated identifiers that versions before 0.2 stored.
 /// Blank and repeated identifiers are dropped, because the identifier is each entry's `id` in SwiftUI lists.
-/// The local entry is added when missing, where the local time used to always show; it can be hidden, not removed.
-/// A stored entry for the current zone becomes the local one in place, keeping its label, so it doesn't show twice.
-public func decodeTimeZoneEntries(_ stored: String, localIdentifier: String? = nil) -> [TimeZoneEntry] {
+/// The local entry is added first when missing, where the local time used to always show; it can be hidden, not
+/// removed. Stored cities are never turned into it: they are pins, and `getVisibleEntries` hides a duplicate.
+public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
     let entries: [TimeZoneEntry]
     if let decoded = try? JSONDecoder().decode([TimeZoneEntry].self, from: Data(stored.utf8)) {
         entries = decoded
@@ -38,13 +38,8 @@ public func decodeTimeZoneEntries(_ stored: String, localIdentifier: String? = n
         guard !entry.identifier.isEmpty, seenIdentifiers.insert(entry.identifier).inserted else { return nil }
         return entry
     }
-    guard !seenIdentifiers.contains(localTimeZoneEntryID) else { return unique }
-    guard let index = unique.firstIndex(where: { $0.identifier == localIdentifier }) else {
-        return [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
-    }
-    var migrated = unique
-    migrated[index].identifier = localTimeZoneEntryID
-    return migrated
+    return seenIdentifiers.contains(localTimeZoneEntryID)
+        ? unique : [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
 }
 
 public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
