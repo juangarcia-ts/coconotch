@@ -88,15 +88,64 @@ public func formatTimeRange(_ meeting: Meeting) -> String {
 }
 
 public struct Agenda: Equatable, Sendable {
+    /// Meetings that already ended, all of them, shown small above the next one.
+    public let earlier: [Meeting]
     public let next: Meeting?
     public let rest: [Meeting]
+    /// Upcoming meetings that did not fit, all after `rest`.
     public let hiddenCount: Int
+
+    public var isEmpty: Bool { earlier.isEmpty && next == nil }
 }
 
-/// Splits upcoming meetings into the featured next one, up to `limit` more, and how many did not fit.
-public func makeAgenda(_ upcoming: [Meeting], limit: Int) -> Agenda {
+/// Splits meetings into ended ones, the featured next one, up to `limit` more, and how many of those did not fit.
+public func makeAgenda(_ meetings: [Meeting], now: Date, limit: Int) -> Agenda {
+    let upcoming = meetings.filter { $0.end > now }
     let rest = Array(upcoming.dropFirst().prefix(limit))
-    return Agenda(next: upcoming.first, rest: rest, hiddenCount: max(upcoming.count - 1 - rest.count, 0))
+    return Agenda(
+        earlier: meetings.filter { $0.end <= now },
+        next: upcoming.first,
+        rest: rest,
+        hiddenCount: max(upcoming.count - 1 - rest.count, 0)
+    )
+}
+
+/// The meetings the Meetings tab lists. `day` is nil for today, where ended meetings show only with
+/// `showsPastEvents`; a picked day shows all of its meetings.
+public func getAgendaMeetings(
+    _ meetings: [Meeting],
+    day: Date?,
+    now: Date,
+    showsPastEvents: Bool,
+    hidesAllDay: Bool,
+    hidesDeclined: Bool,
+    hiddenCalendarIDs: Set<String>
+) -> [Meeting] {
+    getUpcomingMeetings(
+        meetings,
+        now: showsPastEvents || day != nil ? .distantPast : now,
+        hidesAllDay: hidesAllDay,
+        hidesDeclined: hidesDeclined,
+        hiddenCalendarIDs: hiddenCalendarIDs
+    )
+}
+
+/// The day to show for a date picked in the calendar: nil for today, so the agenda follows today past midnight.
+public func getSelectedDay(picked: Date, now: Date, calendar: Calendar) -> Date? {
+    calendar.isDate(picked, inSameDayAs: now) ? nil : picked
+}
+
+/// The bounds to load a day's meetings with: its start, and the next day's start.
+public func getDayInterval(for date: Date, calendar: Calendar) -> DateInterval? {
+    calendar.dateInterval(of: .day, for: date)
+}
+
+public func formatAgendaTitle(day: Date?) -> String {
+    day?.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()) ?? "Today"
+}
+
+public func formatEmptyAgenda(day: Date?) -> String {
+    day == nil ? "No more meetings today" : "No meetings"
 }
 
 /// The meeting to show in the closed notch: the first one that starts within `leadTime`, or started less than
@@ -129,4 +178,38 @@ public func formatTimer(seconds: Int) -> String {
 /// A heads-up is urgent from the moment its meeting starts, so it beats other widgets' activities.
 public func getHeadsUpPriority(start: Date, now: Date) -> ActivityPriority {
     start <= now ? .urgent : .normal
+}
+
+public struct MonthGrid: Equatable, Sendable {
+    /// The first day of the month shown.
+    public let month: Date
+    /// One entry per grid cell, row by row: nil for the blank cells before the 1st.
+    public let days: [Date?]
+}
+
+/// The month `monthOffset` months from `date`'s month, laid out from the calendar's first weekday.
+public func makeMonthGrid(around date: Date, monthOffset: Int, calendar: Calendar) -> MonthGrid {
+    let shifted = calendar.date(byAdding: .month, value: monthOffset, to: date) ?? date
+    let start = calendar.dateInterval(of: .month, for: shifted)?.start ?? shifted
+    let dayCount = calendar.range(of: .day, in: .month, for: start)?.count ?? 0
+    let blankCount = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
+    let days = (0..<dayCount).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    return MonthGrid(month: start, days: Array(repeating: nil, count: blankCount) + days)
+}
+
+/// One-letter weekday names, starting from the calendar's first weekday.
+public func getWeekdaySymbols(calendar: Calendar) -> [String] {
+    let symbols = calendar.veryShortStandaloneWeekdaySymbols
+    let first = calendar.firstWeekday - 1
+    return Array(symbols[first...] + symbols[..<first])
+}
+
+public enum DayMark: Sendable {
+    case selected, today, plain
+}
+
+/// How a calendar cell is marked; the selected day wins over today.
+public func getDayMark(_ day: Date, selection: Date, now: Date, calendar: Calendar) -> DayMark {
+    if calendar.isDate(day, inSameDayAs: selection) { return .selected }
+    return calendar.isDate(day, inSameDayAs: now) ? .today : .plain
 }

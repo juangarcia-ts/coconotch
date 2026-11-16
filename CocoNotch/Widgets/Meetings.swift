@@ -16,20 +16,23 @@ private let hidesAllDayKey = "meetings.hidesAllDay"
 private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
+private let showsPastEventsKey = "meetings.showsPastEvents"
 private let agendaLimit = 3
 private let defaultHidesAllDay = true
 private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
+private let defaultShowsPastEvents = false
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
 
 // One store for the whole app: Apple recommends reusing it, and creating one is slow.
 private let eventStore = EKEventStore()
 
-private func getTodaysMeetings(now: Date) -> [Meeting] {
-    let startOfDay = Calendar.current.startOfDay(for: now)
-    guard let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) else { return [] }
-    let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfDay, calendars: nil)
+private func getMeetings(on day: Date) -> [Meeting] {
+    guard EKEventStore.authorizationStatus(for: .event) == .fullAccess,
+        let interval = getDayInterval(for: day, calendar: .current)
+    else { return [] }
+    let predicate = eventStore.predicateForEvents(withStart: interval.start, end: interval.end, calendars: nil)
     return eventStore.events(matching: predicate).map { event in
         Meeting(
             // Occurrences of a repeating event share an identifier, so the start time keeps each one unique.
@@ -53,6 +56,9 @@ final class MeetingsStore {
     private(set) var accessStatus = EKEventStore.authorizationStatus(for: .event)
     // Fetched once a minute and when calendars change, not on every render.
     private(set) var todaysMeetings: [Meeting] = []
+    /// The day picked in the Meetings tab; nil follows today. The heads-up always uses today.
+    private(set) var selectedDay: Date?
+    private(set) var selectedDaysMeetings: [Meeting] = []
     private var refreshTask: Task<Void, Never>?
     /// The meeting shown in the closed notch, if any.
     private(set) var headsUpMeetingID: String?
@@ -81,8 +87,20 @@ final class MeetingsStore {
     /// Re-reads access, which the user may have changed in System Settings, then reloads meetings.
     func refreshAccessStatus() {
         accessStatus = EKEventStore.authorizationStatus(for: .event)
-        todaysMeetings = accessStatus == .fullAccess ? getTodaysMeetings(now: .now) : []
+        todaysMeetings = getMeetings(on: .now)
+        // A picked day becomes today at midnight, and then follows today like an unpicked one.
+        selectedDay = selectedDay.flatMap { getSelectedDay(picked: $0, now: .now, calendar: .current) }
+        loadSelectedDay()
         updateHeadsUp()
+    }
+
+    func select(_ day: Date) {
+        selectedDay = getSelectedDay(picked: day, now: .now, calendar: .current)
+        loadSelectedDay()
+    }
+
+    private func loadSelectedDay() {
+        selectedDaysMeetings = selectedDay.map(getMeetings(on:)) ?? todaysMeetings
     }
 
     func dismissHeadsUp() {
@@ -146,6 +164,7 @@ private struct MeetingsView: View {
     @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
     @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
+    @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
     private let store = MeetingsStore.shared
 
     var body: some View {
@@ -182,47 +201,65 @@ private struct MeetingsView: View {
     private var agenda: some View {
         TimelineView(.everyMinute) { context in
             let agenda = makeAgenda(
-                getUpcomingMeetings(
-                    store.todaysMeetings,
+                getAgendaMeetings(
+                    store.selectedDaysMeetings,
+                    day: store.selectedDay,
                     now: context.date,
+                    showsPastEvents: showsPastEvents,
                     hidesAllDay: hidesAllDay,
                     hidesDeclined: hidesDeclined,
                     hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
                 ),
+                now: context.date,
                 limit: agendaLimit
             )
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Today")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if store.isRefreshing {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .help("Sync your calendars now")
+            HStack(alignment: .top, spacing: 12) {
+                MonthCalendar(selectedDay: store.selectedDay, now: context.date, select: store.select)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(formatAgendaTitle(day: store.selectedDay))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        if store.selectedDay != nil {
+                            Button("Today") { store.select(context.date) }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                .help("Go back to today")
+                        }
+                        Spacer()
+                        if store.isRefreshing {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                                .help("Sync your calendars now")
+                        }
                     }
-                }
-                .padding(.horizontal, 10)
-                if let next = agenda.next {
-                    NextMeetingCard(meeting: next, now: context.date)
+                    .padding(.horizontal, 10)
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(agenda.earlier) { meeting in
+                            PastMeetingRow(meeting: meeting)
+                        }
+                    }
+                    if let next = agenda.next {
+                        NextMeetingCard(meeting: next, now: context.date)
+                    }
                     ForEach(agenda.rest) { meeting in
                         MeetingRow(meeting: meeting)
                     }
                     if agenda.hiddenCount > 0 {
-                        Text("+\(agenda.hiddenCount) more today")
+                        Text("+\(agenda.hiddenCount) more")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                } else {
-                    Text("No more meetings today")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
+                    if agenda.isEmpty {
+                        Text(formatEmptyAgenda(day: store.selectedDay))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    }
                 }
             }
         }
@@ -285,14 +322,112 @@ private struct MeetingRow: View {
     }
 }
 
+/// An ended meeting: smaller and struck through, with no join link.
+private struct PastMeetingRow: View {
+    let meeting: Meeting
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(formatStartTime(meeting))
+                .font(.caption2.monospacedDigit())
+                .frame(width: 56, alignment: .leading)
+            Text(meeting.title)
+                .font(.caption)
+                .strikethrough()
+                .lineLimit(1)
+        }
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 10)
+    }
+}
+
+/// A compact month grid for picking the agenda's day, drawn to match the panel instead of the stock date picker.
+private struct MonthCalendar: View {
+    /// nil for today.
+    let selectedDay: Date?
+    let now: Date
+    let select: (Date) -> Void
+    @State private var monthOffset = 0
+    private let calendar = Calendar.current
+    private let cellSize: CGFloat = 22
+
+    var body: some View {
+        let selection = selectedDay ?? now
+        let grid = makeMonthGrid(around: selection, monthOffset: monthOffset, calendar: calendar)
+        VStack(spacing: 4) {
+            HStack(spacing: 2) {
+                Text(grid.month.formatted(.dateTime.month(.wide).year()))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Previous Month", systemImage: "chevron.left") { monthOffset -= 1 }
+                Button("Next Month", systemImage: "chevron.right") { monthOffset += 1 }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .font(.caption.weight(.semibold))
+            .padding(.leading, 4)
+            .padding(.bottom, 2)
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 2), count: 7), spacing: 2) {
+                ForEach(Array(getWeekdaySymbols(calendar: calendar).enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(grid.days.indices, id: \.self) { index in
+                    if let day = grid.days[index] {
+                        DayCell(
+                            day: day,
+                            mark: getDayMark(day, selection: selection, now: now, calendar: calendar),
+                            size: cellSize
+                        ) { select(day) }
+                    } else {
+                        Color.clear.frame(width: cellSize, height: cellSize)
+                    }
+                }
+            }
+        }
+        .frame(width: cellSize * 7 + 12)
+        // Picking a day, or going back to today, shows that day's month again.
+        .onChange(of: selectedDay) { monthOffset = 0 }
+    }
+}
+
+private struct DayCell: View {
+    let day: Date
+    let mark: DayMark
+    let size: CGFloat
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(day.formatted(.dateTime.day()))
+                .font(.caption.monospacedDigit().weight(mark == .plain ? .regular : .semibold))
+                .foregroundStyle(mark == .selected ? Color.white : mark == .today ? Color.accentColor : Color.primary)
+                .frame(width: size, height: size)
+                .background {
+                    Circle().fill(
+                        mark == .selected ? Color.accentColor : Color.primary.opacity(isHovering ? 0.12 : 0))
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+}
+
 private struct MeetingsSettings: View {
     @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
     @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
+    @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
 
     var body: some View {
         Form {
+            Toggle("Show past events", isOn: $showsPastEvents)
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
             Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {
