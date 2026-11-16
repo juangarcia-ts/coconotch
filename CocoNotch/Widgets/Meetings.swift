@@ -236,7 +236,7 @@ private struct NextMeetingCard: View {
             }
             Spacer()
             if MeetingsStore.shared.headsUpMeetingID == meeting.id {
-                Button("Hide Reminder", systemImage: "bell.slash") { MeetingsStore.shared.dismissHeadsUp() }
+                Button("Dismiss", systemImage: "bell.slash") { MeetingsStore.shared.dismissHeadsUp() }
                     .buttonStyle(.bordered)
                     .help("Hide this meeting's reminder in the closed notch")
             }
