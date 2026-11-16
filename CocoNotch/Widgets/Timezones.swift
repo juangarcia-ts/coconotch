@@ -7,13 +7,16 @@ extension NotchWidget {
         title: "Time Zones",
         systemImage: "globe",
         makeView: { AnyView(TimezonesView()) },
-        makeSettings: { AnyView(TimezonesSettings()) }
+        makeSettings: { AnyView(TimezonesSettings()) },
+        makeSummary: { AnyView(TimezonesSummary()) }
     )
 }
 
 // Kept from 0.1, which stored a comma-separated list here; decodeTimeZoneEntries still reads that format.
 private let entriesKey = "timezones.identifiers"
 private let showsFlagsKey = "timezones.showsFlags"
+private let homeCountKey = "timezones.homeCount"
+private let defaultHomeCount = 3
 private let defaultStoredEntries = encodeTimeZoneEntries(
     ["America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map { TimeZoneEntry(identifier: $0) }
 )
@@ -24,6 +27,14 @@ private let countryCodesByTimeZone = parseZoneTab(
 
 private func getFlag(forTimeZoneIdentifier identifier: String) -> String? {
     countryCodesByTimeZone[identifier].flatMap { getFlagEmoji(countryCode: $0) }
+}
+
+private func getZoneTitle(identifier: String, label: String?, showsFlag: Bool) -> String {
+    getDisplayTitle(
+        label: label,
+        identifier: identifier,
+        flag: showsFlag ? getFlag(forTimeZoneIdentifier: identifier) : nil
+    )
 }
 
 private struct TimezonesView: View {
@@ -73,8 +84,7 @@ private struct ZoneColumn: View {
     private var isLocal: Bool { zone == .current }
 
     private var title: String {
-        let flag = showsFlag ? getFlag(forTimeZoneIdentifier: zone.identifier) : nil
-        return getDisplayTitle(label: label, identifier: zone.identifier, flag: flag)
+        getZoneTitle(identifier: zone.identifier, label: label, showsFlag: showsFlag)
     }
 
     private var detail: String {
@@ -99,9 +109,46 @@ private struct ZoneColumn: View {
     }
 }
 
+/// The first few other time zones, for the Home tab.
+private struct TimezonesSummary: View {
+    @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
+    @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            VStack(spacing: 4) {
+                ForEach(
+                    getVisibleEntries(
+                        decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier
+                    )
+                    .prefix(homeCount)
+                ) { entry in
+                    if let zone = TimeZone(identifier: entry.identifier) {
+                        HStack {
+                            Text(getZoneTitle(identifier: entry.identifier, label: entry.label, showsFlag: showsFlags))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text(
+                                context.date.formatted(
+                                    Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
+                            )
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                        }
+                        .font(.callout)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct TimezonesSettings: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
     @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
     // Decoded once when the tab appears and saved on every change, instead of decoding on each access.
     @State private var entries: [TimeZoneEntry] = []
     @State private var query = ""
@@ -118,6 +165,10 @@ private struct TimezonesSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Show country flags", isOn: $showsFlags)
+            Picker("Cities on Home", selection: $homeCount) {
+                ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+            }
+            .fixedSize()
             Text("Your local time is always shown first. Drag to reorder; the label replaces the city name.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

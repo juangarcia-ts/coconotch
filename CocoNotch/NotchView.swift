@@ -8,7 +8,7 @@ struct NotchView: View {
     @State private var isExpanded = false
     /// The top activity whose alert is showing, as an `alertKey`.
     @State private var alertingKey: String?
-    @AppStorage("selectedWidget") private var selectedWidgetID = ""
+    @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()

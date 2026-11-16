@@ -8,7 +8,8 @@ extension NotchWidget {
         title: "Meetings",
         systemImage: "calendar",
         makeView: { AnyView(MeetingsView()) },
-        makeSettings: { AnyView(MeetingsSettings()) }
+        makeSettings: { AnyView(MeetingsSettings()) },
+        makeSummary: { AnyView(MeetingsSummary()) }
     )
 }
 
@@ -17,11 +18,13 @@ private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
+private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
 private let defaultHidesAllDay = true
 private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
 private let defaultShowsPastEvents = false
+private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
 
@@ -227,17 +230,21 @@ private struct MeetingsView: View {
                                 .help("Go back to today")
                         }
                         Spacer()
-                        if store.isRefreshing {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.borderless)
-                                .help("Sync your calendars now")
+                        Group {
+                            if store.isRefreshing {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(.borderless)
+                                    .help("Sync your calendars now")
+                            }
                         }
+                        // Same slot as the Settings button above, so the two icons line up.
+                        .frame(width: 40)
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.leading, 10)
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(agenda.earlier) { meeting in
                             PastMeetingRow(meeting: meeting)
@@ -319,6 +326,56 @@ private struct MeetingRow: View {
             }
         }
         .padding(.horizontal, 10)
+    }
+}
+
+/// The next meetings today, for the Home tab.
+private struct MeetingsSummary: View {
+    @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
+    @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
+    @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+    private let store = MeetingsStore.shared
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            let meetings = getUpcomingMeetings(
+                store.todaysMeetings,
+                now: context.date,
+                hidesAllDay: hidesAllDay,
+                hidesDeclined: hidesDeclined,
+                hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
+            )
+            .prefix(homeCount)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(meetings) { meeting in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(meeting.title)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                            Text(
+                                "\(formatStartTime(meeting)) · \(formatCountdown(now: context.date, start: meeting.start))"
+                            )
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if let link = meeting.link {
+                            Link(destination: link) {
+                                Image(systemName: "video")
+                            }
+                            .help("Join")
+                        }
+                    }
+                }
+                if meetings.isEmpty {
+                    Text(formatEmptyAgenda(day: nil))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }
 
@@ -424,10 +481,14 @@ private struct MeetingsSettings: View {
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
 
     var body: some View {
         Form {
             Toggle("Show past events", isOn: $showsPastEvents)
+            Picker("Meetings on Home", selection: $homeCount) {
+                ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
+            }
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
             Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {
