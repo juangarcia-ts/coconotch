@@ -27,3 +27,16 @@ func countsHomeColumns(cardCount: Int, maxColumns: Int, expected: Int) {
     #expect(makeRows([Int](), columnCount: 3).isEmpty)
     #expect(makeRows([1, 2], columnCount: 0) == [[1], [2]])
 }
+
+@Test func leavesSwitchedOffWidgetsOffHome() {
+    let preferences = [
+        WidgetPreference(id: "meetings", isEnabled: false),
+        WidgetPreference(id: "timezones"),
+    ]
+    let ids = getHomeSummaryIDs(
+        getEnabledWidgetIDs(preferences),
+        summaryIDs: ["meetings", "timezones"],
+        hiddenIDs: []
+    )
+    #expect(ids == ["timezones"])
+}

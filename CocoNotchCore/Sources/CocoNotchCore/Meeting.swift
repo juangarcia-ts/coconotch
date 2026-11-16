@@ -213,3 +213,9 @@ public func getDayMark(_ day: Date, selection: Date, now: Date, calendar: Calend
     if calendar.isDate(day, inSameDayAs: selection) { return .selected }
     return calendar.isDate(day, inSameDayAs: now) ? .today : .plain
 }
+
+/// What the Home card says with no meetings to show. Without calendar access an empty list would read as a free
+/// day, so it points to the Meetings tab, where access is granted.
+public func formatMeetingsSummaryEmpty(hasCalendarAccess: Bool) -> String {
+    hasCalendarAccess ? formatEmptyAgenda(day: nil) : "Calendar access needed. Open Meetings to allow it."
+}
