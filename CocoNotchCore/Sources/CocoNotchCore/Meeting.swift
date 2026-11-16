@@ -77,3 +77,21 @@ public func decodeIDSet(_ stored: String) -> Set<String> {
 public func encodeIDSet(_ ids: Set<String>) -> String {
     ids.sorted().joined(separator: "\n")
 }
+
+public func formatTimeRange(_ meeting: Meeting) -> String {
+    guard !meeting.isAllDay else { return "All day" }
+    let start = meeting.start.formatted(date: .omitted, time: .shortened)
+    return "\(start)–\(meeting.end.formatted(date: .omitted, time: .shortened))"
+}
+
+public struct Agenda: Equatable, Sendable {
+    public let next: Meeting?
+    public let rest: [Meeting]
+    public let hiddenCount: Int
+}
+
+/// Splits upcoming meetings into the featured next one, up to `limit` more, and how many did not fit.
+public func makeAgenda(_ upcoming: [Meeting], limit: Int) -> Agenda {
+    let rest = Array(upcoming.dropFirst().prefix(limit))
+    return Agenda(next: upcoming.first, rest: rest, hiddenCount: max(upcoming.count - 1 - rest.count, 0))
+}

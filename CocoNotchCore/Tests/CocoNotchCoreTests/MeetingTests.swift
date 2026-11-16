@@ -70,3 +70,22 @@ func findsMeetingLink(url: String?, location: String?, notes: String?, expected:
     #expect(decodeIDSet("").isEmpty)
     #expect(encodeIDSet([]) == "")
 }
+
+@Test func formatsTimeRange() {
+    let start = Date(timeIntervalSince1970: 10_000)
+    #expect(formatTimeRange(Meeting(id: "a", title: "A", start: start, end: start + 3600, isAllDay: true)) == "All day")
+    let range = formatTimeRange(Meeting(id: "b", title: "B", start: start, end: start + 3600))
+    #expect(range.contains("–"))
+    #expect(range.hasPrefix(start.formatted(date: .omitted, time: .shortened)))
+}
+
+@Test(arguments: [(0, false, 0, 0), (1, true, 0, 0), (4, true, 3, 0), (6, true, 3, 2)])
+func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
+    let start = Date(timeIntervalSince1970: 10_000)
+    let meetings = (0..<count).map { Meeting(id: "\($0)", title: "\($0)", start: start, end: start + 60) }
+    let agenda = makeAgenda(meetings, limit: 3)
+    #expect((agenda.next != nil) == hasNext)
+    #expect(agenda.rest.count == restCount)
+    #expect(agenda.hiddenCount == hiddenCount)
+    #expect(agenda.rest.first?.id == (restCount > 0 ? "1" : nil))
+}

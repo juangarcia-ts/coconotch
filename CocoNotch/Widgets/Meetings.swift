@@ -39,17 +39,13 @@ private func getTodaysMeetings(now: Date) -> [Meeting] {
     }
 }
 
-private func formatTimeRange(_ meeting: Meeting) -> String {
-    guard !meeting.isAllDay else { return "All day" }
-    let start = meeting.start.formatted(date: .omitted, time: .shortened)
-    return "\(start)–\(meeting.end.formatted(date: .omitted, time: .shortened))"
-}
-
 private struct MeetingsView: View {
     @AppStorage(hidesAllDayKey) private var hidesAllDay = true
     @AppStorage(hidesDeclinedKey) private var hidesDeclined = true
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
     @State private var accessStatus = EKEventStore.authorizationStatus(for: .event)
+    // Fetched once a minute and when calendars change, not on every render of the body.
+    @State private var todaysMeetings: [Meeting] = []
 
     var body: some View {
         Group {
@@ -80,26 +76,37 @@ private struct MeetingsView: View {
         }
         // Access may have been granted in System Settings since the notch last opened.
         .onAppear { accessStatus = EKEventStore.authorizationStatus(for: .event) }
+        .task(id: accessStatus) {
+            while !Task.isCancelled && accessStatus == .fullAccess {
+                todaysMeetings = getTodaysMeetings(now: .now)
+                try? await Task.sleep(for: .seconds(60))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
+            if accessStatus == .fullAccess { todaysMeetings = getTodaysMeetings(now: .now) }
+        }
     }
 
     private var agenda: some View {
         TimelineView(.everyMinute) { context in
-            let upcoming = getUpcomingMeetings(
-                getTodaysMeetings(now: context.date),
-                now: context.date,
-                hidesAllDay: hidesAllDay,
-                hidesDeclined: hidesDeclined,
-                hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
+            let agenda = makeAgenda(
+                getUpcomingMeetings(
+                    todaysMeetings,
+                    now: context.date,
+                    hidesAllDay: hidesAllDay,
+                    hidesDeclined: hidesDeclined,
+                    hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
+                ),
+                limit: agendaLimit
             )
-            if let next = upcoming.first {
+            if let next = agenda.next {
                 VStack(alignment: .leading, spacing: 10) {
                     NextMeetingCard(meeting: next, now: context.date)
-                    ForEach(upcoming.dropFirst().prefix(agendaLimit)) { meeting in
+                    ForEach(agenda.rest) { meeting in
                         MeetingRow(meeting: meeting)
                     }
-                    let remaining = upcoming.count - 1 - agendaLimit
-                    if remaining > 0 {
-                        Text("+\(remaining) more today")
+                    if agenda.hiddenCount > 0 {
+                        Text("+\(agenda.hiddenCount) more today")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
