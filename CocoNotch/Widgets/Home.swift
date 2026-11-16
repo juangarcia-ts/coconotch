@@ -58,7 +58,7 @@ private struct SummaryCard: View {
 
     var body: some View {
         // Compact enough that two rows fit in the open panel above the footer.
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: widget.systemImage)
                 Text(widget.title)
@@ -73,7 +73,7 @@ private struct SummaryCard: View {
             widget.makeSummary?()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: 14)

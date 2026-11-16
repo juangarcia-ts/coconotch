@@ -144,7 +144,7 @@ private struct TimezonesSummary: View {
                         VStack(spacing: 0) {
                             if showsFlags, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
                                 Text(flag)
-                                    .font(.callout)
+                                    .font(.caption)
                             }
                             Text(
                                 context.date.formatted(
