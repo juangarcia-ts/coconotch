@@ -58,13 +58,17 @@ final class MeetingsStore {
     private(set) var headsUpMeetingID: String?
     private var dismissedHeadsUpIDs: Set<String> = []
 
-    /// Starts the refresh, every 15 seconds so the heads-up turns urgent close to the start time. Never asks for access; that happens from the Meetings tab.
+    /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, so it turns urgent close to the
+    /// start time without querying EventKit that often. Never asks for access; that happens from the Meetings tab.
     func start() {
         guard refreshTask == nil else { return }
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 self?.refreshAccessStatus()
-                try? await Task.sleep(for: .seconds(15))
+                for _ in 0..<4 {
+                    try? await Task.sleep(for: .seconds(15))
+                    self?.updateHeadsUp()
+                }
             }
         }
         NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: eventStore, queue: .main) {
@@ -112,7 +116,7 @@ final class MeetingsStore {
             NotchActivity(
                 id: headsUpActivityID,
                 widgetID: NotchWidget.meetings.id,
-                priority: meeting.start <= now ? .urgent : .normal,
+                priority: getHeadsUpPriority(start: meeting.start, now: now),
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) }

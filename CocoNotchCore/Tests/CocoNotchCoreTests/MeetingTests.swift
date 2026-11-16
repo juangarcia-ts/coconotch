@@ -123,3 +123,9 @@ func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
 func formatsTimer(seconds: Int, expected: String) {
     #expect(formatTimer(seconds: seconds) == expected)
 }
+
+@Test(arguments: [(-1.0, ActivityPriority.urgent), (0, .urgent), (1, .normal)])
+func ranksHeadsUpByStart(secondsAgo: Double, expected: ActivityPriority) {
+    let now = Date(timeIntervalSince1970: 100_000)
+    #expect(getHeadsUpPriority(start: now + secondsAgo, now: now) == expected)
+}

@@ -125,3 +125,8 @@ public func formatTimer(seconds: Int) -> String {
     let tail = String(format: "%02d", remainder)
     return hours > 0 ? "\(hours):\(String(format: "%02d", minutes)):\(tail)" : "\(minutes):\(tail)"
 }
+
+/// A heads-up is urgent from the moment its meeting starts, so it beats other widgets' activities.
+public func getHeadsUpPriority(start: Date, now: Date) -> ActivityPriority {
+    start <= now ? .urgent : .normal
+}
