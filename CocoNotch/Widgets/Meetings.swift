@@ -368,9 +368,10 @@ private struct MeetingsSummary: View {
                                 .font(.caption.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(Color.accentColor)
                             if let link = next.link {
-                                Link("Join", destination: link)
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
+                                Link(destination: link) {
+                                    Image(systemName: "video")
+                                }
+                                .help("Join")
                             }
                         }
                     }
