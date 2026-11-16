@@ -13,14 +13,14 @@ extension NotchWidget {
 
 // Stores hidden summaries rather than shown ones, so widgets added later appear on Home by default.
 private let hiddenSummaryIDsKey = "home.hiddenSummaryIDs"
-private let maxColumnsKey = "home.maxColumns"
-private let defaultMaxColumns = 3
+// Two keeps every card wide enough for its content in the 600pt panel.
+private let maxColumns = 2
 
 private struct HomeView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
-    @AppStorage(maxColumnsKey) private var maxColumns = defaultMaxColumns
+    @State private var dropTargetID: String?
 
     var body: some View {
         let widgets = getHomeSummaryIDs(
@@ -37,11 +37,19 @@ private struct HomeView: View {
         } else {
             let columnCount = getHomeColumnCount(cardCount: widgets.count, maxColumns: maxColumns)
             let rows = makeRows(widgets, columnCount: columnCount)
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 ForEach(rows.indices, id: \.self) { index in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
                         ForEach(rows[index]) { widget in
-                            SummaryCard(widget: widget) { selectedWidgetID = widget.id }
+                            // Cards follow the widget order, so dragging one also reorders the tabs.
+                            SummaryCard(widget: widget, isDropTarget: dropTargetID == widget.id) {
+                                selectedWidgetID = widget.id
+                            }
+                            .modifier(DraggableWidget(id: widget.id, isDraggable: true))
+                            .onDrop(
+                                of: [widgetDragType],
+                                delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID)
+                            )
                         }
                     }
                     // Lets every card in the row stretch to the tallest one.
@@ -54,11 +62,13 @@ private struct HomeView: View {
 
 private struct SummaryCard: View {
     let widget: NotchWidget
+    let isDropTarget: Bool
     let open: () -> Void
     @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // Compact enough that two rows fit in the open panel above the footer.
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: widget.systemImage)
                 Text(widget.title)
@@ -72,12 +82,14 @@ private struct SummaryCard: View {
             .foregroundStyle(.tertiary)
             widget.makeSummary?()
         }
-        .padding(14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.primary.opacity(isHovering ? 0.09 : 0.06))
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(
+                    Color.primary.opacity(isDropTarget ? 0.35 : 0.08), lineWidth: isDropTarget ? 1 : 0.5)
         }
         .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture(perform: open)
@@ -92,13 +104,9 @@ private struct SummaryCard: View {
 struct HomeSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
-    @AppStorage(maxColumnsKey) private var maxColumns = defaultMaxColumns
 
     var body: some View {
         Form {
-            Picker("Cards per row", selection: $maxColumns) {
-                ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
-            }
             Section("Summaries") {
                 Text(
                     "Home is always the first tab; hide it in Settings → Widgets. Cards follow the widget order there, and clicking one opens its widget."

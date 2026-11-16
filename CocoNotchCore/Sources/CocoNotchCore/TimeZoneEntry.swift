@@ -94,9 +94,8 @@ public func normalizeLabel(_ text: String) -> String? {
     text.trimmingCharacters(in: .whitespaces).isEmpty ? nil : text
 }
 
-public func getDisplayTitle(label: String?, identifier: String, flag: String?) -> String {
-    let name = label ?? getCityName(forTimeZoneIdentifier: identifier)
-    return flag.map { "\($0) \(name)" } ?? name
+public func getDisplayTitle(label: String?, identifier: String) -> String {
+    label ?? getCityName(forTimeZoneIdentifier: identifier)
 }
 
 /// The line under an entry's alias field, such as "America/Los_Angeles · GMT-8 · Current time zone".
