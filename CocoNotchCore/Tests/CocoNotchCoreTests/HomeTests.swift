@@ -40,3 +40,14 @@ func countsHomeColumns(cardCount: Int, maxColumns: Int, expected: Int) {
     )
     #expect(ids == ["timezones"])
 }
+
+@Test func formatsAppVersion() {
+    #expect(formatAppVersion("0.1.0") == "CocoNotch 0.1.0")
+    #expect(formatAppVersion("") == nil)
+    #expect(formatAppVersion(nil) == nil)
+}
+
+@Test func leavesRoomForWidgetUnderTabsAndAboveFooter() {
+    #expect(getWidgetMaxHeight(panelHeight: 300, tabBarHeight: 40, footerHeight: 26) == 234)
+    #expect(getWidgetMaxHeight(panelHeight: 50, tabBarHeight: 40, footerHeight: 26) == 0)
+}
