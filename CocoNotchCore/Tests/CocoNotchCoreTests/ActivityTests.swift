@@ -57,3 +57,13 @@ private func makeActivity(
     let disabledPreferred = rankActivities(activities, enabledWidgetIDs: ["meetings"], preferredWidgetID: "music")
     #expect(disabledPreferred.map(\.id) == ["meeting"])
 }
+
+@Test func changesAlertKeyForNewMeetingOrPriority() {
+    let start = Date(timeIntervalSince1970: 100_000)
+    func key(_ priority: ActivityPriority, _ date: Date) -> String {
+        makeAlertKey(ActivitySummary(id: "meetings.headsUp", widgetID: "meetings", priority: priority, sortDate: date))
+    }
+    #expect(key(.normal, start) == key(.normal, start))
+    #expect(key(.normal, start) != key(.urgent, start))
+    #expect(key(.normal, start) != key(.normal, start + 1800))
+}

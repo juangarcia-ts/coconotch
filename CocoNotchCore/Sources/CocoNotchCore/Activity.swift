@@ -53,3 +53,9 @@ public func rankActivities(
             return lhs.id < rhs.id
         }
 }
+
+/// Identifies one alert-worthy state of an activity: it changes when the activity appears, its priority rises, or it
+/// moves to a new date, such as a heads-up switching to the next meeting under the same id.
+public func makeAlertKey(_ activity: ActivitySummary) -> String {
+    "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)"
+}

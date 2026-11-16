@@ -57,7 +57,7 @@ struct NotchView: View {
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
-        let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : "\($0.id)-\($0.priority.rawValue)" }
+        let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
 
         ScaledLayout(scale: scale) {
             panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
