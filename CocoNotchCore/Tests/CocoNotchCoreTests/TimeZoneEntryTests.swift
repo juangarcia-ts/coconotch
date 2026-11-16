@@ -114,14 +114,23 @@ func normalizesLabel(text: String, expected: String?) {
     #expect(formatTimeZoneCaption(identifier: "Asia/Tokyo", abbreviation: nil, isLocal: false) == "Asia/Tokyo")
 }
 
-@Test func turnsStoredCurrentZoneIntoLocalEntry() {
+@Test func keepsPinnedCitiesInPlaceWhileTravelling() {
     let stored = encodeTimeZoneEntries([
         TimeZoneEntry(identifier: "America/Los_Angeles"),
         TimeZoneEntry(identifier: "Asia/Tokyo", label: "Office"),
     ])
-    let decoded = decodeTimeZoneEntries(stored, localIdentifier: "Asia/Tokyo")
-    #expect(decoded.map(\.identifier) == ["America/Los_Angeles", localTimeZoneEntryID])
-    #expect(decoded.last?.label == "Office")
+    let entries = decodeTimeZoneEntries(stored)
+    #expect(entries.map(\.identifier) == [localTimeZoneEntryID, "America/Los_Angeles", "Asia/Tokyo"])
+    #expect(entries.last?.label == "Office")
+    // Only the city matching the current zone hides; the pins themselves never move or change.
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "America/Los_Angeles").map(\.identifier)
+            == [localTimeZoneEntryID, "Asia/Tokyo"]
+    )
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "Asia/Tokyo").map(\.identifier)
+            == [localTimeZoneEntryID, "America/Los_Angeles"]
+    )
 }
 
 @Test func hidesCityThatIsTheCurrentZoneWhileLocalShows() {
