@@ -1,5 +1,8 @@
 import Foundation
 
+/// The entry for the Mac's own time zone, which follows the Mac when the user travels.
+public let localTimeZoneEntryID = "local"
+
 public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
     public var identifier: String
     public var label: String?
@@ -16,6 +19,8 @@ public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
 
 /// Reads the stored JSON list, or the comma-separated identifiers that versions before 0.2 stored.
 /// Blank and repeated identifiers are dropped, because the identifier is each entry's `id` in SwiftUI lists.
+/// The local entry is added first when missing, where the local time used to always show; it can be hidden, not
+/// removed. Stored cities are never turned into it: they are pins, and `getVisibleEntries` hides a duplicate.
 public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
     let entries: [TimeZoneEntry]
     if let decoded = try? JSONDecoder().decode([TimeZoneEntry].self, from: Data(stored.utf8)) {
@@ -27,12 +32,14 @@ public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
     }
 
     var seenIdentifiers: Set<String> = []
-    return entries.compactMap { entry in
+    let unique: [TimeZoneEntry] = entries.compactMap { entry in
         var entry = entry
         entry.identifier = entry.identifier.trimmingCharacters(in: .whitespaces)
         guard !entry.identifier.isEmpty, seenIdentifiers.insert(entry.identifier).inserted else { return nil }
         return entry
     }
+    return seenIdentifiers.contains(localTimeZoneEntryID)
+        ? unique : [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
 }
 
 public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
@@ -40,9 +47,21 @@ public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
-/// The entries the notch shows next to the local time, which is always drawn on its own.
+/// The shown entries. A city that is also the current zone, say Tokyo while in Tokyo, is left out while the local
+/// entry is shown, so the same clock never appears twice.
 public func getVisibleEntries(_ entries: [TimeZoneEntry], localIdentifier: String) -> [TimeZoneEntry] {
-    entries.filter { $0.isVisible && $0.identifier != localIdentifier }
+    let showsLocal = entries.contains { $0.identifier == localTimeZoneEntryID && $0.isVisible }
+    return entries.filter { $0.isVisible && !(showsLocal && $0.identifier == localIdentifier) }
+}
+
+/// Zones the add search shouldn't offer: those in the list, the local entry counted as the current zone.
+public func getAddedTimeZoneIdentifiers(_ entries: [TimeZoneEntry], localIdentifier: String) -> Set<String> {
+    Set(entries.map { resolveTimeZoneIdentifier($0.identifier, localIdentifier: localIdentifier) })
+}
+
+/// The real time zone identifier for an entry: the Mac's current one for the local entry.
+public func resolveTimeZoneIdentifier(_ identifier: String, localIdentifier: String) -> String {
+    identifier == localTimeZoneEntryID ? localIdentifier : identifier
 }
 
 /// Matches identifiers whose city name contains the query, ignoring case and accents.
@@ -78,4 +97,9 @@ public func normalizeLabel(_ text: String) -> String? {
 public func getDisplayTitle(label: String?, identifier: String, flag: String?) -> String {
     let name = label ?? getCityName(forTimeZoneIdentifier: identifier)
     return flag.map { "\($0) \(name)" } ?? name
+}
+
+/// The line under an entry's alias field, such as "America/Los_Angeles · GMT-8 · Current time zone".
+public func formatTimeZoneCaption(identifier: String, abbreviation: String?, isLocal: Bool) -> String {
+    [identifier, abbreviation, isLocal ? "Current time zone" : nil].compactMap { $0 }.joined(separator: " · ")
 }

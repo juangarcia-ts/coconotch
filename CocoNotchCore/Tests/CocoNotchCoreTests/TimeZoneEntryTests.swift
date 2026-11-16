@@ -1,9 +1,12 @@
 import CocoNotchCore
 import Testing
 
+private let local = TimeZoneEntry(identifier: localTimeZoneEntryID)
+
 @Test func roundTripsEntries() {
     let entries = [
         TimeZoneEntry(identifier: "Europe/London", label: "Office"),
+        TimeZoneEntry(identifier: localTimeZoneEntryID, label: "Home"),
         TimeZoneEntry(identifier: "Asia/Tokyo", isVisible: false),
     ]
     #expect(decodeTimeZoneEntries(encodeTimeZoneEntries(entries)) == entries)
@@ -12,6 +15,7 @@ import Testing
 @Test func readsLegacyCommaList() {
     #expect(
         decodeTimeZoneEntries("Europe/London,Asia/Tokyo") == [
+            local,
             TimeZoneEntry(identifier: "Europe/London"),
             TimeZoneEntry(identifier: "Asia/Tokyo"),
         ]
@@ -20,7 +24,7 @@ import Testing
 
 @Test(arguments: ["Europe/London, Asia/Tokyo", "Europe/London,,Asia/Tokyo,", "Europe/London,Asia/Tokyo,Europe/London"])
 func cleansLegacyList(stored: String) {
-    #expect(decodeTimeZoneEntries(stored).map(\.identifier) == ["Europe/London", "Asia/Tokyo"])
+    #expect(decodeTimeZoneEntries(stored).map(\.identifier) == [localTimeZoneEntryID, "Europe/London", "Asia/Tokyo"])
 }
 
 @Test func dropsRepeatedAndBlankJSONEntries() {
@@ -29,23 +33,42 @@ func cleansLegacyList(stored: String) {
         TimeZoneEntry(identifier: " "),
         TimeZoneEntry(identifier: "Asia/Tokyo", label: "Second"),
     ]
-    #expect(decodeTimeZoneEntries(encodeTimeZoneEntries(entries)) == [entries[0]])
+    #expect(decodeTimeZoneEntries(encodeTimeZoneEntries(entries)) == [local, entries[0]])
 }
 
 @Test(arguments: ["", "[", "{\"broken\": true}", "[{\"identifier\": 1}]"])
-func ignoresUnreadableStorage(stored: String) {
-    #expect(decodeTimeZoneEntries(stored).isEmpty)
+func fallsBackToLocalEntryOnUnreadableStorage(stored: String) {
+    #expect(decodeTimeZoneEntries(stored) == [local])
 }
 
-@Test func getsVisibleEntriesWithoutLocalZone() {
+@Test func getsVisibleEntries() {
     let entries = [
-        TimeZoneEntry(identifier: "America/Sao_Paulo"),
-        TimeZoneEntry(identifier: "Europe/London", isVisible: false),
         TimeZoneEntry(identifier: "Asia/Tokyo"),
+        TimeZoneEntry(identifier: localTimeZoneEntryID, isVisible: false),
+        TimeZoneEntry(identifier: "Europe/London"),
     ]
     #expect(
-        getVisibleEntries(entries, localIdentifier: "America/Sao_Paulo").map(\.identifier) == ["Asia/Tokyo"]
-    )
+        getVisibleEntries(entries, localIdentifier: "America/Sao_Paulo").map(\.identifier) == [
+            "Asia/Tokyo", "Europe/London",
+        ])
+}
+
+@Test func addsLocalEntryFirstOnlyWhenMissing() {
+    #expect(decodeTimeZoneEntries("Asia/Tokyo").map(\.identifier) == [localTimeZoneEntryID, "Asia/Tokyo"])
+    let moved = encodeTimeZoneEntries([
+        TimeZoneEntry(identifier: "Asia/Tokyo"),
+        TimeZoneEntry(identifier: localTimeZoneEntryID, label: "Home", isVisible: false),
+    ])
+    let decoded = decodeTimeZoneEntries(moved)
+    #expect(decoded.map(\.identifier) == ["Asia/Tokyo", localTimeZoneEntryID])
+    #expect(decoded.last?.label == "Home")
+    #expect(decoded.last?.isVisible == false)
+}
+
+@Test func resolvesLocalEntryToCurrentZone() {
+    #expect(
+        resolveTimeZoneIdentifier(localTimeZoneEntryID, localIdentifier: "America/Sao_Paulo") == "America/Sao_Paulo")
+    #expect(resolveTimeZoneIdentifier("Asia/Tokyo", localIdentifier: "America/Sao_Paulo") == "Asia/Tokyo")
 }
 
 @Test func searchesByCityIgnoringCaseAndAccents() {
@@ -81,4 +104,51 @@ func normalizesLabel(text: String, expected: String?) {
 @Test func buildsDisplayTitle() {
     #expect(getDisplayTitle(label: nil, identifier: "Asia/Tokyo", flag: "🇯🇵") == "🇯🇵 Tokyo")
     #expect(getDisplayTitle(label: "Office", identifier: "Asia/Tokyo", flag: nil) == "Office")
+}
+
+@Test func formatsTimeZoneCaption() {
+    #expect(
+        formatTimeZoneCaption(identifier: "America/Sao_Paulo", abbreviation: "GMT-3", isLocal: true)
+            == "America/Sao_Paulo · GMT-3 · Current time zone"
+    )
+    #expect(formatTimeZoneCaption(identifier: "Asia/Tokyo", abbreviation: nil, isLocal: false) == "Asia/Tokyo")
+}
+
+@Test func keepsPinnedCitiesInPlaceWhileTravelling() {
+    let stored = encodeTimeZoneEntries([
+        TimeZoneEntry(identifier: "America/Los_Angeles"),
+        TimeZoneEntry(identifier: "Asia/Tokyo", label: "Office"),
+    ])
+    let entries = decodeTimeZoneEntries(stored)
+    #expect(entries.map(\.identifier) == [localTimeZoneEntryID, "America/Los_Angeles", "Asia/Tokyo"])
+    #expect(entries.last?.label == "Office")
+    // Only the city matching the current zone hides; the pins themselves never move or change.
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "America/Los_Angeles").map(\.identifier)
+            == [localTimeZoneEntryID, "Asia/Tokyo"]
+    )
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "Asia/Tokyo").map(\.identifier)
+            == [localTimeZoneEntryID, "America/Los_Angeles"]
+    )
+}
+
+@Test func hidesCityThatIsTheCurrentZoneWhileLocalShows() {
+    let entries = [local, TimeZoneEntry(identifier: "Asia/Tokyo"), TimeZoneEntry(identifier: "Europe/London")]
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "Asia/Tokyo").map(\.identifier) == [
+            localTimeZoneEntryID, "Europe/London",
+        ])
+    let localHidden = [
+        TimeZoneEntry(identifier: localTimeZoneEntryID, isVisible: false), TimeZoneEntry(identifier: "Asia/Tokyo"),
+    ]
+    #expect(getVisibleEntries(localHidden, localIdentifier: "Asia/Tokyo").map(\.identifier) == ["Asia/Tokyo"])
+}
+
+@Test func countsLocalEntryAsAddedZone() {
+    #expect(
+        getAddedTimeZoneIdentifiers(
+            [local, TimeZoneEntry(identifier: "Asia/Tokyo")], localIdentifier: "America/Sao_Paulo")
+            == ["America/Sao_Paulo", "Asia/Tokyo"]
+    )
 }
