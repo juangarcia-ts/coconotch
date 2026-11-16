@@ -11,6 +11,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
+    /// The tab a dragged tab is over, highlighted to show where it will land.
+    @State private var dropTargetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
@@ -157,6 +159,22 @@ struct NotchView: View {
                     }
                     .buttonStyle(.plain)
                     .help(widget.title)
+                    .background(
+                        Capsule().strokeBorder(
+                            Color.primary.opacity(dropTargetID == widget.id ? 0.35 : 0), lineWidth: 1)
+                    )
+                    // Home can't be dragged; dropping a tab on it moves that tab to the front.
+                    .modifier(DraggableTab(id: widget.id, isDraggable: widget.id != homeWidgetID))
+                    .dropDestination(for: String.self) { ids, _ in
+                        guard let id = ids.first else { return false }
+                        storedWidgetPreferences = encodeWidgetPreferences(
+                            moveWidget(
+                                id, onto: widget.id, in: NotchWidget.getPreferences(stored: storedWidgetPreferences))
+                        )
+                        return true
+                    } isTargeted: { isTargeted in
+                        dropTargetID = isTargeted ? widget.id : (dropTargetID == widget.id ? nil : dropTargetID)
+                    }
                 }
                 Spacer()
                 Button("Settings", systemImage: "gearshape", action: showSettings)
@@ -180,6 +198,19 @@ struct NotchView: View {
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
         .frame(maxHeight: NotchPanel.baseSize.height, alignment: .top)
         .clipped()
+    }
+}
+
+private struct DraggableTab: ViewModifier {
+    let id: String
+    let isDraggable: Bool
+
+    func body(content: Content) -> some View {
+        if isDraggable {
+            content.draggable(id)
+        } else {
+            content
+        }
     }
 }
 
