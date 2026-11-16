@@ -6,7 +6,8 @@ private let coffeeURL = URL(string: "https://buymeacoffee.com/juangarciats")
 
 /// The quiet line under every widget: the app's version, and links to its repository and to support it.
 struct NotchFooter: View {
-    static let height: CGFloat = 26
+    /// The footer's whole height, its spacing included, so the widget above can be sized to leave room for it.
+    static let height: CGFloat = 40
 
     var body: some View {
         HStack(spacing: 14) {
@@ -29,7 +30,10 @@ struct NotchFooter: View {
             }
         }
         .font(.caption2)
-        .frame(height: Self.height, alignment: .top)
+        .frame(height: 16)
+        // Clear air above, so the line reads as separate from the widget rather than part of it.
+        .padding(.top, 12)
+        .padding(.bottom, 12)
     }
 }
 
