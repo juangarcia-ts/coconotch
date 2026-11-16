@@ -48,14 +48,19 @@ public struct UsageLimit: Equatable, Identifiable, Sendable {
     public let percent: Int
     public let resetsAt: Date?
     public let modelName: String?
+    /// The window's length, when the source names limits by duration rather than by kind, as Codex does.
+    public let windowMinutes: Int?
 
     public var id: String { kind + (modelName ?? "") }
 
-    public init(kind: String, percent: Int, resetsAt: Date? = nil, modelName: String? = nil) {
+    public init(
+        kind: String, percent: Int, resetsAt: Date? = nil, modelName: String? = nil, windowMinutes: Int? = nil
+    ) {
         self.kind = kind
         self.percent = percent
         self.resetsAt = resetsAt
         self.modelName = modelName
+        self.windowMinutes = windowMinutes
     }
 }
 
@@ -141,7 +146,8 @@ public func parseUsageDate(_ text: String) -> Date? {
 
 /// "Current session", "Weekly · all models" or "Weekly · Fable".
 public func formatLimitTitle(_ limit: UsageLimit) -> String {
-    switch limit.kind {
+    if let minutes = limit.windowMinutes { return formatWindowTitle(minutes: minutes) }
+    return switch limit.kind {
     case "session": "Current session"
     case "weekly_all": "Weekly · all models"
     case "weekly_scoped": "Weekly · \(limit.modelName ?? "one model")"
@@ -211,6 +217,7 @@ public func getUsagePriority(_ limit: UsageLimit) -> ActivityPriority {
 /// Why there are no usage numbers to show.
 public enum ClaudeUsageProblem: Equatable, Sendable {
     case notConnected
+    case codexNotFound
     case accessDeclined
     /// macOS refused the Keychain read for another reason; the status is shown so it can be looked up.
     case keychainError(Int32)
@@ -224,6 +231,8 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
     switch problem {
     case .notConnected:
         "See your Claude Code limits here. CocoNotch reads your Claude Code login from the Keychain; macOS asks first."
+    case .codexNotFound:
+        "No Codex sessions found on this Mac. Use Codex once, then its limits show up here."
     case .accessDeclined:
         "Keychain access was declined. Connect again and choose Always Allow so CocoNotch can read your usage."
     case .keychainError(let status):
