@@ -87,3 +87,14 @@ private let sampleLog = """
     let jittered = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt - 0.1)
     #expect(makeUsageHeadsUpKey(provider: .claude, limit: jittered) == key)
 }
+
+@Test func keepsDismissalsUntilTheirOwnWindowResets() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let claude = makeUsageHeadsUpKey(
+        provider: .claude, limit: UsageLimit(kind: "session", percent: 90, resetsAt: now + 3600))
+    let expired = makeUsageHeadsUpKey(
+        provider: .codex, limit: UsageLimit(kind: "codex_primary", percent: 90, resetsAt: now - 60))
+    let noReset = makeUsageHeadsUpKey(provider: .codex, limit: UsageLimit(kind: "codex_primary", percent: 90))
+    #expect(pruneDismissedHeadsUpKeys([claude, expired, noReset], now: now) == [claude, noReset])
+    #expect(pruneDismissedHeadsUpKeys([claude], now: now + 3600).isEmpty)
+}

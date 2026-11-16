@@ -132,3 +132,12 @@ public func makeUsageHeadsUpKey(provider: AIProvider, limit: UsageLimit) -> Stri
     let resetsAt = limit.resetsAt.map { String(Int(($0.timeIntervalSince1970 / 60).rounded())) } ?? "none"
     return "\(provider.rawValue)-\(limit.id)-\(getUsagePriority(limit).rawValue)-\(resetsAt)"
 }
+
+/// Keeps each dismissal until its own window resets, whatever other limits do meanwhile. The reset minute is the key's
+/// last part; a limit with no reset time keeps its dismissal until the app quits.
+public func pruneDismissedHeadsUpKeys(_ keys: Set<String>, now: Date) -> Set<String> {
+    keys.filter { key in
+        guard let minute = key.split(separator: "-").last.flatMap({ Double($0) }) else { return true }
+        return Date(timeIntervalSince1970: minute * 60) > now
+    }
+}

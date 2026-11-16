@@ -246,6 +246,7 @@ final class AIUsageStore {
 
     func updateHeadsUp() {
         let now = Date.now
+        dismissedHeadsUpKeys = pruneDismissedHeadsUpKeys(dismissedHeadsUpKeys, now: now)
         let shown = getShownProviders(
             showsClaude: readDefault(showsClaudeKey, default: true),
             showsCodex: readDefault(showsCodexKey, default: true)
@@ -255,13 +256,10 @@ final class AIUsageStore {
             let (provider, limit) = getFullestProviderLimit(candidates),
             limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold)
         else {
-            dismissedHeadsUpKeys = []
             clearHeadsUp()
             return
         }
         let key = makeUsageHeadsUpKey(provider: provider, limit: limit)
-        // Only the current heads-up's dismissal matters; older ones are for windows that have already reset.
-        dismissedHeadsUpKeys = dismissedHeadsUpKeys.filter { $0 == key }
         guard !dismissedHeadsUpKeys.contains(key) else {
             clearHeadsUp()
             return
