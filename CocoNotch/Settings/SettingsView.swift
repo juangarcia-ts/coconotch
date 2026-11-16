@@ -89,6 +89,7 @@ private struct AppearanceSettings: View {
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
+    @AppStorage(PreferenceKey.notchScale) private var notchScale = 1.0
     @Environment(\.self) private var environment
 
     var body: some View {
@@ -109,6 +110,15 @@ private struct AppearanceSettings: View {
             }
             // Below 30% the white text stops being readable on most wallpapers.
             Slider(value: $backgroundOpacity, in: 0.3...1) { Text("Opacity") }
+            LabeledContent("Size") {
+                HStack {
+                    Slider(value: $notchScale, in: 0.8...1.6, step: 0.1) { Text("Size") }
+                        .labelsHidden()
+                    Text(notchScale.formatted(.percent.precision(.fractionLength(0))))
+                        .monospacedDigit()
+                        .frame(width: 44, alignment: .trailing)
+                }
+            }
             Text("The closed notch always stays black so it blends with the screen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

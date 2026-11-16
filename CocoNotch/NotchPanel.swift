@@ -2,18 +2,19 @@ import AppKit
 import SwiftUI
 
 final class NotchPanel: NSPanel {
-    // The most the expanded notch may take; NotchView clips taller content. Clicks on the transparent area fall
-    // through to the menu bar.
-    static let size = NSSize(width: 640, height: 300)
+    // The most the expanded notch may take at 100% size; NotchView clips taller content. Clicks on the transparent
+    // area fall through to the menu bar.
+    static let baseSize = NSSize(width: 640, height: 300)
 
     private let showSettings: () -> Void
     private var placedScreenFrame: NSRect?
     private var placedNotchSize: CGSize?
+    private var placedScale: CGFloat?
 
     init(showSettings: @escaping () -> Void) {
         self.showSettings = showSettings
         super.init(
-            contentRect: NSRect(origin: .zero, size: Self.size),
+            contentRect: NSRect(origin: .zero, size: Self.baseSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -30,18 +31,26 @@ final class NotchPanel: NSPanel {
 
     func place(on screen: NSScreen) {
         // Keep the view, and whether it's open, when neither the screen nor its notch changed.
-        guard screen.frame != placedScreenFrame || screen.notchSize != placedNotchSize else { return }
+        let scale = CGFloat(UserDefaults.standard.object(forKey: PreferenceKey.notchScale) as? Double ?? 1)
+        let isSameScreen = screen.frame == placedScreenFrame && screen.notchSize == placedNotchSize
+        guard !isSameScreen || scale != placedScale else { return }
+        if !isSameScreen {
+            let hostingView = NSHostingView(
+                rootView: NotchView(notchSize: screen.notchSize, showSettings: showSettings)
+            )
+            hostingView.sizingOptions = []
+            contentView = hostingView
+        }
         placedScreenFrame = screen.frame
         placedNotchSize = screen.notchSize
-        let hostingView = NSHostingView(rootView: NotchView(notchSize: screen.notchSize, showSettings: showSettings))
-        hostingView.sizingOptions = []
-        contentView = hostingView
+        placedScale = scale
+        let size = NSSize(width: Self.baseSize.width * scale, height: Self.baseSize.height * scale)
         setFrame(
             NSRect(
-                x: screen.frame.midX - Self.size.width / 2,
-                y: screen.frame.maxY - Self.size.height,
-                width: Self.size.width,
-                height: Self.size.height
+                x: screen.frame.midX - size.width / 2,
+                y: screen.frame.maxY - size.height,
+                width: size.width,
+                height: size.height
             ),
             display: true
         )

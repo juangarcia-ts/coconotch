@@ -12,6 +12,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
+    @AppStorage(PreferenceKey.notchScale) private var notchScale = 1.0
 
     private var enabledWidgets: [NotchWidget] {
         getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
@@ -40,6 +41,25 @@ struct NotchView: View {
         let radius: CGFloat = isExpanded ? 28 : 10
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
+        // Only the open panel scales; the closed notch has to match the physical one exactly.
+        let scale = isExpanded ? notchScale : 1
+
+        ScaledLayout(scale: scale) {
+            panel(shape: shape)
+                .scaleEffect(scale, anchor: .topLeading)
+        }
+        .contentShape(Rectangle())
+        .onHover { isHovering in
+            if !isHovering || !expandsOnClick { setExpanded(isHovering) }
+        }
+        .onTapGesture {
+            if expandsOnClick && !isExpanded { setExpanded(true) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .environment(\.colorScheme, usesDarkText ? .light : .dark)
+    }
+
+    private func panel(shape: UnevenRoundedRectangle) -> some View {
         ZStack(alignment: .top) {
             if !isExpanded {
                 shape.fill(.black)
@@ -58,15 +78,6 @@ struct NotchView: View {
         // Expanded, the height follows the widget's content instead of a fixed size.
         .frame(width: isExpanded ? 600 : notchSize.width, height: isExpanded ? nil : notchSize.height)
         .fixedSize(horizontal: false, vertical: isExpanded)
-        .contentShape(Rectangle())
-        .onHover { isHovering in
-            if !isHovering || !expandsOnClick { setExpanded(isHovering) }
-        }
-        .onTapGesture {
-            if expandsOnClick && !isExpanded { setExpanded(true) }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
     private func setExpanded(_ isExpanded: Bool) {
@@ -111,7 +122,7 @@ struct NotchView: View {
         }
         .foregroundStyle(.primary)
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
-        .frame(maxHeight: NotchPanel.size.height, alignment: .top)
+        .frame(maxHeight: NotchPanel.baseSize.height, alignment: .top)
         .clipped()
     }
 }
@@ -127,4 +138,27 @@ private struct BehindWindowBlur: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+/// Lays its child out at 1/scale of the space and reports scale × the child's size, so a child drawn with
+/// `.scaleEffect(scale, anchor: .topLeading)` takes up the room it appears to. `scaleEffect` alone changes only the
+/// drawing, not the layout, so the panel would overflow or leave gaps.
+private struct ScaledLayout: Layout {
+    let scale: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let size = child.sizeThatFits(
+            ProposedViewSize(width: proposal.width.map { $0 / scale }, height: proposal.height.map { $0 / scale })
+        )
+        return CGSize(width: size.width * scale, height: size.height * scale)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width / scale, height: bounds.height / scale)
+        )
+    }
 }
