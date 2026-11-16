@@ -1,3 +1,4 @@
+import CocoNotchCore
 import SwiftUI
 
 extension NotchWidget {
@@ -13,26 +14,13 @@ extension NotchWidget {
 private let storageKey = "timezones.identifiers"
 private let defaultIdentifiers = "America/Los_Angeles,America/New_York,Europe/London,Asia/Tokyo"
 
-private func parseIdentifiers(_ stored: String) -> [String] {
-    stored.split(separator: ",").map(String.init)
-}
-
-private func getCityName(_ identifier: String) -> String {
-    (identifier.split(separator: "/").last.map(String.init) ?? identifier).replacingOccurrences(of: "_", with: " ")
-}
-
-private func formatOffset(seconds: Int) -> String {
-    let duration = Duration.seconds(abs(seconds)).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
-    return (seconds < 0 ? "−" : "+") + duration
-}
-
 private struct TimezonesView: View {
     @AppStorage(storageKey) private var storedIdentifiers = defaultIdentifiers
     @State private var hourOffset = 0.0
 
     private var zones: [TimeZone] {
         let local = TimeZone.current
-        let others = parseIdentifiers(storedIdentifiers)
+        let others = parseTimeZoneIdentifiers(storedIdentifiers)
             .filter { $0 != local.identifier }
             .compactMap(TimeZone.init(identifier:))
         return [local] + others
@@ -79,7 +67,7 @@ private struct ZoneColumn: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(getCityName(zone.identifier))
+            Text(getCityName(forTimeZoneIdentifier: zone.identifier))
                 .font(.caption)
                 .foregroundStyle(isLocal ? .primary : .secondary)
                 .lineLimit(1)
@@ -101,9 +89,9 @@ private struct TimezonesMenu: View {
     )
 
     var body: some View {
-        let identifiers = parseIdentifiers(storedIdentifiers)
+        let identifiers = parseTimeZoneIdentifiers(storedIdentifiers)
         ForEach(identifiers, id: \.self) { identifier in
-            Button("Remove \(getCityName(identifier))") {
+            Button("Remove \(getCityName(forTimeZoneIdentifier: identifier))") {
                 storedIdentifiers = identifiers.filter { $0 != identifier }.joined(separator: ",")
             }
         }
@@ -112,7 +100,7 @@ private struct TimezonesMenu: View {
             ForEach(Self.identifiersByRegion.keys.sorted(), id: \.self) { region in
                 Menu(region) {
                     ForEach(Self.identifiersByRegion[region] ?? [], id: \.self) { identifier in
-                        Button(getCityName(identifier)) {
+                        Button(getCityName(forTimeZoneIdentifier: identifier)) {
                             storedIdentifiers = (identifiers + [identifier]).joined(separator: ",")
                         }
                         .disabled(identifiers.contains(identifier))

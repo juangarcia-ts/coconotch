@@ -35,7 +35,9 @@ struct NotchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(NotchWidget.all) { widget in
-                    Button { selectedWidgetID = widget.id } label: {
+                    Button {
+                        selectedWidgetID = widget.id
+                    } label: {
                         Image(systemName: widget.systemImage)
                             .frame(width: 40, height: notchSize.height - 6)
                             .background(

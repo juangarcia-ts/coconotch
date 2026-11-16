@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Keeps Dependabot PR titles conventional so the pr-title check passes.
+    commit-message:
+      prefix: ci
