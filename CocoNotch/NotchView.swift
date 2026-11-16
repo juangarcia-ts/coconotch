@@ -16,7 +16,6 @@ struct NotchView: View {
     }
 
     var body: some View {
-        let size = isExpanded ? CGSize(width: 600, height: notchSize.height + 170) : notchSize
         let radius: CGFloat = isExpanded ? 28 : 10
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
@@ -35,7 +34,9 @@ struct NotchView: View {
                     .transition(.opacity)
             }
         }
-        .frame(width: size.width, height: size.height)
+        // Expanded, the height follows the widget's content instead of a fixed size.
+        .frame(width: isExpanded ? 600 : notchSize.width, height: isExpanded ? nil : notchSize.height)
+        .fixedSize(horizontal: false, vertical: isExpanded)
         .contentShape(Rectangle())
         .onHover { isHovering in
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
@@ -82,8 +83,9 @@ struct NotchView: View {
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity)
         }
         .foregroundStyle(.white)
     }
