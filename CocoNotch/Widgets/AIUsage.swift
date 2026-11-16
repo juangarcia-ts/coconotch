@@ -101,6 +101,9 @@ final class AIUsageStore {
     private var updatedAt: Date?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    /// The heads-up showing in the closed notch, if any, as a `makeUsageHeadsUpKey`.
+    private(set) var headsUpKey: String?
+    @ObservationIgnored private var dismissedHeadsUpKeys: Set<String> = []
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -228,6 +231,11 @@ final class AIUsageStore {
         }
     }
 
+    func dismissHeadsUp() {
+        if let headsUpKey { dismissedHeadsUpKeys.insert(headsUpKey) }
+        updateHeadsUp()
+    }
+
     func updateHeadsUp() {
         let now = Date.now
         let shown = getShownProviders(
@@ -237,11 +245,14 @@ final class AIUsageStore {
         let candidates = shown.flatMap { provider in getLimits(for: provider, now: now).map { (provider, $0) } }
         guard readDefault(showsHeadsUpKey, default: true),
             let (provider, limit) = getFullestProviderLimit(candidates),
-            limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold)
+            limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold),
+            !dismissedHeadsUpKeys.contains(makeUsageHeadsUpKey(provider: provider, limit: limit))
         else {
+            headsUpKey = nil
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
         }
+        headsUpKey = makeUsageHeadsUpKey(provider: provider, limit: limit)
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -324,6 +335,11 @@ private struct AIUsageView: View {
                             }
                         }
                         Spacer()
+                        if store.headsUpKey != nil {
+                            Button("Dismiss", systemImage: "bell.slash") { store.dismissHeadsUp() }
+                                .buttonStyle(.bordered)
+                                .help("Hide this limit's reminder in the closed notch until it resets or runs out")
+                        }
                         if provider == .codex,
                             let asOf = formatAsOf(store.codexUsage?.recordedAt, now: context.date, calendar: .current)
                         {
