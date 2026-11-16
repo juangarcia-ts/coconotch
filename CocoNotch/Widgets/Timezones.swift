@@ -8,7 +8,8 @@ extension NotchWidget {
         systemImage: "globe",
         makeView: { AnyView(TimezonesView()) },
         makeSettings: { AnyView(TimezonesSettings()) },
-        makeSummary: { AnyView(TimezonesSummary()) }
+        makeSummary: { AnyView(TimezonesSummary()) },
+        makeSummarySettings: { AnyView(TimezonesSummarySettings()) }
     )
 }
 
@@ -117,27 +118,32 @@ private struct TimezonesSummary: View {
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            VStack(spacing: 4) {
+            HStack(spacing: 0) {
                 ForEach(
                     getVisibleEntries(
                         decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier
-                    )
-                    .prefix(homeCount)
+                    ).prefix(homeCount)
                 ) { entry in
                     if let zone = TimeZone(identifier: entry.identifier) {
-                        HStack {
-                            Text(getZoneTitle(identifier: entry.identifier, label: entry.label, showsFlag: showsFlags))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            Spacer(minLength: 8)
+                        VStack(spacing: 2) {
                             Text(
                                 context.date.formatted(
                                     Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
                             )
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
+                            .font(.title3.weight(.semibold).monospacedDigit())
+                            Text(getZoneTitle(identifier: entry.identifier, label: entry.label, showsFlag: showsFlags))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Text(
+                                formatOffset(
+                                    seconds: zone.secondsFromGMT(for: context.date)
+                                        - TimeZone.current.secondsFromGMT(for: context.date))
+                            )
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
                         }
-                        .font(.callout)
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -145,10 +151,19 @@ private struct TimezonesSummary: View {
     }
 }
 
+private struct TimezonesSummarySettings: View {
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        Picker("Cities shown", selection: $homeCount) {
+            ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+        }
+    }
+}
+
 private struct TimezonesSettings: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
     @AppStorage(showsFlagsKey) private var showsFlags = true
-    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
     // Decoded once when the tab appears and saved on every change, instead of decoding on each access.
     @State private var entries: [TimeZoneEntry] = []
     @State private var query = ""
@@ -165,10 +180,6 @@ private struct TimezonesSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Show country flags", isOn: $showsFlags)
-            Picker("Cities on Home", selection: $homeCount) {
-                ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
-            }
-            .fixedSize()
             Text("Your local time is always shown first. Drag to reorder; the label replaces the city name.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

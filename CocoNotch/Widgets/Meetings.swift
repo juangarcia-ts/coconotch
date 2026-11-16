@@ -9,7 +9,8 @@ extension NotchWidget {
         systemImage: "calendar",
         makeView: { AnyView(MeetingsView()) },
         makeSettings: { AnyView(MeetingsSettings()) },
-        makeSummary: { AnyView(MeetingsSummary()) }
+        makeSummary: { AnyView(MeetingsSummary()) },
+        makeSummarySettings: { AnyView(MeetingsSummarySettings()) }
     )
 }
 
@@ -347,34 +348,66 @@ private struct MeetingsSummary: View {
                 hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
             )
             .prefix(homeCount)
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(meetings) { meeting in
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(meeting.title)
-                                .font(.callout.weight(.medium))
+            VStack(alignment: .leading, spacing: 8) {
+                if let next = meetings.first {
+                    HStack(spacing: 10) {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(getCalendarColor(id: next.calendarID))
+                            .frame(width: 3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(next.title)
+                                .font(.headline)
                                 .lineLimit(1)
-                            Text(
-                                "\(formatStartTime(meeting)) · \(formatCountdown(now: context.date, start: meeting.start))"
-                            )
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            Text(formatTimeRange(next))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
                         }
-                        Spacer(minLength: 0)
-                        if let link = meeting.link {
-                            Link(destination: link) {
-                                Image(systemName: "video")
+                        Spacer(minLength: 8)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text(formatCountdown(now: context.date, start: next.start))
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Color.accentColor)
+                            if let link = next.link {
+                                Link("Join", destination: link)
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
                             }
-                            .help("Join")
                         }
                     }
-                }
-                if meetings.isEmpty {
+                    .fixedSize(horizontal: false, vertical: true)
+                    ForEach(meetings.dropFirst()) { meeting in
+                        HStack(spacing: 8) {
+                            Text(formatStartTime(meeting))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 44, alignment: .leading)
+                            Text(meeting.title)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        .padding(.leading, 13)
+                    }
+                } else {
                     Text(formatEmptyAgenda(day: nil))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+private func getCalendarColor(id: String) -> Color {
+    Color(nsColor: eventStore.calendar(withIdentifier: id)?.color ?? .controlAccentColor)
+}
+
+private struct MeetingsSummarySettings: View {
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        Picker("Meetings shown", selection: $homeCount) {
+            ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
         }
     }
 }
@@ -481,14 +514,10 @@ private struct MeetingsSettings: View {
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
-    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
 
     var body: some View {
         Form {
             Toggle("Show past events", isOn: $showsPastEvents)
-            Picker("Meetings on Home", selection: $homeCount) {
-                ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
-            }
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
             Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {

@@ -3,7 +3,7 @@ import SwiftUI
 
 extension NotchWidget {
     static let home = NotchWidget(
-        id: "home",
+        id: homeWidgetID,
         title: "Home",
         systemImage: "house",
         makeView: { AnyView(HomeView()) },
@@ -36,12 +36,16 @@ private struct HomeView: View {
                 .padding(.vertical, 24)
         } else {
             let columnCount = getHomeColumnCount(cardCount: widgets.count, maxColumns: maxColumns)
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columnCount),
-                spacing: 10
-            ) {
-                ForEach(widgets) { widget in
-                    SummaryCard(widget: widget) { selectedWidgetID = widget.id }
+            let rows = makeRows(widgets, columnCount: columnCount)
+            VStack(spacing: 10) {
+                ForEach(rows.indices, id: \.self) { index in
+                    HStack(alignment: .top, spacing: 10) {
+                        ForEach(rows[index]) { widget in
+                            SummaryCard(widget: widget) { selectedWidgetID = widget.id }
+                        }
+                    }
+                    // Lets every card in the row stretch to the tallest one.
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -54,26 +58,38 @@ private struct SummaryCard: View {
     @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(widget.title, systemImage: widget.systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 5) {
+                Image(systemName: widget.systemImage)
+                Text(widget.title)
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .opacity(isHovering ? 1 : 0)
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.tertiary)
             widget.makeSummary?()
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(Color.primary.opacity(isHovering ? 0.12 : 0.08), in: RoundedRectangle(cornerRadius: 12))
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.primary.opacity(isHovering ? 0.09 : 0.06))
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture(perform: open)
         .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(.easeOut(duration: 0.15), value: isHovering)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Open \(widget.title)", open)
         .help("Open \(widget.title)")
     }
 }
 
-private struct HomeSettings: View {
+struct HomeSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
     @AppStorage(maxColumnsKey) private var maxColumns = defaultMaxColumns
@@ -84,14 +100,18 @@ private struct HomeSettings: View {
                 ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
             }
             Section("Summaries") {
-                Text("Home shows them in the order set in Settings → Widgets. Click a card to open its widget.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Home is always the first tab; hide it in Settings → Widgets. Cards follow the widget order there, and clicking one opens its widget."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 ForEach(NotchWidget.getPreferences(stored: storedWidgetPreferences)) { preference in
                     if let widget = NotchWidget.find(id: preference.id), widget.makeSummary != nil {
                         Toggle(isOn: makeVisibilityBinding(for: widget.id)) {
                             Label(widget.title, systemImage: widget.systemImage)
                         }
+                        widget.makeSummarySettings?()
+                            .padding(.leading, 24)
                     }
                 }
             }

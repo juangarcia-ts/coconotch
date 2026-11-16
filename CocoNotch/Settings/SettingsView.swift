@@ -13,6 +13,8 @@ struct SettingsView: View {
                 .tabItem { Label("Appearance", systemImage: "paintpalette") }
             WidgetsSettings()
                 .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+            HomeSettings()
+                .tabItem { Label(NotchWidget.home.title, systemImage: NotchWidget.home.systemImage) }
             ForEach(NotchWidget.getPreferences(stored: storedWidgetPreferences)) { preference in
                 if let widget = NotchWidget.find(id: preference.id), let makeSettings = widget.makeSettings {
                     makeSettings()
@@ -132,6 +134,7 @@ private struct AppearanceSettings: View {
 private struct WidgetsSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
+    @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     // Edited locally and saved on every change, so dragging doesn't decode the stored list on each frame.
     @State private var preferences: [WidgetPreference] = []
 
@@ -151,6 +154,18 @@ private struct WidgetsSettings: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             List {
+                HStack {
+                    DragHandle()
+                        .hidden()
+                    Label(NotchWidget.home.title, systemImage: NotchWidget.home.systemImage)
+                    Text("Always first")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("Show \(NotchWidget.home.title)", isOn: $showsHome)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
                 ForEach($preferences) { $preference in
                     if let widget = NotchWidget.find(id: preference.id) {
                         HStack {

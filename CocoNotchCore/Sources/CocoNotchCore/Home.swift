@@ -3,6 +3,20 @@ public func getHomeSummaryIDs(_ orderedIDs: [String], summaryIDs: Set<String>, h
     orderedIDs.filter { summaryIDs.contains($0) && !hiddenIDs.contains($0) }
 }
 
+public let homeWidgetID = "home"
+
+/// The notch's tabs: Home first when shown, then the enabled widgets in the user's order.
+public func getTabIDs(enabledIDs: [String], showsHome: Bool) -> [String] {
+    (showsHome ? [homeWidgetID] : []) + enabledIDs
+}
+
+/// Splits items into rows of `columnCount`, the last row holding whatever is left.
+public func makeRows<Item>(_ items: [Item], columnCount: Int) -> [[Item]] {
+    stride(from: 0, to: items.count, by: max(columnCount, 1)).map {
+        Array(items[$0..<min($0 + max(columnCount, 1), items.count)])
+    }
+}
+
 /// Fewer cards than the chosen maximum share the row instead of leaving empty columns.
 public func getHomeColumnCount(cardCount: Int, maxColumns: Int) -> Int {
     max(min(cardCount, maxColumns), 1)

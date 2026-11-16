@@ -10,6 +10,7 @@ struct NotchView: View {
     @State private var alertingKey: String?
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
@@ -19,8 +20,11 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
 
     private var enabledWidgets: [NotchWidget] {
-        getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
-            .compactMap { NotchWidget.find(id: $0) }
+        getTabIDs(
+            enabledIDs: getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)),
+            showsHome: showsHome
+        )
+        .compactMap { NotchWidget.find(id: $0) }
     }
 
     /// Activities from enabled widgets, winner first.
