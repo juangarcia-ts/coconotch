@@ -55,12 +55,12 @@ struct ActivityIsland: View {
     static let maxSideWidth: CGFloat = 140
 
     var body: some View {
-        VStack(spacing: 0) {
+        IslandStack {
             row
             if isAlerting, let makeAlert = activity.makeAlert {
                 makeAlert()
-                    // No ideal width, so the row alone sizes the island and the alert fills it, truncating long titles.
-                    .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
             }
         }
@@ -91,6 +91,30 @@ struct ActivityIsland: View {
 
 /// Places the leading view, a gap as wide as the notch, then the trailing view. Both sides take the wider side's
 /// width, so the camera stays centered and the island is only as wide as its content.
+/// Stacks the alert under the row at the row's width, so the alert never widens the island. The alert is measured at
+/// that width rather than at an ideal width, which would wrap its text one letter per line and stretch the island down.
+private struct IslandStack: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let row = subviews.first else { return .zero }
+        let rowSize = row.sizeThatFits(.unspecified)
+        let alertHeight = subviews.dropFirst().map {
+            $0.sizeThatFits(ProposedViewSize(width: rowSize.width, height: nil)).height
+        }.reduce(0, +)
+        return CGSize(width: rowSize.width, height: rowSize.height + alertHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for subview in subviews {
+            let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+            subview.place(
+                at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: size.height))
+            y += size.height
+        }
+    }
+}
+
 private struct IslandLayout: Layout {
     let gapWidth: CGFloat
     let maxSideWidth: CGFloat
