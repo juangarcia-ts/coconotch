@@ -52,28 +52,25 @@ struct ActivityIsland: View {
     let otherCount: Int
     let isAlerting: Bool
 
-    // Both sides are the same width so the camera stays centered between them.
-    static let sideWidth: CGFloat = 140
+    static let maxSideWidth: CGFloat = 140
 
     var body: some View {
         VStack(spacing: 0) {
             row
             if isAlerting, let makeAlert = activity.makeAlert {
                 makeAlert()
-                    .frame(width: Self.sideWidth * 2 + notchSize.width, alignment: .leading)
+                    // No ideal width, so the row alone sizes the island and the alert fills it, truncating long titles.
+                    .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
             }
         }
     }
 
     private var row: some View {
-        HStack(spacing: 0) {
+        IslandLayout(gapWidth: notchSize.width, maxSideWidth: Self.maxSideWidth) {
             activity.makeLeading()
                 .lineLimit(1)
                 .padding(.leading, 14)
-                .frame(width: Self.sideWidth, alignment: .leading)
-            Color.clear
-                .frame(width: notchSize.width)
             HStack(spacing: 6) {
                 activity.makeTrailing()
                     .lineLimit(1)
@@ -86,9 +83,32 @@ struct ActivityIsland: View {
                 }
             }
             .padding(.trailing, 14)
-            .frame(width: Self.sideWidth, alignment: .trailing)
         }
         .font(.caption.weight(.semibold))
         .frame(height: notchSize.height)
+    }
+}
+
+/// Places the leading view, a gap as wide as the notch, then the trailing view. Both sides take the wider side's
+/// width, so the camera stays centered and the island is only as wide as its content.
+private struct IslandLayout: Layout {
+    let gapWidth: CGFloat
+    let maxSideWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        CGSize(
+            width: getSideWidth(subviews) * 2 + gapWidth,
+            height: proposal.replacingUnspecifiedDimensions().height
+        )
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let side = ProposedViewSize(width: getSideWidth(subviews), height: bounds.height)
+        subviews.first?.place(at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading, proposal: side)
+        subviews.last?.place(at: CGPoint(x: bounds.maxX, y: bounds.midY), anchor: .trailing, proposal: side)
+    }
+
+    private func getSideWidth(_ subviews: Subviews) -> CGFloat {
+        getIslandSideWidth(subviews.map { $0.sizeThatFits(.unspecified).width }, maxWidth: maxSideWidth)
     }
 }

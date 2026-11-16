@@ -59,3 +59,8 @@ public func rankActivities(
 public func makeAlertKey(_ activity: ActivitySummary) -> String {
     "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)"
 }
+
+/// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.
+public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> CGFloat {
+    min(idealWidths.max() ?? 0, maxWidth)
+}

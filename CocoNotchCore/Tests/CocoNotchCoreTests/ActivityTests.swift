@@ -67,3 +67,8 @@ private func makeActivity(
     #expect(key(.normal, start) != key(.urgent, start))
     #expect(key(.normal, start) != key(.normal, start + 1800))
 }
+
+@Test(arguments: [([70.0, 40.0], 70.0), ([40.0, 90.0], 90.0), ([300.0, 40.0], 140.0), ([], 0.0)])
+func sizesIslandSides(idealWidths: [Double], expected: Double) {
+    #expect(getIslandSideWidth(idealWidths.map { CGFloat($0) }, maxWidth: 140) == CGFloat(expected))
+}
