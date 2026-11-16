@@ -2,8 +2,9 @@ import AppKit
 import SwiftUI
 
 final class NotchPanel: NSPanel {
-    // Fixed at the largest expanded size; clicks on its transparent area fall through to the menu bar.
-    static let size = NSSize(width: 640, height: 260)
+    // The most the expanded notch may take; NotchView clips taller content. Clicks on the transparent area fall
+    // through to the menu bar.
+    static let size = NSSize(width: 640, height: 300)
 
     private let showSettings: () -> Void
 
