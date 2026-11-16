@@ -13,6 +13,7 @@ enum PreferenceKey {
     static let widgetPreferences = "widgets.preferences"
     static let notchDisplay = "behavior.notchDisplay"
     static let notchScale = "appearance.notchScale"
+    static let showsActivities = "behavior.showsActivities"
 }
 
 extension Color.Resolved {

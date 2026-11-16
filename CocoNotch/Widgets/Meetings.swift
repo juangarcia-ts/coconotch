@@ -39,17 +39,52 @@ private func getTodaysMeetings(now: Date) -> [Meeting] {
     }
 }
 
+/// Loads today's meetings for the whole app, so the closed notch can use them too, not just the Meetings tab.
+@Observable
+final class MeetingsStore {
+    static let shared = MeetingsStore()
+
+    private(set) var accessStatus = EKEventStore.authorizationStatus(for: .event)
+    // Fetched once a minute and when calendars change, not on every render.
+    private(set) var todaysMeetings: [Meeting] = []
+    private var refreshTask: Task<Void, Never>?
+
+    /// Starts the once-a-minute refresh. Never asks for access; that happens from the Meetings tab.
+    func start() {
+        guard refreshTask == nil else { return }
+        refreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                self?.refreshAccessStatus()
+                try? await Task.sleep(for: .seconds(60))
+            }
+        }
+        NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: eventStore, queue: .main) {
+            [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshAccessStatus() }
+        }
+    }
+
+    /// Re-reads access, which the user may have changed in System Settings, then reloads meetings.
+    func refreshAccessStatus() {
+        accessStatus = EKEventStore.authorizationStatus(for: .event)
+        todaysMeetings = accessStatus == .fullAccess ? getTodaysMeetings(now: .now) : []
+    }
+
+    func requestAccess() async {
+        _ = try? await eventStore.requestFullAccessToEvents()
+        refreshAccessStatus()
+    }
+}
+
 private struct MeetingsView: View {
     @AppStorage(hidesAllDayKey) private var hidesAllDay = true
     @AppStorage(hidesDeclinedKey) private var hidesDeclined = true
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
-    @State private var accessStatus = EKEventStore.authorizationStatus(for: .event)
-    // Fetched once a minute and when calendars change, not on every render of the body.
-    @State private var todaysMeetings: [Meeting] = []
+    private let store = MeetingsStore.shared
 
     var body: some View {
         Group {
-            switch accessStatus {
+            switch store.accessStatus {
             case .fullAccess:
                 agenda
             case .notDetermined:
@@ -57,7 +92,7 @@ private struct MeetingsView: View {
                     Text("See your next meetings and join them from the notch.")
                         .foregroundStyle(.secondary)
                     Button("Allow Calendar Access") {
-                        Task { await requestAccess() }
+                        Task { await store.requestAccess() }
                     }
                 }
             default:
@@ -75,23 +110,14 @@ private struct MeetingsView: View {
             }
         }
         // Access may have been granted in System Settings since the notch last opened.
-        .onAppear { accessStatus = EKEventStore.authorizationStatus(for: .event) }
-        .task(id: accessStatus) {
-            while !Task.isCancelled && accessStatus == .fullAccess {
-                todaysMeetings = getTodaysMeetings(now: .now)
-                try? await Task.sleep(for: .seconds(60))
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
-            if accessStatus == .fullAccess { todaysMeetings = getTodaysMeetings(now: .now) }
-        }
+        .onAppear { store.refreshAccessStatus() }
     }
 
     private var agenda: some View {
         TimelineView(.everyMinute) { context in
             let agenda = makeAgenda(
                 getUpcomingMeetings(
-                    todaysMeetings,
+                    store.todaysMeetings,
                     now: context.date,
                     hidesAllDay: hidesAllDay,
                     hidesDeclined: hidesDeclined,
@@ -120,10 +146,6 @@ private struct MeetingsView: View {
         }
     }
 
-    private func requestAccess() async {
-        _ = try? await eventStore.requestFullAccessToEvents()
-        accessStatus = EKEventStore.authorizationStatus(for: .event)
-    }
 }
 
 private struct NextMeetingCard: View {

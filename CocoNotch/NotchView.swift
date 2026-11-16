@@ -13,10 +13,16 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
+    @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
 
     private var enabledWidgets: [NotchWidget] {
         getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
             .compactMap { NotchWidget.find(id: $0) }
+    }
+
+    /// Activities from enabled widgets, winner first.
+    private var rankedActivities: [NotchActivity] {
+        showsActivities ? ActivityCenter.shared.getRanked(enabledWidgetIDs: enabledWidgets.map(\.id)) : []
     }
 
     // Falls back to the first enabled widget when the last selected one was switched off.
@@ -43,13 +49,17 @@ struct NotchView: View {
 
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
+        let activities = rankedActivities
 
         ScaledLayout(scale: scale) {
-            panel(shape: shape)
+            panel(shape: shape, activities: activities)
                 .scaleEffect(scale, anchor: .topLeading)
         }
+        .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
         .contentShape(Rectangle())
         .onHover { isHovering in
+            // Opening the notch from an activity shows the widget it came from.
+            if isHovering, !isExpanded, let activity = activities.first { selectedWidgetID = activity.widgetID }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onTapGesture {
@@ -59,8 +69,9 @@ struct NotchView: View {
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
-    private func panel(shape: UnevenRoundedRectangle) -> some View {
-        ZStack(alignment: .top) {
+    private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity]) -> some View {
+        let island = isExpanded ? nil : activities.first
+        return ZStack(alignment: .top) {
             if !isExpanded {
                 shape.fill(.black)
             } else if backgroundStyle == .blur {
@@ -71,20 +82,26 @@ struct NotchView: View {
                 shape.fill(Color(colorData: backgroundColorData).opacity(backgroundOpacity))
             }
             if isExpanded {
-                expandedContent
+                expandedContent(activities: activities)
+                    .transition(.opacity)
+            } else if let island {
+                ActivityIsland(activity: island, notchSize: notchSize, otherCount: activities.count - 1)
                     .transition(.opacity)
             }
         }
-        // Expanded, the height follows the widget's content instead of a fixed size.
-        .frame(width: isExpanded ? 600 : notchSize.width, height: isExpanded ? nil : notchSize.height)
-        .fixedSize(horizontal: false, vertical: isExpanded)
+        // Expanded, the height follows the widget's content; with an activity, the closed notch widens to fit it.
+        .frame(
+            width: isExpanded ? 600 : (island == nil ? notchSize.width : nil),
+            height: isExpanded ? nil : notchSize.height
+        )
+        .fixedSize(horizontal: island != nil, vertical: isExpanded)
     }
 
     private func setExpanded(_ isExpanded: Bool) {
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
     }
 
-    private var expandedContent: some View {
+    private func expandedContent(activities: [NotchActivity]) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(enabledWidgets) { widget in
@@ -113,6 +130,16 @@ struct NotchView: View {
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)
             .padding(.top, 8)
+
+            if !activities.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(activities) { activity in
+                        ActivityRow(activity: activity)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+            }
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)

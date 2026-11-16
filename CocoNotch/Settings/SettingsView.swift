@@ -28,6 +28,7 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
+    @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
 
@@ -42,6 +43,7 @@ private struct GeneralSettings: View {
                 Text("Built-in display").tag(NotchDisplayChoice.builtIn)
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
+            Toggle("Show live activities in the closed notch", isOn: $showsActivities)
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.
