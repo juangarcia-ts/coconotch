@@ -10,7 +10,7 @@ private enum SettingsPage: Hashable {
 }
 
 struct SettingsView: View {
-    static let size = CGSize(width: 720, height: 520)
+    static let size = CGSize(width: 760, height: 520)
 
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @State private var page = SettingsPage.general
@@ -42,7 +42,8 @@ struct SettingsView: View {
                         .tag(SettingsPage.widgets)
                 }
             }
-            .navigationSplitViewColumnWidth(200)
+            // Wide enough for the longest widget name, "Time Zones", without truncating.
+            .navigationSplitViewColumnWidth(230)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
