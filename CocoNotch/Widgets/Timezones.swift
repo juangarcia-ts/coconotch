@@ -50,7 +50,10 @@ private struct TimezonesView: View {
     @State private var hourOffset = 0.0
 
     private var entries: [TimeZoneEntry] {
-        getVisibleEntries(decodeTimeZoneEntries(storedEntries))
+        getVisibleEntries(
+            decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier),
+            localIdentifier: TimeZone.current.identifier
+        )
     }
 
     var body: some View {
@@ -124,7 +127,12 @@ private struct TimezonesSummary: View {
     var body: some View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 0) {
-                ForEach(getVisibleEntries(decodeTimeZoneEntries(storedEntries)).prefix(homeCount)) { entry in
+                ForEach(
+                    getVisibleEntries(
+                        decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier),
+                        localIdentifier: TimeZone.current.identifier
+                    ).prefix(homeCount)
+                ) { entry in
                     if let zone = getZone(for: entry) {
                         VStack(spacing: 2) {
                             Text(
@@ -173,7 +181,7 @@ private struct TimezonesSettings: View {
         searchTimeZoneIdentifiers(
             query,
             in: TimeZone.knownTimeZoneIdentifiers,
-            excluding: Set(entries.map(\.identifier)),
+            excluding: getAddedTimeZoneIdentifiers(entries, localIdentifier: TimeZone.current.identifier),
             limit: 6
         )
     }
@@ -247,7 +255,9 @@ private struct TimezonesSettings: View {
         }
         .padding(20)
         .frame(minHeight: 420, alignment: .top)
-        .onAppear { entries = decodeTimeZoneEntries(storedEntries) }
+        .onAppear {
+            entries = decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier)
+        }
         .onChange(of: entries) { storedEntries = encodeTimeZoneEntries(entries) }
     }
 

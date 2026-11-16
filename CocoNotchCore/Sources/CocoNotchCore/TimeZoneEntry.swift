@@ -19,8 +19,9 @@ public struct TimeZoneEntry: Codable, Equatable, Identifiable, Sendable {
 
 /// Reads the stored JSON list, or the comma-separated identifiers that versions before 0.2 stored.
 /// Blank and repeated identifiers are dropped, because the identifier is each entry's `id` in SwiftUI lists.
-/// The local entry is added first when missing, where the local time used to always show; it can be hidden, not removed.
-public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
+/// The local entry is added when missing, where the local time used to always show; it can be hidden, not removed.
+/// A stored entry for the current zone becomes the local one in place, keeping its label, so it doesn't show twice.
+public func decodeTimeZoneEntries(_ stored: String, localIdentifier: String? = nil) -> [TimeZoneEntry] {
     let entries: [TimeZoneEntry]
     if let decoded = try? JSONDecoder().decode([TimeZoneEntry].self, from: Data(stored.utf8)) {
         entries = decoded
@@ -37,8 +38,13 @@ public func decodeTimeZoneEntries(_ stored: String) -> [TimeZoneEntry] {
         guard !entry.identifier.isEmpty, seenIdentifiers.insert(entry.identifier).inserted else { return nil }
         return entry
     }
-    return seenIdentifiers.contains(localTimeZoneEntryID)
-        ? unique : [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
+    guard !seenIdentifiers.contains(localTimeZoneEntryID) else { return unique }
+    guard let index = unique.firstIndex(where: { $0.identifier == localIdentifier }) else {
+        return [TimeZoneEntry(identifier: localTimeZoneEntryID)] + unique
+    }
+    var migrated = unique
+    migrated[index].identifier = localTimeZoneEntryID
+    return migrated
 }
 
 public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
@@ -46,8 +52,16 @@ public func encodeTimeZoneEntries(_ entries: [TimeZoneEntry]) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
-public func getVisibleEntries(_ entries: [TimeZoneEntry]) -> [TimeZoneEntry] {
-    entries.filter(\.isVisible)
+/// The shown entries. A city that is also the current zone, say Tokyo while in Tokyo, is left out while the local
+/// entry is shown, so the same clock never appears twice.
+public func getVisibleEntries(_ entries: [TimeZoneEntry], localIdentifier: String) -> [TimeZoneEntry] {
+    let showsLocal = entries.contains { $0.identifier == localTimeZoneEntryID && $0.isVisible }
+    return entries.filter { $0.isVisible && !(showsLocal && $0.identifier == localIdentifier) }
+}
+
+/// Zones the add search shouldn't offer: those in the list, the local entry counted as the current zone.
+public func getAddedTimeZoneIdentifiers(_ entries: [TimeZoneEntry], localIdentifier: String) -> Set<String> {
+    Set(entries.map { resolveTimeZoneIdentifier($0.identifier, localIdentifier: localIdentifier) })
 }
 
 /// The real time zone identifier for an entry: the Mac's current one for the local entry.
