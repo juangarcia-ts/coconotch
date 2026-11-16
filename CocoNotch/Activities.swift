@@ -59,7 +59,9 @@ struct ActivityIsland: View {
             row
             if isAlerting, let makeAlert = activity.makeAlert {
                 makeAlert()
-                    .frame(width: Self.maxSideWidth * 2 + notchSize.width, alignment: .leading)
+                    .frame(maxWidth: Self.maxSideWidth * 2 + notchSize.width, alignment: .leading)
+                    // Spans the island's width without widening it past the row, so both line up.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
             }
         }
