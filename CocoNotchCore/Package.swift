@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [.library(name: "CocoNotchCore", targets: ["CocoNotchCore"])],
     targets: [
-        .target(name: "CocoNotchCore", swiftSettings: [.treatAllWarnings(as: .error)]),
+        .target(name: "CocoNotchCore"),
         .testTarget(name: "CocoNotchCoreTests", dependencies: ["CocoNotchCore"]),
     ]
 )

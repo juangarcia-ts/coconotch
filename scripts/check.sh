@@ -7,7 +7,7 @@ echo "==> Lint"
 swift format lint --strict --recursive CocoNotch CocoNotchCore
 
 echo "==> Test"
-swift test --package-path CocoNotchCore --quiet
+swift test --package-path CocoNotchCore --quiet -Xswiftc -warnings-as-errors
 
 echo "==> Build"
 log=$(mktemp)
