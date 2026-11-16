@@ -1,15 +1,20 @@
+import CocoNotchCore
 import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
+    @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+
     var body: some View {
         TabView {
             GeneralSettings()
                 .tabItem { Label("General", systemImage: "gearshape") }
             AppearanceSettings()
                 .tabItem { Label("Appearance", systemImage: "paintpalette") }
-            ForEach(NotchWidget.all) { widget in
-                if let makeSettings = widget.makeSettings {
+            WidgetsSettings()
+                .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+            ForEach(NotchWidget.getPreferences(stored: storedWidgetPreferences)) { preference in
+                if let widget = NotchWidget.find(id: preference.id), let makeSettings = widget.makeSettings {
                     makeSettings()
                         .tabItem { Label(widget.title, systemImage: widget.systemImage) }
                 }
@@ -103,5 +108,49 @@ private struct AppearanceSettings: View {
                 .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct WidgetsSettings: View {
+    @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    // Edited locally and saved on every change, so dragging doesn't decode the stored list on each frame.
+    @State private var preferences: [WidgetPreference] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Drag to reorder. The notch shows the widgets that are on, in this order.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            List {
+                ForEach($preferences) { $preference in
+                    if let widget = NotchWidget.find(id: preference.id) {
+                        HStack {
+                            DragHandle()
+                            Label(widget.title, systemImage: widget.systemImage)
+                            Spacer()
+                            Toggle("Show \(widget.title)", isOn: $preference.isEnabled)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .disabled(!canToggleWidget(preference.id, in: preferences))
+                        }
+                    }
+                }
+                .onMove { preferences.move(fromOffsets: $0, toOffset: $1) }
+            }
+        }
+        .padding(20)
+        .onAppear { preferences = NotchWidget.getPreferences(stored: storedWidgetPreferences) }
+        .onChange(of: preferences) { storedWidgetPreferences = encodeWidgetPreferences(preferences) }
+    }
+}
+
+/// macOS only starts a row drag from a spot that isn't a control, so rows full of controls get this as a grip.
+struct DragHandle: View {
+    var body: some View {
+        Image(systemName: "line.3.horizontal")
+            .foregroundStyle(.tertiary)
+            .frame(width: 20, height: 24)
+            .contentShape(Rectangle())
+            .help("Drag to reorder")
     }
 }
