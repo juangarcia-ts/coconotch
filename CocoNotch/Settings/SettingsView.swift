@@ -35,7 +35,8 @@ private struct GeneralSettings: View {
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.
                 isOn: Binding(
                     get: { [.enabled, .requiresApproval].contains(launchAtLoginStatus) },
-                    set: setLaunchAtLogin
+                    // A closure, not `set: setLaunchAtLogin`: passing the method crashes the Swift 6.3 compiler.
+                    set: { setLaunchAtLogin($0) }
                 )
             )
             if launchAtLoginStatus == .requiresApproval {
