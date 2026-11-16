@@ -33,7 +33,9 @@ private func getFlag(forTimeZoneIdentifier identifier: String) -> String? {
 }
 
 private func getZone(for entry: TimeZoneEntry) -> TimeZone? {
-    TimeZone(identifier: resolveTimeZoneIdentifier(entry.identifier, localIdentifier: TimeZone.current.identifier))
+    TimeZone(
+        identifier: resolveTimeZoneIdentifier(
+            entry.identifier, localIdentifier: TimeZone.autoupdatingCurrent.identifier))
 }
 
 private func getZoneTitle(identifier: String, label: String?, showsFlag: Bool) -> String {
@@ -51,8 +53,8 @@ private struct TimezonesView: View {
 
     private var entries: [TimeZoneEntry] {
         getVisibleEntries(
-            decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier),
-            localIdentifier: TimeZone.current.identifier
+            decodeTimeZoneEntries(storedEntries),
+            localIdentifier: TimeZone.autoupdatingCurrent.identifier
         )
     }
 
@@ -90,7 +92,7 @@ private struct ZoneColumn: View {
     let showsFlag: Bool
     let date: Date
 
-    private var isLocal: Bool { zone == .current }
+    private var isLocal: Bool { zone.identifier == TimeZone.autoupdatingCurrent.identifier }
 
     private var title: String {
         getZoneTitle(identifier: zone.identifier, label: label, showsFlag: showsFlag)
@@ -98,7 +100,7 @@ private struct ZoneColumn: View {
 
     private var detail: String {
         let weekday = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated))
-        let offset = zone.secondsFromGMT(for: date) - TimeZone.current.secondsFromGMT(for: date)
+        let offset = zone.secondsFromGMT(for: date) - TimeZone.autoupdatingCurrent.secondsFromGMT(for: date)
         return "\(weekday) · \(isLocal ? "Here" : formatOffset(seconds: offset))"
     }
 
@@ -129,8 +131,8 @@ private struct TimezonesSummary: View {
             HStack(spacing: 0) {
                 ForEach(
                     getVisibleEntries(
-                        decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier),
-                        localIdentifier: TimeZone.current.identifier
+                        decodeTimeZoneEntries(storedEntries),
+                        localIdentifier: TimeZone.autoupdatingCurrent.identifier
                     ).prefix(homeCount)
                 ) { entry in
                     if let zone = getZone(for: entry) {
@@ -147,7 +149,7 @@ private struct TimezonesSummary: View {
                             Text(
                                 formatOffset(
                                     seconds: zone.secondsFromGMT(for: context.date)
-                                        - TimeZone.current.secondsFromGMT(for: context.date))
+                                        - TimeZone.autoupdatingCurrent.secondsFromGMT(for: context.date))
                             )
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.tertiary)
@@ -181,7 +183,7 @@ private struct TimezonesSettings: View {
         searchTimeZoneIdentifiers(
             query,
             in: TimeZone.knownTimeZoneIdentifiers,
-            excluding: getAddedTimeZoneIdentifiers(entries, localIdentifier: TimeZone.current.identifier),
+            excluding: getAddedTimeZoneIdentifiers(entries, localIdentifier: TimeZone.autoupdatingCurrent.identifier),
             limit: 6
         )
     }
@@ -199,7 +201,7 @@ private struct TimezonesSettings: View {
                 ForEach($entries) { $entry in
                     let isLocal = entry.identifier == localTimeZoneEntryID
                     let identifier = resolveTimeZoneIdentifier(
-                        entry.identifier, localIdentifier: TimeZone.current.identifier)
+                        entry.identifier, localIdentifier: TimeZone.autoupdatingCurrent.identifier)
                     HStack {
                         DragHandle()
                         Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
@@ -256,7 +258,7 @@ private struct TimezonesSettings: View {
         .padding(20)
         .frame(minHeight: 420, alignment: .top)
         .onAppear {
-            entries = decodeTimeZoneEntries(storedEntries, localIdentifier: TimeZone.current.identifier)
+            entries = decodeTimeZoneEntries(storedEntries)
         }
         .onChange(of: entries) { storedEntries = encodeTimeZoneEntries(entries) }
     }
