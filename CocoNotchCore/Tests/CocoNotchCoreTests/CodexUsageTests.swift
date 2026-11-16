@@ -71,3 +71,30 @@ private let sampleLog = """
     #expect(pick?.provider == .codex)
     #expect(getFullestProviderLimit([]) == nil)
 }
+
+@Test func keysHeadsUpByLimitResetAndUrgency() {
+    let resetsAt = Date(timeIntervalSince1970: 1_800_000_000)
+    let near = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt)
+    let nearer = UsageLimit(kind: "session", percent: 92, resetsAt: resetsAt)
+    let full = UsageLimit(kind: "session", percent: 100, resetsAt: resetsAt)
+    let nextWindow = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt + 18_000)
+    let key = makeUsageHeadsUpKey(provider: .claude, limit: near)
+    // Creeping up doesn't bring a dismissed heads-up back; running out, a new window or another provider does.
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: nearer) == key)
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: full) != key)
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: nextWindow) != key)
+    #expect(makeUsageHeadsUpKey(provider: .codex, limit: near) != key)
+    let jittered = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt - 0.1)
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: jittered) == key)
+}
+
+@Test func keepsDismissalsUntilTheirOwnWindowResets() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let claude = makeUsageHeadsUpKey(
+        provider: .claude, limit: UsageLimit(kind: "session", percent: 90, resetsAt: now + 3600))
+    let expired = makeUsageHeadsUpKey(
+        provider: .codex, limit: UsageLimit(kind: "codex_primary", percent: 90, resetsAt: now - 60))
+    let noReset = makeUsageHeadsUpKey(provider: .codex, limit: UsageLimit(kind: "codex_primary", percent: 90))
+    #expect(pruneDismissedHeadsUpKeys([claude, expired, noReset], now: now) == [claude, noReset])
+    #expect(pruneDismissedHeadsUpKeys([claude], now: now + 3600).isEmpty)
+}
