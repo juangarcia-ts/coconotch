@@ -13,6 +13,9 @@ enum PreferenceKey {
     static let widgetPreferences = "widgets.preferences"
     static let notchDisplay = "behavior.notchDisplay"
     static let notchScale = "appearance.notchScale"
+    static let showsActivities = "behavior.showsActivities"
+    /// A widget ID whose activity always wins the closed notch, or "" to rank them automatically.
+    static let preferredActivityWidget = "behavior.preferredActivityWidget"
 }
 
 extension Color.Resolved {

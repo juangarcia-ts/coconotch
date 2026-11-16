@@ -28,6 +28,7 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
+    @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
 
@@ -42,6 +43,7 @@ private struct GeneralSettings: View {
                 Text("Built-in display").tag(NotchDisplayChoice.builtIn)
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
+            Toggle("Show live activities in the closed notch", isOn: $showsActivities)
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.
@@ -129,11 +131,22 @@ private struct AppearanceSettings: View {
 
 private struct WidgetsSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     // Edited locally and saved on every change, so dragging doesn't decode the stored list on each frame.
     @State private var preferences: [WidgetPreference] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Picker("Preferred activity", selection: $preferredActivityWidgetID) {
+                Text("Automatic").tag("")
+                ForEach(NotchWidget.all) { widget in
+                    Text(widget.title).tag(widget.id)
+                }
+            }
+            Text("The closed notch shows this widget's activity first. Automatic picks the most urgent one.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Divider()
             Text("Drag to reorder. The notch shows the widgets that are on, in this order.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

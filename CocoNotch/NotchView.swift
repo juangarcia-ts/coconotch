@@ -6,6 +6,8 @@ struct NotchView: View {
     let showSettings: () -> Void
 
     @State private var isExpanded = false
+    /// The top activity whose alert is showing, as an `alertKey`.
+    @State private var alertingKey: String?
     @AppStorage("selectedWidget") private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
@@ -13,10 +15,21 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
+    @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
+    @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
 
     private var enabledWidgets: [NotchWidget] {
         getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
             .compactMap { NotchWidget.find(id: $0) }
+    }
+
+    /// Activities from enabled widgets, winner first.
+    private var rankedActivities: [NotchActivity] {
+        guard showsActivities else { return [] }
+        return ActivityCenter.shared.getRanked(
+            enabledWidgetIDs: enabledWidgets.map(\.id),
+            preferredWidgetID: preferredActivityWidgetID.isEmpty ? nil : preferredActivityWidgetID
+        )
     }
 
     // Falls back to the first enabled widget when the last selected one was switched off.
@@ -38,18 +51,25 @@ struct NotchView: View {
     }
 
     var body: some View {
-        let radius: CGFloat = isExpanded ? 28 : 10
+        let radius: CGFloat = isExpanded || alertingKey != nil ? 28 : 10
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
+        let activities = rankedActivities
+        let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
 
         ScaledLayout(scale: scale) {
-            panel(shape: shape)
+            panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
                 .scaleEffect(scale, anchor: .topLeading)
         }
+        .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
+        .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
+        .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
         .contentShape(Rectangle())
         .onHover { isHovering in
+            // Opening the notch from an activity shows the widget it came from.
+            if isHovering, !isExpanded, let activity = activities.first { selectedWidgetID = activity.widgetID }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onTapGesture {
@@ -59,8 +79,10 @@ struct NotchView: View {
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
-    private func panel(shape: UnevenRoundedRectangle) -> some View {
-        ZStack(alignment: .top) {
+    private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity], isAlerting: Bool) -> some View {
+        let island = isExpanded ? nil : activities.first
+        let isAlerting = island != nil && isAlerting
+        return ZStack(alignment: .top) {
             if !isExpanded {
                 shape.fill(.black)
             } else if backgroundStyle == .blur {
@@ -71,20 +93,41 @@ struct NotchView: View {
                 shape.fill(Color(colorData: backgroundColorData).opacity(backgroundOpacity))
             }
             if isExpanded {
-                expandedContent
+                expandedContent(activities: activities)
                     .transition(.opacity)
+            } else if let island {
+                ActivityIsland(
+                    activity: island,
+                    notchSize: notchSize,
+                    otherCount: activities.count - 1,
+                    isAlerting: isAlerting
+                )
+                .transition(.opacity)
             }
         }
-        // Expanded, the height follows the widget's content instead of a fixed size.
-        .frame(width: isExpanded ? 600 : notchSize.width, height: isExpanded ? nil : notchSize.height)
-        .fixedSize(horizontal: false, vertical: isExpanded)
+        // Expanded, the height follows the widget's content; with an activity, the closed notch widens to fit it.
+        .frame(
+            width: isExpanded ? 600 : (island == nil ? notchSize.width : nil),
+            height: isExpanded || isAlerting ? nil : notchSize.height
+        )
+        .fixedSize(horizontal: island != nil, vertical: isExpanded || isAlerting)
+    }
+
+    /// Shows the new top activity's alert, then folds it back into the island.
+    private func showAlert(key: String?) {
+        alertingKey = key
+        guard let key else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            if alertingKey == key { alertingKey = nil }
+        }
     }
 
     private func setExpanded(_ isExpanded: Bool) {
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
     }
 
-    private var expandedContent: some View {
+    private func expandedContent(activities: [NotchActivity]) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(enabledWidgets) { widget in
@@ -93,6 +136,15 @@ struct NotchView: View {
                     } label: {
                         Image(systemName: widget.systemImage)
                             .frame(width: 40, height: notchSize.height - 6)
+                            // Marks widgets with a live activity, since the closed notch shows only one.
+                            .overlay(alignment: .topTrailing) {
+                                if activities.contains(where: { $0.widgetID == widget.id }) {
+                                    Circle()
+                                        .fill(.orange)
+                                        .frame(width: 6, height: 6)
+                                        .padding(6)
+                                }
+                            }
                             .background(
                                 widget.id == selectedWidget.id ? Color.primary.opacity(0.15) : .clear,
                                 in: Capsule()

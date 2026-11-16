@@ -15,7 +15,13 @@ extension NotchWidget {
 private let hidesAllDayKey = "meetings.hidesAllDay"
 private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
+private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let agendaLimit = 3
+private let defaultHidesAllDay = true
+private let defaultHidesDeclined = true
+private let defaultHeadsUpMinutes = 10
+private let headsUpGrace: TimeInterval = 10 * 60
+private let headsUpActivityID = "meetings.headsUp"
 
 // One store for the whole app: Apple recommends reusing it, and creating one is slow.
 private let eventStore = EKEventStore()
@@ -39,17 +45,112 @@ private func getTodaysMeetings(now: Date) -> [Meeting] {
     }
 }
 
+/// Loads today's meetings for the whole app, so the closed notch can use them too, not just the Meetings tab.
+@Observable
+final class MeetingsStore {
+    static let shared = MeetingsStore()
+
+    private(set) var accessStatus = EKEventStore.authorizationStatus(for: .event)
+    // Fetched once a minute and when calendars change, not on every render.
+    private(set) var todaysMeetings: [Meeting] = []
+    private var refreshTask: Task<Void, Never>?
+    /// The meeting shown in the closed notch, if any.
+    private(set) var headsUpMeetingID: String?
+    private var dismissedHeadsUpIDs: Set<String> = []
+    private(set) var isRefreshing = false
+
+    /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, so it turns urgent close to the
+    /// start time without querying EventKit that often. Never asks for access; that happens from the Meetings tab.
+    func start() {
+        guard refreshTask == nil else { return }
+        refreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                self?.refreshAccessStatus()
+                for _ in 0..<4 {
+                    try? await Task.sleep(for: .seconds(15))
+                    self?.updateHeadsUp()
+                }
+            }
+        }
+        NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: eventStore, queue: .main) {
+            [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshAccessStatus() }
+        }
+    }
+
+    /// Re-reads access, which the user may have changed in System Settings, then reloads meetings.
+    func refreshAccessStatus() {
+        accessStatus = EKEventStore.authorizationStatus(for: .event)
+        todaysMeetings = accessStatus == .fullAccess ? getTodaysMeetings(now: .now) : []
+        updateHeadsUp()
+    }
+
+    func dismissHeadsUp() {
+        if let headsUpMeetingID { dismissedHeadsUpIDs.insert(headsUpMeetingID) }
+        updateHeadsUp()
+    }
+
+    private func updateHeadsUp() {
+        let now = Date.now
+        let defaults = UserDefaults.standard
+        let upcoming = getUpcomingMeetings(
+            todaysMeetings,
+            now: now,
+            hidesAllDay: defaults.object(forKey: hidesAllDayKey) as? Bool ?? defaultHidesAllDay,
+            hidesDeclined: defaults.object(forKey: hidesDeclinedKey) as? Bool ?? defaultHidesDeclined,
+            hiddenCalendarIDs: decodeIDSet(defaults.string(forKey: hiddenCalendarIDsKey) ?? "")
+        )
+        let leadMinutes = defaults.object(forKey: headsUpMinutesKey) as? Int ?? defaultHeadsUpMinutes
+        let meeting = getHeadsUpMeeting(
+            upcoming,
+            now: now,
+            leadTime: TimeInterval(leadMinutes * 60),
+            grace: headsUpGrace,
+            dismissedIDs: dismissedHeadsUpIDs
+        )
+        headsUpMeetingID = meeting?.id
+        guard let meeting else {
+            ActivityCenter.shared.remove(id: headsUpActivityID)
+            return
+        }
+        ActivityCenter.shared.post(
+            NotchActivity(
+                id: headsUpActivityID,
+                widgetID: NotchWidget.meetings.id,
+                priority: getHeadsUpPriority(start: meeting.start, now: now),
+                sortDate: meeting.start,
+                makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
+                makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
+                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) }
+            )
+        )
+    }
+
+    /// Asks remote calendars such as Google to sync now; `EKEventStoreChanged` reloads meetings if anything changed.
+    func refresh() async {
+        isRefreshing = true
+        eventStore.refreshSourcesIfNecessary()
+        // The sync runs in the background with no completion callback, so give it a moment before reloading.
+        try? await Task.sleep(for: .seconds(2))
+        refreshAccessStatus()
+        isRefreshing = false
+    }
+
+    func requestAccess() async {
+        _ = try? await eventStore.requestFullAccessToEvents()
+        refreshAccessStatus()
+    }
+}
+
 private struct MeetingsView: View {
-    @AppStorage(hidesAllDayKey) private var hidesAllDay = true
-    @AppStorage(hidesDeclinedKey) private var hidesDeclined = true
+    @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
+    @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
-    @State private var accessStatus = EKEventStore.authorizationStatus(for: .event)
-    // Fetched once a minute and when calendars change, not on every render of the body.
-    @State private var todaysMeetings: [Meeting] = []
+    private let store = MeetingsStore.shared
 
     var body: some View {
         Group {
-            switch accessStatus {
+            switch store.accessStatus {
             case .fullAccess:
                 agenda
             case .notDetermined:
@@ -57,7 +158,7 @@ private struct MeetingsView: View {
                     Text("See your next meetings and join them from the notch.")
                         .foregroundStyle(.secondary)
                     Button("Allow Calendar Access") {
-                        Task { await requestAccess() }
+                        Task { await store.requestAccess() }
                     }
                 }
             default:
@@ -75,23 +176,14 @@ private struct MeetingsView: View {
             }
         }
         // Access may have been granted in System Settings since the notch last opened.
-        .onAppear { accessStatus = EKEventStore.authorizationStatus(for: .event) }
-        .task(id: accessStatus) {
-            while !Task.isCancelled && accessStatus == .fullAccess {
-                todaysMeetings = getTodaysMeetings(now: .now)
-                try? await Task.sleep(for: .seconds(60))
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
-            if accessStatus == .fullAccess { todaysMeetings = getTodaysMeetings(now: .now) }
-        }
+        .onAppear { store.refreshAccessStatus() }
     }
 
     private var agenda: some View {
         TimelineView(.everyMinute) { context in
             let agenda = makeAgenda(
                 getUpcomingMeetings(
-                    todaysMeetings,
+                    store.todaysMeetings,
                     now: context.date,
                     hidesAllDay: hidesAllDay,
                     hidesDeclined: hidesDeclined,
@@ -99,8 +191,24 @@ private struct MeetingsView: View {
                 ),
                 limit: agendaLimit
             )
-            if let next = agenda.next {
-                VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Today")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if store.isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .help("Sync your calendars now")
+                    }
+                }
+                .padding(.horizontal, 10)
+                if let next = agenda.next {
                     NextMeetingCard(meeting: next, now: context.date)
                     ForEach(agenda.rest) { meeting in
                         MeetingRow(meeting: meeting)
@@ -110,20 +218,16 @@ private struct MeetingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                } else {
+                    Text("No more meetings today")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
                 }
-            } else {
-                Text("No more meetings today")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
             }
         }
     }
 
-    private func requestAccess() async {
-        _ = try? await eventStore.requestFullAccessToEvents()
-        accessStatus = EKEventStore.authorizationStatus(for: .event)
-    }
 }
 
 private struct NextMeetingCard: View {
@@ -141,6 +245,11 @@ private struct NextMeetingCard: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if MeetingsStore.shared.headsUpMeetingID == meeting.id {
+                Button("Dismiss", systemImage: "bell.slash") { MeetingsStore.shared.dismissHeadsUp() }
+                    .buttonStyle(.bordered)
+                    .help("Hide this meeting's reminder in the closed notch")
+            }
             if let link = meeting.link {
                 Link(destination: link) {
                     Label("Join", systemImage: "video.fill")
@@ -177,14 +286,21 @@ private struct MeetingRow: View {
 }
 
 private struct MeetingsSettings: View {
-    @AppStorage(hidesAllDayKey) private var hidesAllDay = true
-    @AppStorage(hidesDeclinedKey) private var hidesDeclined = true
+    @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
+    @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
+    @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
 
     var body: some View {
         Form {
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
+            Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {
+                Text("Off").tag(0)
+                ForEach([1, 5, 10, 15], id: \.self) { minutes in
+                    Text("\(minutes) min before").tag(minutes)
+                }
+            }
             Section("Calendars") {
                 if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
                     Text("Open the Meetings tab in the notch and allow calendar access to choose calendars here.")
@@ -222,5 +338,55 @@ private struct MeetingsSettings: View {
                 storedHiddenCalendarIDs = encodeIDSet(hiddenIDs)
             }
         )
+    }
+}
+
+/// The left side of the meeting heads-up in the closed notch.
+private struct HeadsUpTitle: View {
+    let meeting: Meeting
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "calendar")
+                .foregroundStyle(.orange)
+            Text(meeting.title)
+        }
+    }
+}
+
+/// The right side of the meeting heads-up: a seconds countdown, then a pulsing camera once the meeting starts.
+private struct HeadsUpCountdown: View {
+    let meeting: Meeting
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            if context.date >= meeting.start {
+                Image(systemName: "video.fill")
+                    .foregroundStyle(.green)
+                    .symbolEffect(.pulse)
+            } else {
+                Text(formatTimer(seconds: Int(meeting.start.timeIntervalSince(context.date).rounded(.up))))
+                    .monospacedDigit()
+            }
+        }
+    }
+}
+
+/// Drops down under the heads-up when it appears and when the meeting starts, so it is hard to miss.
+private struct HeadsUpAlert: View {
+    let meeting: Meeting
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(meeting.title)
+                .font(.title3.bold())
+                .lineLimit(1)
+            Text("\(formatTimeRange(meeting)) · \(formatCountdown(now: .now, start: meeting.start))")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 4)
+        .padding(.bottom, 16)
     }
 }
