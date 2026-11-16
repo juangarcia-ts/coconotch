@@ -5,8 +5,8 @@ struct NotchWidget: Identifiable {
     let title: String
     let systemImage: String
     let makeView: () -> AnyView
-    /// Settings shown under the widget's submenu in the menu bar; nil hides the submenu.
-    var makeMenuItems: (() -> AnyView)? = nil
+    /// The widget's tab in the Settings window; nil means the widget has no tab.
+    var makeSettings: (() -> AnyView)? = nil
 
     // Tabs appear in this order.
     static let all: [NotchWidget] = [.timezones]

@@ -7,23 +7,32 @@ extension NotchWidget {
         title: "Time Zones",
         systemImage: "globe",
         makeView: { AnyView(TimezonesView()) },
-        makeMenuItems: { AnyView(TimezonesMenu()) }
+        makeSettings: { AnyView(TimezonesSettings()) }
     )
 }
 
-private let storageKey = "timezones.identifiers"
-private let defaultIdentifiers = "America/Los_Angeles,America/New_York,Europe/London,Asia/Tokyo"
+// Kept from 0.1, which stored a comma-separated list here; decodeTimeZoneEntries still reads that format.
+private let entriesKey = "timezones.identifiers"
+private let showsFlagsKey = "timezones.showsFlags"
+private let defaultStoredEntries = encodeTimeZoneEntries(
+    ["America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map { TimeZoneEntry(identifier: $0) }
+)
+
+private let countryCodesByTimeZone = parseZoneTab(
+    (try? String(contentsOfFile: "/usr/share/zoneinfo/zone.tab", encoding: .utf8)) ?? ""
+)
+
+private func getFlag(forTimeZoneIdentifier identifier: String) -> String? {
+    countryCodesByTimeZone[identifier].flatMap { getFlagEmoji(countryCode: $0) }
+}
 
 private struct TimezonesView: View {
-    @AppStorage(storageKey) private var storedIdentifiers = defaultIdentifiers
+    @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
+    @AppStorage(showsFlagsKey) private var showsFlags = true
     @State private var hourOffset = 0.0
 
-    private var zones: [TimeZone] {
-        let local = TimeZone.current
-        let others = parseTimeZoneIdentifiers(storedIdentifiers)
-            .filter { $0 != local.identifier }
-            .compactMap(TimeZone.init(identifier:))
-        return [local] + others
+    private var otherEntries: [TimeZoneEntry] {
+        getVisibleEntries(decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier)
     }
 
     var body: some View {
@@ -31,9 +40,11 @@ private struct TimezonesView: View {
             let date = context.date.addingTimeInterval(hourOffset * 3600)
             VStack(spacing: 14) {
                 HStack(spacing: 0) {
-                    ForEach(zones, id: \.identifier) { zone in
-                        ZoneColumn(zone: zone, date: date)
-                            .frame(maxWidth: .infinity)
+                    ZoneColumn(zone: .current, label: nil, showsFlag: showsFlags, date: date)
+                    ForEach(otherEntries) { entry in
+                        if let zone = TimeZone(identifier: entry.identifier) {
+                            ZoneColumn(zone: zone, label: entry.label, showsFlag: showsFlags, date: date)
+                        }
                     }
                 }
                 HStack(spacing: 10) {
@@ -55,9 +66,16 @@ private struct TimezonesView: View {
 
 private struct ZoneColumn: View {
     let zone: TimeZone
+    let label: String?
+    let showsFlag: Bool
     let date: Date
 
     private var isLocal: Bool { zone == .current }
+
+    private var title: String {
+        let flag = showsFlag ? getFlag(forTimeZoneIdentifier: zone.identifier) : nil
+        return getDisplayTitle(label: label, identifier: zone.identifier, flag: flag)
+    }
 
     private var detail: String {
         let weekday = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated))
@@ -67,7 +85,7 @@ private struct ZoneColumn: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(getCityName(forTimeZoneIdentifier: zone.identifier))
+            Text(title)
                 .font(.caption)
                 .foregroundStyle(isLocal ? .primary : .secondary)
                 .lineLimit(1)
@@ -77,36 +95,85 @@ private struct ZoneColumn: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
-private struct TimezonesMenu: View {
-    @AppStorage(storageKey) private var storedIdentifiers = defaultIdentifiers
+private struct TimezonesSettings: View {
+    @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
+    @AppStorage(showsFlagsKey) private var showsFlags = true
+    // Decoded once when the tab appears and saved on every change, instead of decoding on each access.
+    @State private var entries: [TimeZoneEntry] = []
+    @State private var query = ""
 
-    private static let identifiersByRegion = Dictionary(
-        grouping: TimeZone.knownTimeZoneIdentifiers.filter { $0.contains("/") },
-        by: { String($0.split(separator: "/")[0]) }
-    )
+    private var suggestions: [String] {
+        searchTimeZoneIdentifiers(
+            query,
+            in: TimeZone.knownTimeZoneIdentifiers,
+            excluding: Set(entries.map(\.identifier)),
+            limit: 6
+        )
+    }
 
     var body: some View {
-        let identifiers = parseTimeZoneIdentifiers(storedIdentifiers)
-        ForEach(identifiers, id: \.self) { identifier in
-            Button("Remove \(getCityName(forTimeZoneIdentifier: identifier))") {
-                storedIdentifiers = identifiers.filter { $0 != identifier }.joined(separator: ",")
-            }
-        }
-        Divider()
-        Menu("Add") {
-            ForEach(Self.identifiersByRegion.keys.sorted(), id: \.self) { region in
-                Menu(region) {
-                    ForEach(Self.identifiersByRegion[region] ?? [], id: \.self) { identifier in
-                        Button(getCityName(forTimeZoneIdentifier: identifier)) {
-                            storedIdentifiers = (identifiers + [identifier]).joined(separator: ",")
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Show country flags", isOn: $showsFlags)
+            Text("Your local time is always shown first. Drag to reorder; the label replaces the city name.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            List {
+                ForEach($entries) { $entry in
+                    let isLocal = entry.identifier == TimeZone.current.identifier
+                    HStack {
+                        Toggle("Show \(getCityName(forTimeZoneIdentifier: entry.identifier))", isOn: $entry.isVisible)
+                            .labelsHidden()
+                            .disabled(isLocal)
+                        Text(getFlag(forTimeZoneIdentifier: entry.identifier) ?? "")
+                            .frame(width: 22)
+                        TextField(
+                            getCityName(forTimeZoneIdentifier: entry.identifier),
+                            text: Binding(get: { entry.label ?? "" }, set: { entry.label = normalizeLabel($0) })
+                        )
+                        .disabled(isLocal)
+                        if isLocal {
+                            Text("Your local time")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .disabled(identifiers.contains(identifier))
+                        Button("Remove", systemImage: "minus.circle") {
+                            entries.removeAll { $0.id == entry.id }
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
                     }
                 }
+                .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
+            }
+            .frame(height: 200)
+
+            TextField("Add a city…", text: $query)
+                .onSubmit {
+                    if let identifier = suggestions.first { add(identifier) }
+                }
+            ForEach(suggestions, id: \.self) { identifier in
+                Button {
+                    add(identifier)
+                } label: {
+                    Text("\(getFlag(forTimeZoneIdentifier: identifier) ?? "") \(identifier)")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderless)
             }
         }
+        .padding(20)
+        .frame(minHeight: 420, alignment: .top)
+        .onAppear { entries = decodeTimeZoneEntries(storedEntries) }
+        .onChange(of: entries) { storedEntries = encodeTimeZoneEntries(entries) }
+    }
+
+    private func add(_ identifier: String) {
+        entries.append(TimeZoneEntry(identifier: identifier))
+        query = ""
     }
 }

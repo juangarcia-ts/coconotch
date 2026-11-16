@@ -5,7 +5,10 @@ final class NotchPanel: NSPanel {
     // Fixed at the largest expanded size; clicks on its transparent area fall through to the menu bar.
     static let size = NSSize(width: 640, height: 260)
 
-    init() {
+    private let showSettings: () -> Void
+
+    init(showSettings: @escaping () -> Void) {
+        self.showSettings = showSettings
         super.init(
             contentRect: NSRect(origin: .zero, size: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -24,7 +27,7 @@ final class NotchPanel: NSPanel {
 
     func placeOnNotchScreen() {
         guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
-        let hostingView = NSHostingView(rootView: NotchView(notchSize: screen.notchSize))
+        let hostingView = NSHostingView(rootView: NotchView(notchSize: screen.notchSize, showSettings: showSettings))
         hostingView.sizingOptions = []
         contentView = hostingView
         setFrame(

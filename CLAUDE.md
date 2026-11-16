@@ -5,7 +5,8 @@ macOS notch + menu bar widget hub. SwiftUI, Swift 6 strict concurrency, macOS 14
 ## Layout
 
 - `CocoNotch/`: the app. Xcode syncs this folder, so new files need no project edits.
-- `CocoNotch/Widgets/`: one file per widget, registered in `NotchWidget.all`.
+- `CocoNotch/Widgets/`: one file per widget, registered in `NotchWidget.all`. A widget's settings go in its `makeSettings` tab.
+- `CocoNotch/Settings/`: the Settings window and the app-wide preference keys.
 - `CocoNotchCore/`: Swift package with all logic that can be tested (parsing, formatting, calculations). No SwiftUI or AppKit.
 
 ## Rules

@@ -2,11 +2,11 @@
 
 A modular widget hub for the MacBook notch and menu bar, focused on the workday.
 
-Hover the notch to expand it; each widget is a tab. Widget settings live in the menu bar icon.
+Hover (or click) the notch to expand it; each widget is a tab. Open **Settings…** from the menu bar icon to change the background, how the notch opens, launch at login, and each widget's options.
 
 ## Widgets
 
-- **Time Zones**: your local time plus any cities you add, with a slider to scrub ahead or back.
+- **Time Zones**: your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back.
 
 Planned: meetings, Claude Code usage, now playing, clipboard history.
 
