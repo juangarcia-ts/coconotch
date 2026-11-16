@@ -141,18 +141,18 @@ private struct TimezonesSummary: View {
                     ).prefix(homeCount)
                 ) { entry in
                     if let zone = getZone(for: entry) {
-                        VStack(spacing: 2) {
+                        VStack(spacing: 0) {
                             if showsFlags, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
                                 Text(flag)
-                                    .font(.title3)
+                                    .font(.callout)
                             }
                             Text(
                                 context.date.formatted(
                                     Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
                             )
-                            .font(.title3.weight(.semibold).monospacedDigit())
+                            .font(.headline.monospacedDigit())
                             Text(getZoneTitle(identifier: zone.identifier, label: entry.label, showsFlag: false))
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                             Text(

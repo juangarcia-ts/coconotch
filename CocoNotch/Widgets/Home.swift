@@ -36,9 +36,9 @@ private struct HomeView: View {
         } else {
             let columnCount = getHomeColumnCount(cardCount: widgets.count, maxColumns: maxColumns)
             let rows = makeRows(widgets, columnCount: columnCount)
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 ForEach(rows.indices, id: \.self) { index in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
                         ForEach(rows[index]) { widget in
                             SummaryCard(widget: widget) { selectedWidgetID = widget.id }
                         }
@@ -57,7 +57,8 @@ private struct SummaryCard: View {
     @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // Compact enough that two rows fit in the open panel above the footer.
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Image(systemName: widget.systemImage)
                 Text(widget.title)
@@ -71,7 +72,8 @@ private struct SummaryCard: View {
             .foregroundStyle(.tertiary)
             widget.makeSummary?()
         }
-        .padding(14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: 14)
