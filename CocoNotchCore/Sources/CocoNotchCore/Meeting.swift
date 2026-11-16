@@ -88,10 +88,8 @@ public func formatTimeRange(_ meeting: Meeting) -> String {
 }
 
 public struct Agenda: Equatable, Sendable {
-    /// Meetings that already ended, shown dimmed above the next one.
+    /// Meetings that already ended, all of them, shown small above the next one.
     public let earlier: [Meeting]
-    /// Ended meetings that did not fit, all before `earlier`.
-    public let hiddenEarlierCount: Int
     public let next: Meeting?
     public let rest: [Meeting]
     /// Upcoming meetings that did not fit, all after `rest`.
@@ -100,16 +98,12 @@ public struct Agenda: Equatable, Sendable {
     public var isEmpty: Bool { earlier.isEmpty && next == nil }
 }
 
-/// Splits meetings into ended ones, the featured next one, up to `limit` more, and how many did not fit.
-/// Ended meetings fill the rows the upcoming ones leave free, keeping at least the latest one.
+/// Splits meetings into ended ones, the featured next one, up to `limit` more, and how many of those did not fit.
 public func makeAgenda(_ meetings: [Meeting], now: Date, limit: Int) -> Agenda {
     let upcoming = meetings.filter { $0.end > now }
     let rest = Array(upcoming.dropFirst().prefix(limit))
-    let ended = meetings.filter { $0.end <= now }
-    let earlier = Array(ended.suffix(max(limit - rest.count, 1)))
     return Agenda(
-        earlier: earlier,
-        hiddenEarlierCount: ended.count - earlier.count,
+        earlier: meetings.filter { $0.end <= now },
         next: upcoming.first,
         rest: rest,
         hiddenCount: max(upcoming.count - 1 - rest.count, 0)
@@ -184,4 +178,38 @@ public func formatTimer(seconds: Int) -> String {
 /// A heads-up is urgent from the moment its meeting starts, so it beats other widgets' activities.
 public func getHeadsUpPriority(start: Date, now: Date) -> ActivityPriority {
     start <= now ? .urgent : .normal
+}
+
+public struct MonthGrid: Equatable, Sendable {
+    /// The first day of the month shown.
+    public let month: Date
+    /// One entry per grid cell, row by row: nil for the blank cells before the 1st.
+    public let days: [Date?]
+}
+
+/// The month `monthOffset` months from `date`'s month, laid out from the calendar's first weekday.
+public func makeMonthGrid(around date: Date, monthOffset: Int, calendar: Calendar) -> MonthGrid {
+    let shifted = calendar.date(byAdding: .month, value: monthOffset, to: date) ?? date
+    let start = calendar.dateInterval(of: .month, for: shifted)?.start ?? shifted
+    let dayCount = calendar.range(of: .day, in: .month, for: start)?.count ?? 0
+    let blankCount = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
+    let days = (0..<dayCount).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    return MonthGrid(month: start, days: Array(repeating: nil, count: blankCount) + days)
+}
+
+/// One-letter weekday names, starting from the calendar's first weekday.
+public func getWeekdaySymbols(calendar: Calendar) -> [String] {
+    let symbols = calendar.veryShortStandaloneWeekdaySymbols
+    let first = calendar.firstWeekday - 1
+    return Array(symbols[first...] + symbols[..<first])
+}
+
+public enum DayMark: Sendable {
+    case selected, today, plain
+}
+
+/// How a calendar cell is marked; the selected day wins over today.
+public func getDayMark(_ day: Date, selection: Date, now: Date, calendar: Calendar) -> DayMark {
+    if calendar.isDate(day, inSameDayAs: selection) { return .selected }
+    return calendar.isDate(day, inSameDayAs: now) ? .today : .plain
 }

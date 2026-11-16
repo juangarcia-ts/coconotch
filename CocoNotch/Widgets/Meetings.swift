@@ -214,14 +214,7 @@ private struct MeetingsView: View {
                 limit: agendaLimit
             )
             HStack(alignment: .top, spacing: 12) {
-                DatePicker(
-                    "Day",
-                    selection: Binding(get: { store.selectedDay ?? context.date }, set: store.select),
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.graphical)
-                .labelsHidden()
-                .fixedSize()
+                MonthCalendar(selectedDay: store.selectedDay, now: context.date, select: store.select)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text(formatAgendaTitle(day: store.selectedDay))
@@ -245,14 +238,10 @@ private struct MeetingsView: View {
                         }
                     }
                     .padding(.horizontal, 10)
-                    if agenda.hiddenEarlierCount > 0 {
-                        Text("+\(agenda.hiddenEarlierCount) earlier")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(agenda.earlier) { meeting in
-                        MeetingRow(meeting: meeting)
-                            .opacity(0.5)
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(agenda.earlier) { meeting in
+                            PastMeetingRow(meeting: meeting)
+                        }
                     }
                     if let next = agenda.next {
                         NextMeetingCard(meeting: next, now: context.date)
@@ -330,6 +319,102 @@ private struct MeetingRow: View {
             }
         }
         .padding(.horizontal, 10)
+    }
+}
+
+/// An ended meeting: smaller and struck through, with no join link.
+private struct PastMeetingRow: View {
+    let meeting: Meeting
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(formatStartTime(meeting))
+                .font(.caption2.monospacedDigit())
+                .frame(width: 56, alignment: .leading)
+            Text(meeting.title)
+                .font(.caption)
+                .strikethrough()
+                .lineLimit(1)
+        }
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 10)
+    }
+}
+
+/// A compact month grid for picking the agenda's day, drawn to match the panel instead of the stock date picker.
+private struct MonthCalendar: View {
+    /// nil for today.
+    let selectedDay: Date?
+    let now: Date
+    let select: (Date) -> Void
+    @State private var monthOffset = 0
+    private let calendar = Calendar.current
+    private let cellSize: CGFloat = 22
+
+    var body: some View {
+        let selection = selectedDay ?? now
+        let grid = makeMonthGrid(around: selection, monthOffset: monthOffset, calendar: calendar)
+        VStack(spacing: 4) {
+            HStack(spacing: 2) {
+                Text(grid.month.formatted(.dateTime.month(.wide).year()))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Previous Month", systemImage: "chevron.left") { monthOffset -= 1 }
+                Button("Next Month", systemImage: "chevron.right") { monthOffset += 1 }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .font(.caption.weight(.semibold))
+            .padding(.leading, 4)
+            .padding(.bottom, 2)
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 2), count: 7), spacing: 2) {
+                ForEach(Array(getWeekdaySymbols(calendar: calendar).enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(grid.days.indices, id: \.self) { index in
+                    if let day = grid.days[index] {
+                        DayCell(
+                            day: day,
+                            mark: getDayMark(day, selection: selection, now: now, calendar: calendar),
+                            size: cellSize
+                        ) { select(day) }
+                    } else {
+                        Color.clear.frame(width: cellSize, height: cellSize)
+                    }
+                }
+            }
+        }
+        .frame(width: cellSize * 7 + 12)
+        // Picking a day, or going back to today, shows that day's month again.
+        .onChange(of: selectedDay) { monthOffset = 0 }
+    }
+}
+
+private struct DayCell: View {
+    let day: Date
+    let mark: DayMark
+    let size: CGFloat
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(day.formatted(.dateTime.day()))
+                .font(.caption.monospacedDigit().weight(mark == .plain ? .regular : .semibold))
+                .foregroundStyle(mark == .selected ? Color.white : mark == .today ? Color.accentColor : Color.primary)
+                .frame(width: size, height: size)
+                .background {
+                    Circle().fill(
+                        mark == .selected ? Color.accentColor : Color.primary.opacity(isHovering ? 0.12 : 0))
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
     }
 }
 
