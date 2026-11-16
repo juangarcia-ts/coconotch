@@ -27,6 +27,7 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
+    @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
 
@@ -35,6 +36,11 @@ private struct GeneralSettings: View {
             Picker("Open the notch", selection: $expandsOnClick) {
                 Text("On hover").tag(false)
                 Text("On click").tag(true)
+            }
+            Picker("Show the notch on", selection: $notchDisplay) {
+                Text("Main display").tag(NotchDisplayChoice.main)
+                Text("Built-in display").tag(NotchDisplayChoice.builtIn)
+                Text("All displays").tag(NotchDisplayChoice.all)
             }
             Toggle(
                 "Launch at login",

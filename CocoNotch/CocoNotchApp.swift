@@ -1,3 +1,4 @@
+import CocoNotchCore
 import SwiftUI
 
 @main
@@ -16,7 +17,7 @@ struct CocoNotchApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private lazy var panel = NotchPanel(showSettings: { [weak self] in self?.showSettings() })
+    private var panels: [NotchPanel] = []
 
     // An AppKit window rather than a SwiftUI Settings scene, which the notch panel has no way to open.
     private lazy var settingsWindow: NSWindow = {
@@ -29,13 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        placePanel()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(placePanel),
-            name: NSApplication.didChangeScreenParametersNotification,
-            object: nil
-        )
+        placePanels()
+        for name in [NSApplication.didChangeScreenParametersNotification, UserDefaults.didChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(placePanels), name: name, object: nil)
+        }
     }
 
     func showSettings() {
@@ -44,7 +42,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow.makeKeyAndOrderFront(nil)
     }
 
-    @objc private func placePanel() {
-        panel.placeOnNotchScreen()
+    @objc private func placePanels() {
+        let choice =
+            UserDefaults.standard.string(forKey: PreferenceKey.notchDisplay).flatMap {
+                NotchDisplayChoice(rawValue: $0)
+            }
+            ?? .main
+        let screens = NSScreen.screens
+        let indices = getNotchDisplayIndices(hasNotch: screens.map { $0.safeAreaInsets.top > 0 }, choice: choice)
+
+        while panels.count < indices.count {
+            panels.append(NotchPanel(showSettings: { [weak self] in self?.showSettings() }))
+        }
+        while panels.count > indices.count {
+            panels.removeLast().close()
+        }
+        for (panel, index) in zip(panels, indices) {
+            panel.place(on: screens[index])
+        }
     }
 }

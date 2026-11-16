@@ -11,6 +11,7 @@ enum PreferenceKey {
     static let backgroundOpacity = "appearance.backgroundOpacity"
     static let expandsOnClick = "behavior.expandsOnClick"
     static let widgetPreferences = "widgets.preferences"
+    static let notchDisplay = "behavior.notchDisplay"
 }
 
 extension Color.Resolved {
