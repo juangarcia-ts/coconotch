@@ -128,6 +128,7 @@ public func getFullestProviderLimit(
 /// Identifies one heads-up state, so dismissing it hides that state only. A new key, and so the heads-up again, comes
 /// with the limit's next reset, or once it is used up and turns urgent.
 public func makeUsageHeadsUpKey(provider: AIProvider, limit: UsageLimit) -> String {
-    let resetsAt = limit.resetsAt.map { String(Int($0.timeIntervalSince1970)) } ?? "none"
+    // Rounded to the minute: the reported reset time can shift by a fraction of a second between fetches.
+    let resetsAt = limit.resetsAt.map { String(Int(($0.timeIntervalSince1970 / 60).rounded())) } ?? "none"
     return "\(provider.rawValue)-\(limit.id)-\(getUsagePriority(limit).rawValue)-\(resetsAt)"
 }

@@ -103,6 +103,8 @@ final class AIUsageStore {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     /// The heads-up showing in the closed notch, if any, as a `makeUsageHeadsUpKey`.
     private(set) var headsUpKey: String?
+    /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
+    private(set) var headsUpProvider: AIProvider?
     @ObservationIgnored private var dismissedHeadsUpKeys: Set<String> = []
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
@@ -231,6 +233,12 @@ final class AIUsageStore {
         }
     }
 
+    private func clearHeadsUp() {
+        headsUpKey = nil
+        headsUpProvider = nil
+        ActivityCenter.shared.remove(id: headsUpActivityID)
+    }
+
     func dismissHeadsUp() {
         if let headsUpKey { dismissedHeadsUpKeys.insert(headsUpKey) }
         updateHeadsUp()
@@ -245,14 +253,21 @@ final class AIUsageStore {
         let candidates = shown.flatMap { provider in getLimits(for: provider, now: now).map { (provider, $0) } }
         guard readDefault(showsHeadsUpKey, default: true),
             let (provider, limit) = getFullestProviderLimit(candidates),
-            limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold),
-            !dismissedHeadsUpKeys.contains(makeUsageHeadsUpKey(provider: provider, limit: limit))
+            limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold)
         else {
-            headsUpKey = nil
-            ActivityCenter.shared.remove(id: headsUpActivityID)
+            dismissedHeadsUpKeys = []
+            clearHeadsUp()
             return
         }
-        headsUpKey = makeUsageHeadsUpKey(provider: provider, limit: limit)
+        let key = makeUsageHeadsUpKey(provider: provider, limit: limit)
+        // Only the current heads-up's dismissal matters; older ones are for windows that have already reset.
+        dismissedHeadsUpKeys = dismissedHeadsUpKeys.filter { $0 == key }
+        guard !dismissedHeadsUpKeys.contains(key) else {
+            clearHeadsUp()
+            return
+        }
+        headsUpKey = key
+        headsUpProvider = provider
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -335,7 +350,7 @@ private struct AIUsageView: View {
                             }
                         }
                         Spacer()
-                        if store.headsUpKey != nil {
+                        if store.headsUpProvider == provider {
                             Button("Dismiss", systemImage: "bell.slash") { store.dismissHeadsUp() }
                                 .buttonStyle(.bordered)
                                 .help("Hide this limit's reminder in the closed notch until it resets or runs out")

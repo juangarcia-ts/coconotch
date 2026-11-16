@@ -84,4 +84,6 @@ private let sampleLog = """
     #expect(makeUsageHeadsUpKey(provider: .claude, limit: full) != key)
     #expect(makeUsageHeadsUpKey(provider: .claude, limit: nextWindow) != key)
     #expect(makeUsageHeadsUpKey(provider: .codex, limit: near) != key)
+    let jittered = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt - 0.1)
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: jittered) == key)
 }
