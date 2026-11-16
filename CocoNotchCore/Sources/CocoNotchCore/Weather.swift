@@ -394,3 +394,20 @@ public func formatDayLabel(_ date: Date, now: Date, calendar: Calendar) -> Strin
 public func isWeatherStale(updatedAt: Date?, now: Date, maxAge: TimeInterval) -> Bool {
     updatedAt.map { now.timeIntervalSince($0) > maxAge } ?? true
 }
+
+public struct WeatherCoordinate: Equatable, Sendable {
+    public let latitude: Double
+    public let longitude: Double
+
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
+/// Whether two points share a forecast. GPS fixes wander a little between reads, so anything within about 5 km
+/// counts as the same place, and the widget keeps showing the last forecast while it reloads.
+public func isSameWeatherLocation(_ old: WeatherCoordinate?, _ new: WeatherCoordinate) -> Bool {
+    guard let old else { return false }
+    return abs(old.latitude - new.latitude) < 0.05 && abs(old.longitude - new.longitude) < 0.05
+}

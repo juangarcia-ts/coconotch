@@ -159,3 +159,17 @@ func picksWeatherSymbol(code: Int, isDay: Bool, expected: String) {
     #expect(!isWeatherStale(updatedAt: now - 300, now: now, maxAge: 600))
     #expect(isWeatherStale(updatedAt: now - 900, now: now, maxAge: 600))
 }
+
+@Test func comparesWeatherLocations() {
+    let berlin = WeatherCoordinate(latitude: 52.52, longitude: 13.41)
+    #expect(!isSameWeatherLocation(nil, berlin))
+    #expect(isSameWeatherLocation(berlin, WeatherCoordinate(latitude: 52.53, longitude: 13.40)))
+    #expect(!isSameWeatherLocation(berlin, WeatherCoordinate(latitude: 35.68, longitude: 139.69)))
+}
+
+@Test func endsRainHeadsUpOnceItsHourHasPassed() {
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    let hours = [HourForecast(time: start, temperature: 20, code: 61, precipitationProbability: 90)]
+    #expect(getRainHeadsUpHour(hours, now: start + 1800, threshold: 70, window: 3600) != nil)
+    #expect(getRainHeadsUpHour(hours, now: start + 3600, threshold: 70, window: 3600) == nil)
+}

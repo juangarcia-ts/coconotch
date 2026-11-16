@@ -47,7 +47,7 @@ private func readSetting<Value>(_ key: String, default defaultValue: Value) -> V
 }
 
 private func readEnum<Value: RawRepresentable<String>>(_ key: String, default defaultValue: Value) -> Value {
-    UserDefaults.standard.string(forKey: key).flatMap(Value.init(rawValue:)) ?? defaultValue
+    UserDefaults.standard.string(forKey: key).flatMap { Value(rawValue: $0) } ?? defaultValue
 }
 
 /// Loads the forecast for the whole app, so the Home card and the rain heads-up work without opening the tab.
@@ -62,6 +62,10 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     private var updatedAt: Date?
     @ObservationIgnored private let locationManager = CLLocationManager()
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var headsUpTask: Task<Void, Never>?
+    // One load at a time: a newer one cancels the last, so a slow older response can't overwrite it.
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadedCoordinate: WeatherCoordinate?
     // CoreLocation reports the status once as soon as the delegate is set; only a real change should reload.
     @ObservationIgnored private var authorizationStatus: CLAuthorizationStatus
 
@@ -82,6 +86,19 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
                 try? await Task.sleep(for: .seconds(minutes * 60))
             }
         }
+        // The forecast is hourly but the heads-up should end when its hour does, so it is re-checked every minute.
+        headsUpTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                self?.updateRainHeadsUp()
+            }
+        }
+    }
+
+    private var isWidgetEnabled: Bool {
+        let preferences = NotchWidget.getPreferences(
+            stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
+        return getEnabledWidgetIDs(preferences).contains(NotchWidget.weather.id)
     }
 
     func refreshIfStale() {
@@ -91,9 +108,7 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     /// Reloads now. Settings call this when the location or units change.
     func refresh() {
         // Every path in goes through here, so a switched-off widget never asks for location or the network.
-        let preferences = NotchWidget.getPreferences(
-            stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
-        guard getEnabledWidgetIDs(preferences).contains(NotchWidget.weather.id) else {
+        guard isWidgetEnabled else {
             ActivityCenter.shared.remove(id: rainActivityID)
             return
         }
@@ -103,8 +118,7 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
                 show(.noPlace)
                 return
             }
-            placeName = place.name
-            Task { await load(latitude: place.latitude, longitude: place.longitude) }
+            startLoad(WeatherCoordinate(latitude: place.latitude, longitude: place.longitude), placeName: place.name)
         case .current:
             switch locationManager.authorizationStatus {
             case .authorizedAlways, .authorizedWhenInUse:
@@ -137,39 +151,56 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
         updateRainHeadsUp()
     }
 
-    private func load(latitude: Double, longitude: Double) async {
+    /// Starts a load for `coordinate`. A forecast for somewhere else is cleared first, so it is never shown under
+    /// the new place's name, even when the new load fails.
+    private func startLoad(_ coordinate: WeatherCoordinate, placeName name: String?) {
+        loadTask?.cancel()
+        if !isSameWeatherLocation(loadedCoordinate, coordinate) {
+            report = nil
+            placeName = name
+        }
+        loadTask = Task { await load(coordinate, placeName: name) }
+    }
+
+    private func load(_ coordinate: WeatherCoordinate, placeName name: String?) async {
         guard
             let url = makeForecastURL(
-                latitude: latitude,
-                longitude: longitude,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
                 temperatureUnit: readEnum(temperatureUnitKey, default: defaultTemperatureUnit),
                 windSpeedUnit: readEnum(windSpeedUnitKey, default: defaultWindSpeedUnit),
                 dayCount: readSetting(dayCountKey, default: defaultDayCount)
             )
         else { return }
         isLoading = true
-        defer { isLoading = false }
+        // A cancelled load leaves the flag to the load that replaced it.
+        defer { if !Task.isCancelled { isLoading = false } }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            report = try parseForecast(data)
+            let parsed = try parseForecast(data)
+            guard !Task.isCancelled else { return }
+            report = parsed
+            placeName = name
+            loadedCoordinate = coordinate
             problem = nil
             updatedAt = .now
         } catch {
+            guard !Task.isCancelled else { return }
             // Keeps the last forecast on screen; a short outage shouldn't blank the widget.
             if report == nil { problem = .network }
         }
         updateRainHeadsUp()
     }
 
-    private func loadCurrentLocation(latitude: Double, longitude: Double) async {
+    private func loadCurrentLocation(_ coordinate: WeatherCoordinate) async {
         let placemarks = try? await CLGeocoder().reverseGeocodeLocation(
-            CLLocation(latitude: latitude, longitude: longitude))
-        placeName = placemarks?.first?.locality
-        await load(latitude: latitude, longitude: longitude)
+            CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        guard !Task.isCancelled else { return }
+        startLoad(coordinate, placeName: placemarks?.first?.locality)
     }
 
     private func updateRainHeadsUp() {
-        guard readSetting(showsRainHeadsUpKey, default: false), let report,
+        guard isWidgetEnabled, readSetting(showsRainHeadsUpKey, default: false), let report,
             let hour = getRainHeadsUpHour(
                 report.hours,
                 now: .now,
@@ -208,9 +239,9 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else { return }
-        let (latitude, longitude) = (coordinate.latitude, coordinate.longitude)
+        let location = WeatherCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
         MainActor.assumeIsolated {
-            _ = Task { await loadCurrentLocation(latitude: latitude, longitude: longitude) }
+            _ = Task { await loadCurrentLocation(location) }
         }
     }
 
