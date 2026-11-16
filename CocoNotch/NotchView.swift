@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotchView: View {
     let notchSize: CGSize
+    let showSettings: () -> Void
 
     @State private var isExpanded = false
     @AppStorage("selectedWidget") private var selectedWidgetID = NotchWidget.all[0].id
@@ -69,6 +70,12 @@ struct NotchView: View {
                     .help(widget.title)
                 }
                 Spacer()
+                Button("Settings", systemImage: "gearshape", action: showSettings)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .frame(width: 40, height: notchSize.height - 6)
+                    .contentShape(Capsule())
+                    .help("Settings")
             }
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)
