@@ -7,13 +7,17 @@ extension NotchWidget {
         title: "Time Zones",
         systemImage: "globe",
         makeView: { AnyView(TimezonesView()) },
-        makeSettings: { AnyView(TimezonesSettings()) }
+        makeSettings: { AnyView(TimezonesSettings()) },
+        makeSummary: { AnyView(TimezonesSummary()) },
+        makeSummarySettings: { AnyView(TimezonesSummarySettings()) }
     )
 }
 
 // Kept from 0.1, which stored a comma-separated list here; decodeTimeZoneEntries still reads that format.
 private let entriesKey = "timezones.identifiers"
 private let showsFlagsKey = "timezones.showsFlags"
+private let homeCountKey = "timezones.homeCount"
+private let defaultHomeCount = 3
 private let defaultStoredEntries = encodeTimeZoneEntries(
     ["America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map { TimeZoneEntry(identifier: $0) }
 )
@@ -24,6 +28,14 @@ private let countryCodesByTimeZone = parseZoneTab(
 
 private func getFlag(forTimeZoneIdentifier identifier: String) -> String? {
     countryCodesByTimeZone[identifier].flatMap { getFlagEmoji(countryCode: $0) }
+}
+
+private func getZoneTitle(identifier: String, label: String?, showsFlag: Bool) -> String {
+    getDisplayTitle(
+        label: label,
+        identifier: identifier,
+        flag: showsFlag ? getFlag(forTimeZoneIdentifier: identifier) : nil
+    )
 }
 
 private struct TimezonesView: View {
@@ -73,8 +85,7 @@ private struct ZoneColumn: View {
     private var isLocal: Bool { zone == .current }
 
     private var title: String {
-        let flag = showsFlag ? getFlag(forTimeZoneIdentifier: zone.identifier) : nil
-        return getDisplayTitle(label: label, identifier: zone.identifier, flag: flag)
+        getZoneTitle(identifier: zone.identifier, label: label, showsFlag: showsFlag)
     }
 
     private var detail: String {
@@ -96,6 +107,57 @@ private struct ZoneColumn: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// The first few other time zones, for the Home tab.
+private struct TimezonesSummary: View {
+    @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
+    @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            HStack(spacing: 0) {
+                ForEach(
+                    getVisibleEntries(
+                        decodeTimeZoneEntries(storedEntries), localIdentifier: TimeZone.current.identifier
+                    ).prefix(homeCount)
+                ) { entry in
+                    if let zone = TimeZone(identifier: entry.identifier) {
+                        VStack(spacing: 2) {
+                            Text(
+                                context.date.formatted(
+                                    Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
+                            )
+                            .font(.title3.weight(.semibold).monospacedDigit())
+                            Text(getZoneTitle(identifier: entry.identifier, label: entry.label, showsFlag: showsFlags))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Text(
+                                formatOffset(
+                                    seconds: zone.secondsFromGMT(for: context.date)
+                                        - TimeZone.current.secondsFromGMT(for: context.date))
+                            )
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct TimezonesSummarySettings: View {
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        Picker("Cities shown", selection: $homeCount) {
+            ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+        }
     }
 }
 

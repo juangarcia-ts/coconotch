@@ -8,7 +8,9 @@ extension NotchWidget {
         title: "Meetings",
         systemImage: "calendar",
         makeView: { AnyView(MeetingsView()) },
-        makeSettings: { AnyView(MeetingsSettings()) }
+        makeSettings: { AnyView(MeetingsSettings()) },
+        makeSummary: { AnyView(MeetingsSummary()) },
+        makeSummarySettings: { AnyView(MeetingsSummarySettings()) }
     )
 }
 
@@ -17,11 +19,13 @@ private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
+private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
 private let defaultHidesAllDay = true
 private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
 private let defaultShowsPastEvents = false
+private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
 
@@ -227,17 +231,21 @@ private struct MeetingsView: View {
                                 .help("Go back to today")
                         }
                         Spacer()
-                        if store.isRefreshing {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.borderless)
-                                .help("Sync your calendars now")
+                        Group {
+                            if store.isRefreshing {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(.borderless)
+                                    .help("Sync your calendars now")
+                            }
                         }
+                        // Same slot as the Settings button above, so the two icons line up.
+                        .frame(width: 40)
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.leading, 10)
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(agenda.earlier) { meeting in
                             PastMeetingRow(meeting: meeting)
@@ -319,6 +327,88 @@ private struct MeetingRow: View {
             }
         }
         .padding(.horizontal, 10)
+    }
+}
+
+/// The next meetings today, for the Home tab.
+private struct MeetingsSummary: View {
+    @AppStorage(hidesAllDayKey) private var hidesAllDay = defaultHidesAllDay
+    @AppStorage(hidesDeclinedKey) private var hidesDeclined = defaultHidesDeclined
+    @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+    private let store = MeetingsStore.shared
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            let meetings = getUpcomingMeetings(
+                store.todaysMeetings,
+                now: context.date,
+                hidesAllDay: hidesAllDay,
+                hidesDeclined: hidesDeclined,
+                hiddenCalendarIDs: decodeIDSet(storedHiddenCalendarIDs)
+            )
+            .prefix(homeCount)
+            VStack(alignment: .leading, spacing: 8) {
+                if let next = meetings.first {
+                    HStack(spacing: 10) {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(getCalendarColor(id: next.calendarID))
+                            .frame(width: 3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(next.title)
+                                .font(.headline)
+                                .lineLimit(1)
+                            Text(formatTimeRange(next))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text(formatCountdown(now: context.date, start: next.start))
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Color.accentColor)
+                            if let link = next.link {
+                                Link("Join", destination: link)
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            }
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    ForEach(meetings.dropFirst()) { meeting in
+                        HStack(spacing: 8) {
+                            Text(formatStartTime(meeting))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 44, alignment: .leading)
+                            Text(meeting.title)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        .padding(.leading, 13)
+                    }
+                } else {
+                    Text(formatMeetingsSummaryEmpty(hasCalendarAccess: store.accessStatus == .fullAccess))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+private func getCalendarColor(id: String) -> Color {
+    Color(nsColor: eventStore.calendar(withIdentifier: id)?.color ?? .controlAccentColor)
+}
+
+private struct MeetingsSummarySettings: View {
+    @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
+
+    var body: some View {
+        Picker("Meetings shown", selection: $homeCount) {
+            ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
+        }
     }
 }
 
