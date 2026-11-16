@@ -153,9 +153,9 @@ func picksWeatherSymbol(code: Int, isDay: Bool, expected: String) {
         formatDayLabel(now + 86_400, now: now, calendar: calendar)
             == (now + 86_400).formatted(.dateTime.weekday(.abbreviated)))
 
-    #expect(isWeatherStale(updatedAt: nil, now: now, maxAge: 600))
-    #expect(!isWeatherStale(updatedAt: now - 300, now: now, maxAge: 600))
-    #expect(isWeatherStale(updatedAt: now - 900, now: now, maxAge: 600))
+    #expect(isStale(updatedAt: nil, now: now, maxAge: 600))
+    #expect(!isStale(updatedAt: now - 300, now: now, maxAge: 600))
+    #expect(isStale(updatedAt: now - 900, now: now, maxAge: 600))
 }
 
 @Test func comparesWeatherLocations() {

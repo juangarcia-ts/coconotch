@@ -102,7 +102,7 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     }
 
     func refreshIfStale() {
-        if isWeatherStale(updatedAt: updatedAt, now: .now, maxAge: staleAge) { refresh() }
+        if isStale(updatedAt: updatedAt, now: .now, maxAge: staleAge) { refresh() }
     }
 
     /// Reloads now. Settings call this when the location or units change.
