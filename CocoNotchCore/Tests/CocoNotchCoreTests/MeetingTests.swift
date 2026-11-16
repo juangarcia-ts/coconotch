@@ -79,6 +79,15 @@ func findsMeetingLink(url: String?, location: String?, notes: String?, expected:
     #expect(range.hasPrefix(start.formatted(date: .omitted, time: .shortened)))
 }
 
+@Test func formatsStartTime() {
+    let start = Date(timeIntervalSince1970: 10_000)
+    #expect(formatStartTime(Meeting(id: "a", title: "A", start: start, end: start + 3600, isAllDay: true)) == "All day")
+    #expect(
+        formatStartTime(Meeting(id: "b", title: "B", start: start, end: start + 3600))
+            == start.formatted(date: .omitted, time: .shortened)
+    )
+}
+
 @Test(arguments: [(0, false, 0, 0), (1, true, 0, 0), (4, true, 3, 0), (6, true, 3, 2)])
 func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
     let start = Date(timeIntervalSince1970: 10_000)

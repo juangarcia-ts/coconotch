@@ -78,10 +78,13 @@ public func encodeIDSet(_ ids: Set<String>) -> String {
     ids.sorted().joined(separator: "\n")
 }
 
+public func formatStartTime(_ meeting: Meeting) -> String {
+    meeting.isAllDay ? "All day" : meeting.start.formatted(date: .omitted, time: .shortened)
+}
+
 public func formatTimeRange(_ meeting: Meeting) -> String {
-    guard !meeting.isAllDay else { return "All day" }
-    let start = meeting.start.formatted(date: .omitted, time: .shortened)
-    return "\(start)–\(meeting.end.formatted(date: .omitted, time: .shortened))"
+    guard !meeting.isAllDay else { return formatStartTime(meeting) }
+    return "\(formatStartTime(meeting))–\(meeting.end.formatted(date: .omitted, time: .shortened))"
 }
 
 public struct Agenda: Equatable, Sendable {

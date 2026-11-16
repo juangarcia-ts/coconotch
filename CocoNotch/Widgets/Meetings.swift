@@ -158,7 +158,7 @@ private struct MeetingRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(meeting.isAllDay ? "All day" : meeting.start.formatted(date: .omitted, time: .shortened))
+            Text(formatStartTime(meeting))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .leading)
