@@ -20,6 +20,8 @@ private struct HomeView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
+    @State private var draggedWidgetID: String?
+    @State private var dropTargetID: String?
 
     var body: some View {
         let widgets = getHomeSummaryIDs(
@@ -40,7 +42,26 @@ private struct HomeView: View {
                 ForEach(rows.indices, id: \.self) { index in
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(rows[index]) { widget in
-                            SummaryCard(widget: widget) { selectedWidgetID = widget.id }
+                            // Cards follow the widget order, so dragging one also reorders the tabs.
+                            SummaryCard(widget: widget, isDropTarget: dropTargetID == widget.id) {
+                                selectedWidgetID = widget.id
+                            }
+                            .modifier(DraggableWidget(id: widget.id, isDraggable: true) { draggedWidgetID = widget.id })
+                            .onDrop(
+                                of: [widgetDragType],
+                                delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
+                                    guard let draggedWidgetID else { return false }
+                                    storedWidgetPreferences = encodeWidgetPreferences(
+                                        moveWidget(
+                                            draggedWidgetID,
+                                            onto: widget.id,
+                                            in: NotchWidget.getPreferences(stored: storedWidgetPreferences)
+                                        )
+                                    )
+                                    self.draggedWidgetID = nil
+                                    return true
+                                }
+                            )
                         }
                     }
                     // Lets every card in the row stretch to the tallest one.
@@ -53,6 +74,7 @@ private struct HomeView: View {
 
 private struct SummaryCard: View {
     let widget: NotchWidget
+    let isDropTarget: Bool
     let open: () -> Void
     @State private var isHovering = false
 
@@ -78,7 +100,8 @@ private struct SummaryCard: View {
         .background {
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.primary.opacity(isHovering ? 0.09 : 0.06))
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(
+                    Color.primary.opacity(isDropTarget ? 0.35 : 0.08), lineWidth: isDropTarget ? 1 : 0.5)
         }
         .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture(perform: open)

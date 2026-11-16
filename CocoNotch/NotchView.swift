@@ -1,6 +1,5 @@
 import CocoNotchCore
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct NotchView: View {
     let notchSize: CGSize
@@ -15,7 +14,7 @@ struct NotchView: View {
     /// The tab a dragged tab is over, highlighted to show where it will land.
     @State private var dropTargetID: String?
     // Kept here rather than read from the drag's payload, so a drop is handled at once without async loading. Only
-    // tab drags carry `tabDragType`, so a stale value from a cancelled drag is never used by another app's drop.
+    // tab drags carry `widgetDragType`, so a stale value from a cancelled drag is never used by another app's drop.
     @State private var draggedWidgetID: String?
     @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
@@ -169,13 +168,13 @@ struct NotchView: View {
                     )
                     // Home can't be dragged; dropping a tab on it moves that tab to the front.
                     .modifier(
-                        DraggableTab(id: widget.id, isDraggable: widget.id != homeWidgetID) {
+                        DraggableWidget(id: widget.id, isDraggable: widget.id != homeWidgetID) {
                             draggedWidgetID = widget.id
                         }
                     )
                     .onDrop(
-                        of: [tabDragType],
-                        delegate: TabDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
+                        of: [widgetDragType],
+                        delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID) {
                             guard let draggedWidgetID else { return false }
                             storedWidgetPreferences = encodeWidgetPreferences(
                                 moveWidget(
@@ -211,59 +210,6 @@ struct NotchView: View {
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
         .frame(maxHeight: NotchPanel.baseSize.height, alignment: .top)
         .clipped()
-    }
-}
-
-/// A private, undeclared type for tab drags: nothing outside CocoNotch offers it, so other apps' drops are ignored.
-private let tabDragType = UTType(tag: "coconotch-tab", tagClass: .filenameExtension, conformingTo: .data) ?? .data
-
-private struct DraggableTab: ViewModifier {
-    let id: String
-    let isDraggable: Bool
-    let onStart: () -> Void
-
-    func body(content: Content) -> some View {
-        if isDraggable {
-            content.onDrag {
-                onStart()
-                let provider = NSItemProvider()
-                let data = Data(id.utf8)
-                // Visible only inside CocoNotch, so the tab can't be dropped into other apps either.
-                provider.registerDataRepresentation(forTypeIdentifier: tabDragType.identifier, visibility: .ownProcess)
-                {
-                    completion in
-                    completion(data, nil)
-                    return nil
-                }
-                return provider
-            }
-        } else {
-            content
-        }
-    }
-}
-
-/// Proposes a move, so the cursor shows a plain reorder instead of the "+" of copying into a drop zone.
-private struct TabDropDelegate: DropDelegate {
-    let targetID: String
-    @Binding var dropTargetID: String?
-    let perform: () -> Bool
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func dropEntered(info: DropInfo) {
-        dropTargetID = targetID
-    }
-
-    func dropExited(info: DropInfo) {
-        if dropTargetID == targetID { dropTargetID = nil }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        dropTargetID = nil
-        return perform()
     }
 }
 
