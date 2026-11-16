@@ -13,14 +13,13 @@ extension NotchWidget {
 
 // Stores hidden summaries rather than shown ones, so widgets added later appear on Home by default.
 private let hiddenSummaryIDsKey = "home.hiddenSummaryIDs"
-private let maxColumnsKey = "home.maxColumns"
-private let defaultMaxColumns = 3
+// Two keeps every card wide enough for its content in the 600pt panel.
+private let maxColumns = 2
 
 private struct HomeView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
-    @AppStorage(maxColumnsKey) private var maxColumns = defaultMaxColumns
 
     var body: some View {
         let widgets = getHomeSummaryIDs(
@@ -92,13 +91,9 @@ private struct SummaryCard: View {
 struct HomeSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
-    @AppStorage(maxColumnsKey) private var maxColumns = defaultMaxColumns
 
     var body: some View {
         Form {
-            Picker("Cards per row", selection: $maxColumns) {
-                ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
-            }
             Section("Summaries") {
                 Text(
                     "Home is always the first tab; hide it in Settings → Widgets. Cards follow the widget order there, and clicking one opens its widget."

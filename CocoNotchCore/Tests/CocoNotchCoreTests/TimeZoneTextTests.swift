@@ -15,3 +15,8 @@ func getsCityName(identifier: String, expected: String) {
     #expect(formatOffset(seconds: -5 * 3600).hasPrefix("−"))
     #expect(formatOffset(seconds: 5 * 3600 + 30 * 60).contains("30"))
 }
+
+@Test func labelsLocalZoneAsHere() {
+    #expect(formatOffsetLabel(seconds: 0, isLocal: true) == "Here")
+    #expect(formatOffsetLabel(seconds: -18_000, isLocal: false) == formatOffset(seconds: -18_000))
+}

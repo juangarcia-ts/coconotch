@@ -101,7 +101,7 @@ private struct ZoneColumn: View {
     private var detail: String {
         let weekday = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated))
         let offset = zone.secondsFromGMT(for: date) - TimeZone.autoupdatingCurrent.secondsFromGMT(for: date)
-        return "\(weekday) · \(isLocal ? "Here" : formatOffset(seconds: offset))"
+        return "\(weekday) · \(formatOffsetLabel(seconds: offset, isLocal: isLocal))"
     }
 
     var body: some View {
@@ -137,19 +137,25 @@ private struct TimezonesSummary: View {
                 ) { entry in
                     if let zone = getZone(for: entry) {
                         VStack(spacing: 2) {
+                            if showsFlags, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
+                                Text(flag)
+                                    .font(.title3)
+                            }
                             Text(
                                 context.date.formatted(
                                     Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
                             )
                             .font(.title3.weight(.semibold).monospacedDigit())
-                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label, showsFlag: showsFlags))
+                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label, showsFlag: false))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                             Text(
-                                formatOffset(
+                                formatOffsetLabel(
                                     seconds: zone.secondsFromGMT(for: context.date)
-                                        - TimeZone.autoupdatingCurrent.secondsFromGMT(for: context.date))
+                                        - TimeZone.autoupdatingCurrent.secondsFromGMT(for: context.date),
+                                    isLocal: zone.identifier == TimeZone.autoupdatingCurrent.identifier
+                                )
                             )
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.tertiary)
