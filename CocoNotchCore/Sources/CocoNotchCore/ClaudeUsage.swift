@@ -219,6 +219,7 @@ public enum ClaudeUsageProblem: Equatable, Sendable {
     case notConnected
     case codexNotFound
     case accessDeclined
+    case keychainLocked
     /// macOS refused the Keychain read for another reason; the status is shown so it can be looked up.
     case keychainError(Int32)
     case notSignedIn
@@ -230,11 +231,13 @@ public enum ClaudeUsageProblem: Equatable, Sendable {
 public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> String {
     switch problem {
     case .notConnected:
-        "See your Claude Code limits here. CocoNotch reads your Claude Code login from the Keychain; macOS asks first."
+        "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does."
     case .codexNotFound:
         "No Codex sessions found on this Mac. Use Codex once, then its limits show up here."
     case .accessDeclined:
-        "Keychain access was declined. Connect again and choose Always Allow so CocoNotch can read your usage."
+        "macOS declined access to Claude Code's login in the Keychain. Connect again to retry."
+    case .keychainLocked:
+        "Your keychain is locked. Unlock your Mac, and usage loads again on its own."
     case .keychainError(let status):
         "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again."
     case .notSignedIn: "Claude Code isn't signed in on this Mac. Run `claude` and sign in, then try again."
@@ -249,17 +252,29 @@ public func getClaudeUsageProblem(statusCode: Int) -> ClaudeUsageProblem? {
     switch statusCode {
     case 200..<300: nil
     case 401, 403: .loginExpired
+    // Rate limiting and server errors pass, so they keep the last numbers like a dropped connection does.
+    case 429, 500..<600: .network
     default: .unexpectedResponse
     }
 }
 
-/// What a Keychain read status means for the widget; nil means the login was read.
-/// -25300 is errSecItemNotFound, -128 errSecUserCanceled and -25293 errSecAuthFailed.
-public func getCredentialsProblem(status: Int32) -> ClaudeUsageProblem? {
-    switch status {
+/// What `security find-generic-password` exiting with `exitCode` means; nil means the login was read. The tool exits
+/// with the low byte of the Keychain status: 44 is errSecItemNotFound, 51 errSecAuthFailed, 128 errSecUserCanceled
+/// and 36 errSecInteractionNotAllowed, which a locked keychain returns.
+public func getCredentialsProblem(exitCode: Int32) -> ClaudeUsageProblem? {
+    switch exitCode {
     case 0: nil
-    case -25300: .notSignedIn
-    case -128, -25293: .accessDeclined
-    default: .keychainError(status)
+    case 44: .notSignedIn
+    case 51, 128: .accessDeclined
+    case 36: .keychainLocked
+    default: .keychainError(exitCode)
+    }
+}
+
+/// Problems that pass on their own: the last numbers stay on screen and the connection is kept.
+public func isTransientUsageProblem(_ problem: ClaudeUsageProblem) -> Bool {
+    switch problem {
+    case .network, .keychainLocked, .keychainError: true
+    default: false
     }
 }

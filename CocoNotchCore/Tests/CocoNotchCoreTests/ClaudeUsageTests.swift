@@ -107,9 +107,10 @@ import Testing
 @Test func mapsUsageStatusCodes() {
     #expect(getClaudeUsageProblem(statusCode: 200) == nil)
     #expect(getClaudeUsageProblem(statusCode: 401) == .loginExpired)
-    #expect(getClaudeUsageProblem(statusCode: 500) == .unexpectedResponse)
+    #expect(getClaudeUsageProblem(statusCode: 418) == .unexpectedResponse)
     for problem in [
-        ClaudeUsageProblem.notConnected, .accessDeclined, .keychainError(-25308), .notSignedIn, .loginExpired, .network,
+        ClaudeUsageProblem.notConnected, .accessDeclined, .keychainLocked, .keychainError(9), .notSignedIn,
+        .loginExpired, .network,
         .unexpectedResponse,
     ] {
         #expect(!getClaudeUsageProblemMessage(problem).isEmpty)
@@ -129,11 +130,23 @@ import Testing
     #expect(getUsageLevel(90) == .critical)
 }
 
-@Test func mapsKeychainStatuses() {
-    #expect(getCredentialsProblem(status: 0) == nil)
-    #expect(getCredentialsProblem(status: -25300) == .notSignedIn)
-    #expect(getCredentialsProblem(status: -128) == .accessDeclined)
-    #expect(getCredentialsProblem(status: -25293) == .accessDeclined)
-    #expect(getCredentialsProblem(status: -25308) == .keychainError(-25308))
-    #expect(getClaudeUsageProblemMessage(.keychainError(-25308)).contains("-25308"))
+@Test func mapsSecurityToolExitCodes() {
+    #expect(getCredentialsProblem(exitCode: 0) == nil)
+    #expect(getCredentialsProblem(exitCode: 44) == .notSignedIn)
+    #expect(getCredentialsProblem(exitCode: 51) == .accessDeclined)
+    #expect(getCredentialsProblem(exitCode: 128) == .accessDeclined)
+    #expect(getCredentialsProblem(exitCode: 36) == .keychainLocked)
+    #expect(getCredentialsProblem(exitCode: 9) == .keychainError(9))
+    #expect(getClaudeUsageProblemMessage(.keychainError(9)).contains("9"))
+}
+
+@Test func keepsNumbersThroughTransientProblems() {
+    #expect(getClaudeUsageProblem(statusCode: 429) == .network)
+    #expect(getClaudeUsageProblem(statusCode: 503) == .network)
+    #expect(getClaudeUsageProblem(statusCode: 404) == .unexpectedResponse)
+    #expect(isTransientUsageProblem(.network))
+    #expect(isTransientUsageProblem(.keychainLocked))
+    #expect(isTransientUsageProblem(.keychainError(9)))
+    #expect(!isTransientUsageProblem(.accessDeclined))
+    #expect(!isTransientUsageProblem(.loginExpired))
 }

@@ -1,5 +1,4 @@
 import CocoNotchCore
-import Security
 import SwiftUI
 
 extension NotchWidget {
@@ -34,19 +33,25 @@ private enum CredentialsResult: Sendable {
     case failed(ClaudeUsageProblem)
 }
 
-/// Blocks while macOS asks for permission, so it runs off the main thread. Only the Claude login is kept from the
-/// item; the other tokens Claude Code stores there are dropped as soon as it is parsed.
+/// Claude Code reads and writes its login through /usr/bin/security, so the Keychain item already trusts that tool.
+/// Reading it the same way needs no permission prompt, and keeps working when CocoNotch is rebuilt, which a direct
+/// read wouldn't. Only the Claude login is kept; the item's other tokens are dropped as soon as it is parsed.
 nonisolated private func readClaudeCredentials() -> CredentialsResult {
-    let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: claudeCredentialsService,
-        kSecReturnData as String: true,
-        kSecMatchLimit as String: kSecMatchLimitOne,
-    ]
-    var item: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &item)
-    if let problem = getCredentialsProblem(status: status) { return .failed(problem) }
-    guard let data = item as? Data, let credentials = parseClaudeCredentials(data) else { return .failed(.notSignedIn) }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+    process.arguments = ["find-generic-password", "-s", claudeCredentialsService, "-w"]
+    let output = Pipe()
+    process.standardOutput = output
+    process.standardError = FileHandle.nullDevice
+    do {
+        try process.run()
+    } catch {
+        return .failed(.keychainError(-1))
+    }
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+    if let problem = getCredentialsProblem(exitCode: process.terminationStatus) { return .failed(problem) }
+    guard let credentials = parseClaudeCredentials(data) else { return .failed(.notSignedIn) }
     return .found(credentials)
 }
 
@@ -96,6 +101,13 @@ final class AIUsageStore {
     private var updatedAt: Date?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+
+    /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
+    func restart() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        start()
+    }
 
     func start() {
         guard refreshTask == nil else { return }
@@ -159,7 +171,9 @@ final class AIUsageStore {
         updateHeadsUp()
     }
 
+    /// A transient problem keeps the last numbers on screen; the rest clear them.
     private func showClaude(_ problem: ClaudeUsageProblem) {
+        guard !(isTransientUsageProblem(problem) && !claudeLimits.isEmpty) else { return }
         claudeProblem = problem
         claudeLimits = []
     }
@@ -169,8 +183,8 @@ final class AIUsageStore {
         guard !Task.isCancelled else { return }
         switch result {
         case .failed(let problem):
-            // A refused Keychain read disconnects, so the background refresh doesn't keep asking.
-            if problem != .notSignedIn { UserDefaults.standard.set(false, forKey: isClaudeConnectedKey) }
+            // Only a refusal disconnects; a locked keychain, say while the Mac sleeps, passes on its own.
+            if problem == .accessDeclined { UserDefaults.standard.set(false, forKey: isClaudeConnectedKey) }
             showClaude(problem)
         case .found(let credentials):
             guard !isClaudeTokenExpired(credentials, now: .now) else {
@@ -199,8 +213,7 @@ final class AIUsageStore {
             showClaude(.unexpectedResponse)
         } catch {
             guard !Task.isCancelled else { return }
-            // Keeps the last numbers through a short outage rather than blanking the widget.
-            if claudeLimits.isEmpty { claudeProblem = .network }
+            showClaude(.network)
         }
     }
 
@@ -413,7 +426,7 @@ private struct UsageProblemView: View {
             switch problem {
             case .notConnected, .accessDeclined, .keychainError:
                 Button("Connect Claude Code") { store.connectClaude() }
-            case .notSignedIn, .loginExpired, .network, .unexpectedResponse, .codexNotFound:
+            case .notSignedIn, .loginExpired, .network, .unexpectedResponse, .codexNotFound, .keychainLocked:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             }
         }
@@ -557,6 +570,7 @@ private struct AIUsageSettings: View {
         .formStyle(.grouped)
         .onChange(of: showsClaude) { store.refresh() }
         .onChange(of: showsCodex) { store.refresh() }
+        .onChange(of: refreshMinutes) { store.restart() }
         .onChange(of: storedHiddenKinds) { store.updateHeadsUp() }
         .onChange(of: showsHeadsUp) { store.updateHeadsUp() }
         .onChange(of: headsUpThreshold) { store.updateHeadsUp() }
