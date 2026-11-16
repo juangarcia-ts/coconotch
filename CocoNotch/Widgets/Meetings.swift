@@ -57,6 +57,7 @@ final class MeetingsStore {
     /// The meeting shown in the closed notch, if any.
     private(set) var headsUpMeetingID: String?
     private var dismissedHeadsUpIDs: Set<String> = []
+    private(set) var isRefreshing = false
 
     /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, so it turns urgent close to the
     /// start time without querying EventKit that often. Never asks for access; that happens from the Meetings tab.
@@ -126,9 +127,13 @@ final class MeetingsStore {
     }
 
     /// Asks remote calendars such as Google to sync now; `EKEventStoreChanged` reloads meetings if anything changed.
-    func refresh() {
+    func refresh() async {
+        isRefreshing = true
         eventStore.refreshSourcesIfNecessary()
+        // The sync runs in the background with no completion callback, so give it a moment before reloading.
+        try? await Task.sleep(for: .seconds(2))
         refreshAccessStatus()
+        isRefreshing = false
     }
 
     func requestAccess() async {
@@ -192,10 +197,15 @@ private struct MeetingsView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Refresh", systemImage: "arrow.clockwise") { store.refresh() }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .help("Sync your calendars now")
+                    if store.isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .help("Sync your calendars now")
+                    }
                 }
                 .padding(.horizontal, 10)
                 if let next = agenda.next {
