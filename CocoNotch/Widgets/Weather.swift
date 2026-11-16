@@ -62,23 +62,22 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     private var updatedAt: Date?
     @ObservationIgnored private let locationManager = CLLocationManager()
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    // CoreLocation reports the status once as soon as the delegate is set; only a real change should reload.
+    @ObservationIgnored private var authorizationStatus: CLAuthorizationStatus
 
     override init() {
+        authorizationStatus = locationManager.authorizationStatus
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
 
-    /// Reloads on the user's interval while the widget is on; nothing is requested while it is off.
+    /// Reloads on the user's interval; `refresh` does nothing while the widget is off.
     func start() {
         guard refreshTask == nil else { return }
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
-                let preferences = NotchWidget.getPreferences(
-                    stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
-                if getEnabledWidgetIDs(preferences).contains(NotchWidget.weather.id) {
-                    self?.refresh()
-                }
+                self?.refresh()
                 let minutes = readSetting(refreshMinutesKey, default: defaultRefreshMinutes)
                 try? await Task.sleep(for: .seconds(minutes * 60))
             }
@@ -91,6 +90,13 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
 
     /// Reloads now. Settings call this when the location or units change.
     func refresh() {
+        // Every path in goes through here, so a switched-off widget never asks for location or the network.
+        let preferences = NotchWidget.getPreferences(
+            stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
+        guard getEnabledWidgetIDs(preferences).contains(NotchWidget.weather.id) else {
+            ActivityCenter.shared.remove(id: rainActivityID)
+            return
+        }
         switch readEnum(locationModeKey, default: WeatherLocationMode.current) {
         case .place:
             guard let place = decodeWeatherPlace(UserDefaults.standard.string(forKey: placeKey) ?? "") else {
@@ -192,7 +198,12 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        MainActor.assumeIsolated { refresh() }
+        let status = manager.authorizationStatus
+        MainActor.assumeIsolated {
+            guard status != authorizationStatus else { return }
+            authorizationStatus = status
+            refresh()
+        }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
