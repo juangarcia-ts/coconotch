@@ -95,7 +95,7 @@ private struct ZoneColumn: View {
     private var isLocal: Bool { zone.identifier == TimeZone.autoupdatingCurrent.identifier }
 
     private var title: String {
-        getZoneTitle(identifier: zone.identifier, label: label, showsFlag: showsFlag)
+        getZoneTitle(identifier: zone.identifier, label: label, showsFlag: false)
     }
 
     private var detail: String {
@@ -105,13 +105,18 @@ private struct ZoneColumn: View {
     }
 
     var body: some View {
+        // Same order as the Home card: flag, time, place, then the day and offset.
         VStack(spacing: 2) {
+            if showsFlag, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
+                Text(flag)
+                    .font(.title3)
+            }
+            Text(date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone)))
+                .font(.title2.weight(.semibold).monospacedDigit())
             Text(title)
                 .font(.caption)
                 .foregroundStyle(isLocal ? .primary : .secondary)
                 .lineLimit(1)
-            Text(date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone)))
-                .font(.title2.weight(.semibold).monospacedDigit())
             Text(detail)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
