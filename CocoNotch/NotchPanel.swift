@@ -9,7 +9,7 @@ final class NotchPanel: NSPanel {
     private let showSettings: () -> Void
     private var placedScreenFrame: NSRect?
     private var placedNotchSize: CGSize?
-    private var placedScale: CGFloat?
+    private var placedScale: Double?
 
     init(showSettings: @escaping () -> Void) {
         self.showSettings = showSettings
@@ -29,9 +29,8 @@ final class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
-    func place(on screen: NSScreen) {
+    func place(on screen: NSScreen, scale: Double) {
         // Keep the view, and whether it's open, when neither the screen nor its notch changed.
-        let scale = CGFloat(UserDefaults.standard.object(forKey: PreferenceKey.notchScale) as? Double ?? 1)
         let isSameScreen = screen.frame == placedScreenFrame && screen.notchSize == placedNotchSize
         guard !isSameScreen || scale != placedScale else { return }
         if !isSameScreen {

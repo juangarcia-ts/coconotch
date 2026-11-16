@@ -12,7 +12,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
     @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
-    @AppStorage(PreferenceKey.notchScale) private var notchScale = 1.0
+    @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
 
     private var enabledWidgets: [NotchWidget] {
         getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
@@ -42,7 +42,7 @@ struct NotchView: View {
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
         // Only the open panel scales; the closed notch has to match the physical one exactly.
-        let scale = isExpanded ? notchScale : 1
+        let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
 
         ScaledLayout(scale: scale) {
             panel(shape: shape)

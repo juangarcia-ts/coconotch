@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panels.removeLast().close()
         }
         for (panel, index) in zip(panels, indices) {
-            panel.place(on: screens[index])
+            panel.place(on: screens[index], scale: settings.scale)
         }
     }
 }
@@ -84,7 +84,7 @@ private struct PlacementSettings: Equatable {
         return PlacementSettings(
             display: defaults.string(forKey: PreferenceKey.notchDisplay).flatMap { NotchDisplayChoice(rawValue: $0) }
                 ?? .main,
-            scale: defaults.object(forKey: PreferenceKey.notchScale) as? Double ?? 1
+            scale: clampNotchScale(defaults.object(forKey: PreferenceKey.notchScale) as? Double)
         )
     }
 }
