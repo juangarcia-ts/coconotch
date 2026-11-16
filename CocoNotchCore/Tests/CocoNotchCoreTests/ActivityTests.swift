@@ -46,3 +46,14 @@ private func makeActivity(
     #expect(ranked.map(\.id) == ["song"])
     #expect(rankActivities([], enabledWidgetIDs: ["music"]).isEmpty)
 }
+
+@Test func ranksPreferredWidgetFirstEvenAgainstHigherPriority() {
+    let activities = [
+        makeActivity("meeting", widget: "meetings", priority: .urgent),
+        makeActivity("song", widget: "music", priority: .background),
+    ]
+    let ranked = rankActivities(activities, enabledWidgetIDs: ["meetings", "music"], preferredWidgetID: "music")
+    #expect(ranked.map(\.id) == ["song", "meeting"])
+    let disabledPreferred = rankActivities(activities, enabledWidgetIDs: ["meetings"], preferredWidgetID: "music")
+    #expect(disabledPreferred.map(\.id) == ["meeting"])
+}

@@ -131,11 +131,22 @@ private struct AppearanceSettings: View {
 
 private struct WidgetsSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     // Edited locally and saved on every change, so dragging doesn't decode the stored list on each frame.
     @State private var preferences: [WidgetPreference] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Picker("Preferred activity", selection: $preferredActivityWidgetID) {
+                Text("Automatic").tag("")
+                ForEach(NotchWidget.all) { widget in
+                    Text(widget.title).tag(widget.id)
+                }
+            }
+            Text("The closed notch shows this widget's activity first. Automatic picks the most urgent one.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Divider()
             Text("Drag to reorder. The notch shows the widgets that are on, in this order.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

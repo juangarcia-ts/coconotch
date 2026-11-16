@@ -32,9 +32,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MeetingsStore.shared.start()
-        #if DEBUG
-            ActivityCenter.shared.postDemoActivitiesIfRequested()
-        #endif
         placePanels()
         NotificationCenter.default.addObserver(
             self,

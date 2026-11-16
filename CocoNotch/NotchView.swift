@@ -14,6 +14,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
+    @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
 
     private var enabledWidgets: [NotchWidget] {
         getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences))
@@ -22,7 +23,11 @@ struct NotchView: View {
 
     /// Activities from enabled widgets, winner first.
     private var rankedActivities: [NotchActivity] {
-        showsActivities ? ActivityCenter.shared.getRanked(enabledWidgetIDs: enabledWidgets.map(\.id)) : []
+        guard showsActivities else { return [] }
+        return ActivityCenter.shared.getRanked(
+            enabledWidgetIDs: enabledWidgets.map(\.id),
+            preferredWidgetID: preferredActivityWidgetID.isEmpty ? nil : preferredActivityWidgetID
+        )
     }
 
     // Falls back to the first enabled widget when the last selected one was switched off.
@@ -110,6 +115,15 @@ struct NotchView: View {
                     } label: {
                         Image(systemName: widget.systemImage)
                             .frame(width: 40, height: notchSize.height - 6)
+                            // Marks widgets with a live activity, since the closed notch shows only one.
+                            .overlay(alignment: .topTrailing) {
+                                if activities.contains(where: { $0.widgetID == widget.id }) {
+                                    Circle()
+                                        .fill(.orange)
+                                        .frame(width: 6, height: 6)
+                                        .padding(6)
+                                }
+                            }
                             .background(
                                 widget.id == selectedWidget.id ? Color.primary.opacity(0.15) : .clear,
                                 in: Capsule()
@@ -130,16 +144,6 @@ struct NotchView: View {
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)
             .padding(.top, 8)
-
-            if !activities.isEmpty {
-                VStack(spacing: 6) {
-                    ForEach(activities) { activity in
-                        ActivityRow(activity: activity)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 10)
-            }
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)

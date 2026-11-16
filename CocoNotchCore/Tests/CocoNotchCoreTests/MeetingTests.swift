@@ -98,3 +98,28 @@ func splitsAgenda(count: Int, hasNext: Bool, restCount: Int, hiddenCount: Int) {
     #expect(agenda.hiddenCount == hiddenCount)
     #expect(agenda.rest.first?.id == (restCount > 0 ? "1" : nil))
 }
+
+@Test func picksHeadsUpMeeting() {
+    let now = Date(timeIntervalSince1970: 100_000)
+    func meeting(_ id: String, startsIn minutes: Double, allDay: Bool = false) -> Meeting {
+        Meeting(id: id, title: id, start: now + minutes * 60, end: now + minutes * 60 + 3600, isAllDay: allDay)
+    }
+    let lead: TimeInterval = 10 * 60
+    let grace: TimeInterval = 10 * 60
+    func pick(_ meetings: [Meeting], dismissed: Set<String> = [], lead: TimeInterval = lead) -> String? {
+        getHeadsUpMeeting(meetings, now: now, leadTime: lead, grace: grace, dismissedIDs: dismissed)?.id
+    }
+
+    #expect(pick([meeting("soon", startsIn: 9)]) == "soon")
+    #expect(pick([meeting("later", startsIn: 11)]) == nil)
+    #expect(pick([meeting("started", startsIn: -9)]) == "started")
+    #expect(pick([meeting("long ago", startsIn: -11)]) == nil)
+    #expect(pick([meeting("holiday", startsIn: 0, allDay: true), meeting("soon", startsIn: 5)]) == "soon")
+    #expect(pick([meeting("soon", startsIn: 5)], dismissed: ["soon"]) == nil)
+    #expect(pick([meeting("soon", startsIn: 5)], lead: 0) == nil)
+}
+
+@Test(arguments: [(582, "9:42"), (5, "0:05"), (0, "0:00"), (-30, "0:00"), (3900, "1:05:00")])
+func formatsTimer(seconds: Int, expected: String) {
+    #expect(formatTimer(seconds: seconds) == expected)
+}

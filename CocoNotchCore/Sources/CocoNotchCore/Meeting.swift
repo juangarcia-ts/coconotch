@@ -98,3 +98,30 @@ public func makeAgenda(_ upcoming: [Meeting], limit: Int) -> Agenda {
     let rest = Array(upcoming.dropFirst().prefix(limit))
     return Agenda(next: upcoming.first, rest: rest, hiddenCount: max(upcoming.count - 1 - rest.count, 0))
 }
+
+/// The meeting to show in the closed notch: the first one that starts within `leadTime`, or started less than
+/// `grace` ago, skipping all-day events and ones the user dismissed. A `leadTime` of zero turns this off.
+public func getHeadsUpMeeting(
+    _ upcoming: [Meeting],
+    now: Date,
+    leadTime: TimeInterval,
+    grace: TimeInterval,
+    dismissedIDs: Set<String>
+) -> Meeting? {
+    guard leadTime > 0 else { return nil }
+    return upcoming.first { meeting in
+        !meeting.isAllDay
+            && !dismissedIDs.contains(meeting.id)
+            && meeting.start.timeIntervalSince(now) <= leadTime
+            && now.timeIntervalSince(meeting.start) < grace
+            && meeting.end > now
+    }
+}
+
+/// A countdown such as "9:42" or "1:05:00"; anything already reached reads "0:00".
+public func formatTimer(seconds: Int) -> String {
+    let seconds = max(seconds, 0)
+    let (hours, minutes, remainder) = (seconds / 3600, seconds / 60 % 60, seconds % 60)
+    let tail = String(format: "%02d", remainder)
+    return hours > 0 ? "\(hours):\(String(format: "%02d", minutes)):\(tail)" : "\(minutes):\(tail)"
+}

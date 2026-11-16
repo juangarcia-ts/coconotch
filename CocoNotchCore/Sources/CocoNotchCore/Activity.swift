@@ -31,13 +31,20 @@ public struct ActivitySummary: Equatable, Sendable {
 }
 
 /// Orders activities so the first one gets the closed notch: highest priority, then the widget higher in the
-/// user's widget order, then the earliest. Activities from widgets that are not enabled are dropped.
-public func rankActivities(_ activities: [ActivitySummary], enabledWidgetIDs: [String]) -> [ActivitySummary] {
+/// user's widget order, then the earliest. A preferred widget, if the user picked one, beats everything else.
+/// Activities from widgets that are not enabled are dropped.
+public func rankActivities(
+    _ activities: [ActivitySummary],
+    enabledWidgetIDs: [String],
+    preferredWidgetID: String? = nil
+) -> [ActivitySummary] {
     let widgetRank = Dictionary(uniqueKeysWithValues: enabledWidgetIDs.enumerated().map { ($1, $0) })
     return
         activities
         .filter { widgetRank[$0.widgetID] != nil }
         .sorted { lhs, rhs in
+            let isLhsPreferred = lhs.widgetID == preferredWidgetID
+            if isLhsPreferred != (rhs.widgetID == preferredWidgetID) { return isLhsPreferred }
             if lhs.priority != rhs.priority { return lhs.priority > rhs.priority }
             let lhsRank = widgetRank[lhs.widgetID] ?? 0
             let rhsRank = widgetRank[rhs.widgetID] ?? 0
