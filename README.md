@@ -19,6 +19,8 @@ xcodebuild -project CocoNotch.xcodeproj -scheme CocoNotch -derivedDataPath build
 open build/Build/Products/Debug/CocoNotch.app
 ```
 
+Before opening a PR, run `scripts/check.sh` (lint, tests, build with warnings as errors). CI runs the same script.
+
 ## Adding a widget
 
 1. Create `CocoNotch/Widgets/YourWidget.swift` with a `static let` on `NotchWidget` (see `Timezones.swift`).
