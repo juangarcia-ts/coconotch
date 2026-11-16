@@ -254,3 +254,8 @@ func ranksHeadsUpByStart(secondsAgo: Double, expected: ActivityPriority) {
     #expect(getDayMark(tomorrow, selection: tomorrow, now: now, calendar: calendar) == .selected)
     #expect(getDayMark(now + 2 * 86_400, selection: tomorrow, now: now, calendar: calendar) == .plain)
 }
+
+@Test func explainsEmptyMeetingsSummary() {
+    #expect(formatMeetingsSummaryEmpty(hasCalendarAccess: true) == "No more meetings today")
+    #expect(formatMeetingsSummaryEmpty(hasCalendarAccess: false).contains("Calendar access"))
+}

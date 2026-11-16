@@ -47,7 +47,10 @@ func fallsBackToLocalEntryOnUnreadableStorage(stored: String) {
         TimeZoneEntry(identifier: localTimeZoneEntryID, isVisible: false),
         TimeZoneEntry(identifier: "Europe/London"),
     ]
-    #expect(getVisibleEntries(entries).map(\.identifier) == ["Asia/Tokyo", "Europe/London"])
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "America/Sao_Paulo").map(\.identifier) == [
+            "Asia/Tokyo", "Europe/London",
+        ])
 }
 
 @Test func addsLocalEntryFirstOnlyWhenMissing() {
@@ -109,4 +112,34 @@ func normalizesLabel(text: String, expected: String?) {
             == "America/Sao_Paulo · GMT-3 · Current time zone"
     )
     #expect(formatTimeZoneCaption(identifier: "Asia/Tokyo", abbreviation: nil, isLocal: false) == "Asia/Tokyo")
+}
+
+@Test func turnsStoredCurrentZoneIntoLocalEntry() {
+    let stored = encodeTimeZoneEntries([
+        TimeZoneEntry(identifier: "America/Los_Angeles"),
+        TimeZoneEntry(identifier: "Asia/Tokyo", label: "Office"),
+    ])
+    let decoded = decodeTimeZoneEntries(stored, localIdentifier: "Asia/Tokyo")
+    #expect(decoded.map(\.identifier) == ["America/Los_Angeles", localTimeZoneEntryID])
+    #expect(decoded.last?.label == "Office")
+}
+
+@Test func hidesCityThatIsTheCurrentZoneWhileLocalShows() {
+    let entries = [local, TimeZoneEntry(identifier: "Asia/Tokyo"), TimeZoneEntry(identifier: "Europe/London")]
+    #expect(
+        getVisibleEntries(entries, localIdentifier: "Asia/Tokyo").map(\.identifier) == [
+            localTimeZoneEntryID, "Europe/London",
+        ])
+    let localHidden = [
+        TimeZoneEntry(identifier: localTimeZoneEntryID, isVisible: false), TimeZoneEntry(identifier: "Asia/Tokyo"),
+    ]
+    #expect(getVisibleEntries(localHidden, localIdentifier: "Asia/Tokyo").map(\.identifier) == ["Asia/Tokyo"])
+}
+
+@Test func countsLocalEntryAsAddedZone() {
+    #expect(
+        getAddedTimeZoneIdentifiers(
+            [local, TimeZoneEntry(identifier: "Asia/Tokyo")], localIdentifier: "America/Sao_Paulo")
+            == ["America/Sao_Paulo", "Asia/Tokyo"]
+    )
 }

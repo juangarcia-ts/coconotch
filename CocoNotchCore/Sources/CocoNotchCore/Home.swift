@@ -1,6 +1,7 @@
-/// The widgets whose summaries Home shows, in the user's widget order: those that have one and weren't hidden.
-public func getHomeSummaryIDs(_ orderedIDs: [String], summaryIDs: Set<String>, hiddenIDs: Set<String>) -> [String] {
-    orderedIDs.filter { summaryIDs.contains($0) && !hiddenIDs.contains($0) }
+/// The widgets whose summaries Home shows: enabled ones, in the user's order, that have a summary not hidden from
+/// Home. A switched-off widget's card would open nothing, so `enabledIDs` holds only widgets that are on.
+public func getHomeSummaryIDs(_ enabledIDs: [String], summaryIDs: Set<String>, hiddenIDs: Set<String>) -> [String] {
+    enabledIDs.filter { summaryIDs.contains($0) && !hiddenIDs.contains($0) }
 }
 
 public let homeWidgetID = "home"
