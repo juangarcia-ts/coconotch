@@ -11,6 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		C0C0000000000000000000D0 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		C0C0000000000000000000A2 /* CocoNotch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CocoNotch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -38,6 +39,7 @@
 			isa = PBXGroup;
 			children = (
 				C0C0000000000000000000A3 /* CocoNotch */,
+				C0C0000000000000000000D0 /* Signing.xcconfig */,
 				C0C0000000000000000000A6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -179,9 +181,8 @@
 		};
 		C0C0000000000000000000B4 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0C0000000000000000000D0 /* Signing.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -207,9 +208,8 @@
 		};
 		C0C0000000000000000000B5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0C0000000000000000000D0 /* Signing.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;

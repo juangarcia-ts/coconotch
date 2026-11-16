@@ -1,0 +1,5 @@
+// Signs local builds with your Apple Development certificate, which is free with an Apple ID:
+// Xcode → Settings → Accounts → add your Apple ID → Manage Certificates → + → Apple Development.
+// Your team ID is the 10-character code in parentheses in: security find-identity -v -p codesigning
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

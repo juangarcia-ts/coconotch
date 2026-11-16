@@ -1,0 +1,7 @@
+// Ad-hoc signing works for everyone, CI included, but its signature changes on every build, so macOS forgets
+// privacy permissions such as Calendar access after each rebuild. To keep them, copy Local.xcconfig.example to
+// Local.xcconfig (gitignored) and sign with your own certificate.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+
+#include? "Local.xcconfig"
