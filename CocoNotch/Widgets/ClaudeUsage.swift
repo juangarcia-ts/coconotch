@@ -29,8 +29,7 @@ private let headsUpActivityID = "claudeUsage.headsUp"
 
 private enum CredentialsResult: Sendable {
     case found(ClaudeCredentials)
-    case missing
-    case denied
+    case failed(ClaudeUsageProblem)
 }
 
 /// Blocks while macOS asks for permission, so it runs off the main thread. Only the Claude login is kept from the
@@ -43,15 +42,10 @@ nonisolated private func readClaudeCredentials() -> CredentialsResult {
         kSecMatchLimit as String: kSecMatchLimitOne,
     ]
     var item: CFTypeRef?
-    switch SecItemCopyMatching(query as CFDictionary, &item) {
-    case errSecSuccess:
-        guard let data = item as? Data, let credentials = parseClaudeCredentials(data) else { return .missing }
-        return .found(credentials)
-    case errSecItemNotFound:
-        return .missing
-    default:
-        return .denied
-    }
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if let problem = getCredentialsProblem(status: status) { return .failed(problem) }
+    guard let data = item as? Data, let credentials = parseClaudeCredentials(data) else { return .failed(.notSignedIn) }
+    return .found(credentials)
 }
 
 /// Loads usage for the whole app, so the Home card and the heads-up work without opening the tab.
@@ -104,6 +98,8 @@ final class ClaudeUsageStore {
             return
         }
         loadTask?.cancel()
+        // Clears the last problem, so the tab shows a spinner while the Keychain prompt and the request run.
+        if limits.isEmpty { problem = nil }
         loadTask = Task { await load() }
     }
 
@@ -120,12 +116,10 @@ final class ClaudeUsageStore {
         let result = await Task.detached { readClaudeCredentials() }.value
         guard !Task.isCancelled else { return }
         switch result {
-        case .missing:
-            show(.notSignedIn)
-        case .denied:
-            // The user declined the Keychain prompt; they can connect again from the tab.
-            UserDefaults.standard.set(false, forKey: isConnectedKey)
-            show(.notConnected)
+        case .failed(let problem):
+            // A refused Keychain read disconnects, so the background refresh doesn't keep asking.
+            if problem != .notSignedIn { UserDefaults.standard.set(false, forKey: isConnectedKey) }
+            show(problem)
         case .found(let credentials):
             guard !isClaudeTokenExpired(credentials, now: .now) else {
                 show(.loginExpired)
@@ -274,7 +268,7 @@ private struct ClaudeUsageProblemView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             switch problem {
-            case .notConnected:
+            case .notConnected, .accessDeclined, .keychainError:
                 Button("Connect Claude Code") { store.connect() }
             case .notSignedIn, .loginExpired, .network, .unexpectedResponse:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }

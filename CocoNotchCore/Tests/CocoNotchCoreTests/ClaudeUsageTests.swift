@@ -108,7 +108,10 @@ import Testing
     #expect(getClaudeUsageProblem(statusCode: 200) == nil)
     #expect(getClaudeUsageProblem(statusCode: 401) == .loginExpired)
     #expect(getClaudeUsageProblem(statusCode: 500) == .unexpectedResponse)
-    for problem in [ClaudeUsageProblem.notConnected, .notSignedIn, .loginExpired, .network, .unexpectedResponse] {
+    for problem in [
+        ClaudeUsageProblem.notConnected, .accessDeclined, .keychainError(-25308), .notSignedIn, .loginExpired, .network,
+        .unexpectedResponse,
+    ] {
         #expect(!getClaudeUsageProblemMessage(problem).isEmpty)
     }
 }
@@ -124,4 +127,13 @@ import Testing
     #expect(getUsageLevel(74) == .comfortable)
     #expect(getUsageLevel(75) == .high)
     #expect(getUsageLevel(90) == .critical)
+}
+
+@Test func mapsKeychainStatuses() {
+    #expect(getCredentialsProblem(status: 0) == nil)
+    #expect(getCredentialsProblem(status: -25300) == .notSignedIn)
+    #expect(getCredentialsProblem(status: -128) == .accessDeclined)
+    #expect(getCredentialsProblem(status: -25293) == .accessDeclined)
+    #expect(getCredentialsProblem(status: -25308) == .keychainError(-25308))
+    #expect(getClaudeUsageProblemMessage(.keychainError(-25308)).contains("-25308"))
 }

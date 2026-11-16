@@ -211,6 +211,9 @@ public func getUsagePriority(_ limit: UsageLimit) -> ActivityPriority {
 /// Why there are no usage numbers to show.
 public enum ClaudeUsageProblem: Equatable, Sendable {
     case notConnected
+    case accessDeclined
+    /// macOS refused the Keychain read for another reason; the status is shown so it can be looked up.
+    case keychainError(Int32)
     case notSignedIn
     case loginExpired
     case network
@@ -221,6 +224,10 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
     switch problem {
     case .notConnected:
         "See your Claude Code limits here. CocoNotch reads your Claude Code login from the Keychain; macOS asks first."
+    case .accessDeclined:
+        "Keychain access was declined. Connect again and choose Always Allow so CocoNotch can read your usage."
+    case .keychainError(let status):
+        "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again."
     case .notSignedIn: "Claude Code isn't signed in on this Mac. Run `claude` and sign in, then try again."
     case .loginExpired: "Your Claude Code login has expired. Open Claude Code once to refresh it, then try again."
     case .network: "Usage couldn't be loaded. Check your connection and try again."
@@ -234,5 +241,16 @@ public func getClaudeUsageProblem(statusCode: Int) -> ClaudeUsageProblem? {
     case 200..<300: nil
     case 401, 403: .loginExpired
     default: .unexpectedResponse
+    }
+}
+
+/// What a Keychain read status means for the widget; nil means the login was read.
+/// -25300 is errSecItemNotFound, -128 errSecUserCanceled and -25293 errSecAuthFailed.
+public func getCredentialsProblem(status: Int32) -> ClaudeUsageProblem? {
+    switch status {
+    case 0: nil
+    case -25300: .notSignedIn
+    case -128, -25293: .accessDeclined
+    default: .keychainError(status)
     }
 }
