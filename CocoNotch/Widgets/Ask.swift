@@ -192,11 +192,17 @@ private struct AskComposer: View {
     let isResponding: Bool
     let send: () -> Void
     let stop: () -> Void
+    var showsMark = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
         let canSend = getAskQuestion(draft) != nil
         HStack(alignment: .bottom, spacing: 8) {
+            if showsMark {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(intelligenceGradient)
+                    .padding(.bottom, 5)
+            }
             TextField("Ask anything…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
@@ -231,7 +237,7 @@ private struct AskComposer: View {
 
 private let appleIntelligenceSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")
 
-/// A one-line field for Home: sending opens the Ask tab, where the answer streams in, or the warning when Apple
+/// A field for Home that always starts a new chat: sending opens the Ask tab, where the answer streams in, or the warning when Apple
 /// Intelligence is off, keeping the question for later.
 @available(macOS 26, *)
 struct AskShortcut: View {
@@ -239,13 +245,16 @@ struct AskShortcut: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
 
     var body: some View {
-        AskComposer(draft: $store.draft, isResponding: false, send: send, stop: {})
+        AskComposer(draft: $store.draft, isResponding: false, send: send, stop: {}, showsMark: true)
             .font(.callout)
     }
 
     private func send() {
         guard getAskQuestion(store.draft) != nil else { return }
-        if getAskUnavailableReason() == nil { store.send() }
+        if getAskUnavailableReason() == nil {
+            store.startNewChat()
+            store.send()
+        }
         selectedWidgetID = NotchWidget.ask.id
     }
 }
