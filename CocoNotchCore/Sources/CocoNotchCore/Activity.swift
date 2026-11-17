@@ -66,3 +66,9 @@ public func makeAlertKey(_ activity: ActivitySummary) -> String {
 public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> CGFloat {
     min(idealWidths.max() ?? 0, maxWidth)
 }
+
+/// The tab hovering the closed notch opens: the top activity's widget, unless it is too quiet to switch tabs.
+public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
+    guard let topActivity, topActivity.priority > .low else { return nil }
+    return topActivity.widgetID
+}

@@ -114,7 +114,7 @@ final class MeetingsStore {
         updateHeadsUp()
     }
 
-    private func updateHeadsUp() {
+    func updateHeadsUp() {
         let now = Date.now
         let defaults = UserDefaults.standard
         let upcoming = getUpcomingMeetings(
@@ -542,6 +542,7 @@ private struct MeetingsSettings: View {
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
             Toggle("Show the next meeting in the closed notch when nothing else is", isOn: $showsNextMeeting)
+                .onChange(of: showsNextMeeting) { MeetingsStore.shared.updateHeadsUp() }
             Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {
                 Text("Off").tag(0)
                 ForEach([1, 5, 10, 15], id: \.self) { minutes in
