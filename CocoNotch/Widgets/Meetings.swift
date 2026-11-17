@@ -19,6 +19,7 @@ private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
+private let showsNextMeetingKey = "meetings.showsNextMeeting"
 private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
 private let defaultHidesAllDay = true
@@ -28,6 +29,7 @@ private let defaultShowsPastEvents = false
 private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
+private let nextMeetingActivityID = "meetings.next"
 
 // One store for the whole app: Apple recommends reusing it, and creating one is slow.
 private let eventStore = EKEventStore()
@@ -112,7 +114,7 @@ final class MeetingsStore {
         updateHeadsUp()
     }
 
-    private func updateHeadsUp() {
+    func updateHeadsUp() {
         let now = Date.now
         let defaults = UserDefaults.standard
         let upcoming = getUpcomingMeetings(
@@ -131,6 +133,9 @@ final class MeetingsStore {
             dismissedIDs: dismissedHeadsUpIDs
         )
         headsUpMeetingID = meeting?.id
+        updateNextMeeting(
+            meeting == nil && defaults.object(forKey: showsNextMeetingKey) as? Bool ?? true
+                ? getNextMeeting(upcoming, now: now) : nil)
         guard let meeting else {
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
@@ -144,6 +149,24 @@ final class MeetingsStore {
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
                 makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) }
+            )
+        )
+    }
+
+    /// Until the heads-up takes over, the next meeting sits in the closed notch whenever nothing else wants it.
+    private func updateNextMeeting(_ meeting: Meeting?) {
+        guard let meeting else {
+            ActivityCenter.shared.remove(id: nextMeetingActivityID)
+            return
+        }
+        ActivityCenter.shared.post(
+            NotchActivity(
+                id: nextMeetingActivityID,
+                widgetID: NotchWidget.meetings.id,
+                priority: .low,
+                sortDate: meeting.start,
+                makeLeading: { AnyView(NextMeetingTitle(meeting: meeting)) },
+                makeTrailing: { AnyView(NextMeetingCountdown(meeting: meeting)) }
             )
         )
     }
@@ -511,12 +534,15 @@ private struct MeetingsSettings: View {
     @AppStorage(hiddenCalendarIDsKey) private var storedHiddenCalendarIDs = ""
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
+    @AppStorage(showsNextMeetingKey) private var showsNextMeeting = true
 
     var body: some View {
         Form {
             Toggle("Show past events", isOn: $showsPastEvents)
             Toggle("Hide all-day events", isOn: $hidesAllDay)
             Toggle("Hide events I declined", isOn: $hidesDeclined)
+            Toggle("Show the next meeting in the closed notch when nothing else is", isOn: $showsNextMeeting)
+                .onChange(of: showsNextMeeting) { MeetingsStore.shared.updateHeadsUp() }
             Picker("Heads-up in the closed notch", selection: $headsUpMinutes) {
                 Text("Off").tag(0)
                 ForEach([1, 5, 10, 15], id: \.self) { minutes in
@@ -572,6 +598,30 @@ private struct HeadsUpTitle: View {
             Image(systemName: "calendar")
                 .foregroundStyle(.orange)
             Text(meeting.title)
+        }
+    }
+}
+
+private struct NextMeetingTitle: View {
+    let meeting: Meeting
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "calendar")
+                .foregroundStyle(.secondary)
+            Text(meeting.title)
+        }
+    }
+}
+
+private struct NextMeetingCountdown: View {
+    let meeting: Meeting
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            Text(formatCountdown(now: context.date, start: meeting.start))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
         }
     }
 }
