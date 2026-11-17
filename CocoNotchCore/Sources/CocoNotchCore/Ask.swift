@@ -56,6 +56,11 @@ public func getAskUnavailableMessage(_ reason: AskUnavailableReason) -> String {
     }
 }
 
+/// Whether System Settings can make Ask work: switching Apple Intelligence on, or watching its download.
+public func canFixAskInSettings(_ reason: AskUnavailableReason) -> Bool {
+    reason == .appleIntelligenceOff || reason == .modelNotReady
+}
+
 public func getAskFailureMessage(_ failure: AskFailure) -> String {
     switch failure {
     case .guardrail: "Apple Intelligence won't answer that. Try asking another way."

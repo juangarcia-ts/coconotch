@@ -26,3 +26,12 @@ func trimsQuestion(draft: String, expected: String?) {
 @Test func describesOtherFailures() {
     #expect(getAskFailureMessage(.other("Boom")).hasSuffix("Boom"))
 }
+
+@Test(
+    arguments: [
+        (.appleIntelligenceOff, true), (.modelNotReady, true), (.deviceNotEligible, false), (.olderSystem, false),
+        (.unknown, false),
+    ] as [(AskUnavailableReason, Bool)])
+func offersSettingsOnlyWhenTheyHelp(reason: AskUnavailableReason, expected: Bool) {
+    #expect(canFixAskInSettings(reason) == expected)
+}

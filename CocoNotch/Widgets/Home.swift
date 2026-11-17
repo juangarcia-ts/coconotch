@@ -83,7 +83,7 @@ private struct SummaryCard: View {
         // Compact enough that three rows fit in the open panel above the footer.
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
-                Image(systemName: widget.systemImage)
+                WidgetIcon(widget: widget)
                 Text(widget.title)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -131,7 +131,11 @@ struct HomeSettings: View {
                     id in
                     if let widget = NotchWidget.find(id: id), widget.makeSummary != nil {
                         Toggle(isOn: makeVisibilityBinding(for: widget.id)) {
-                            Label(widget.title, systemImage: widget.systemImage)
+                            Label {
+                                Text(widget.title)
+                            } icon: {
+                                WidgetIcon(widget: widget)
+                            }
                         }
                         widget.makeSummarySettings?()
                             .padding(.leading, 24)

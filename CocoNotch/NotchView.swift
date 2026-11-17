@@ -155,7 +155,7 @@ struct NotchView: View {
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
-                        Image(systemName: widget.systemImage)
+                        WidgetIcon(widget: widget)
                             .frame(width: 40, height: notchSize.height - 6)
                             // Marks widgets with a live activity, since the closed notch shows only one.
                             .overlay(alignment: .topTrailing) {

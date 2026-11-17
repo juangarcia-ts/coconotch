@@ -6,6 +6,7 @@ extension NotchWidget {
         id: "aiUsage",
         title: "AI Usage",
         systemImage: "sparkles",
+        imageName: "ClaudeLogo",
         makeView: { AnyView(AIUsageView()) },
         makeSettings: { AnyView(AIUsageSettings()) },
         makeSummary: { AnyView(AIUsageSummary()) }

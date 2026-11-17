@@ -163,12 +163,21 @@ private struct AskView: View {
     }
 }
 
+private let appleIntelligenceSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")
+
 private struct AskUnavailableView: View {
     var body: some View {
-        Label(getAskUnavailableMessage(getAskUnavailableReason() ?? .unknown), systemImage: "exclamationmark.triangle")
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
+        let reason = getAskUnavailableReason() ?? .unknown
+        VStack(spacing: 10) {
+            Label(getAskUnavailableMessage(reason), systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+            if canFixAskInSettings(reason), let appleIntelligenceSettingsURL {
+                Button("Open System Settings") { NSWorkspace.shared.open(appleIntelligenceSettingsURL) }
+                    .controlSize(.small)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
     }
 }
 
