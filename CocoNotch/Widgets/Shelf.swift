@@ -17,7 +17,6 @@ extension NotchWidget {
 let shelfOpensOnDragHoverKey = "shelf.opensOnDragHover"
 private let copiesFilesKey = "shelf.copiesFiles"
 private let removesAfterDragOutKey = "shelf.removesAfterDragOut"
-private let defaultShelfKey = "shelf.defaultShelfID"
 private let notchDropTargetID = "notch"
 
 private func readSetting(_ key: String, default defaultValue: Bool) -> Bool {
@@ -47,12 +46,6 @@ final class ShelfStore {
     private var copiesDirectory: URL { directory.appending(path: "Copies") }
 
     var items: [ShelfItem] { shelves.flatMap(\.items) }
-
-    /// Where drops on the closed notch go: the shelf picked in Settings, or the first one.
-    var defaultShelfID: UUID? {
-        let stored = UserDefaults.standard.string(forKey: defaultShelfKey).flatMap(UUID.init(uuidString:))
-        return shelves.first { $0.id == stored }?.id ?? shelves.first?.id
-    }
 
     func start() {
         try? FileManager.default.createDirectory(at: copiesDirectory, withIntermediateDirectories: true)
@@ -104,9 +97,9 @@ final class ShelfStore {
         if isChanged { save(updated) }
     }
 
-    /// Adds the drop to the shelf, or to the default shelf when none is given.
+    /// Adds the drop to the shelf; a drop that missed every shelf, like one on the closed notch, goes to the first.
     func add(_ providers: [NSItemProvider], to shelfID: UUID?) {
-        guard let shelfID = shelfID ?? defaultShelfID else { return }
+        guard let shelfID = shelfID ?? shelves.first?.id else { return }
         let copiesFiles = readSetting(copiesFilesKey, default: false)
         Task {
             var newItems: [ShelfItem] = []
@@ -492,8 +485,6 @@ private struct ShelfSection: View {
     var focusedShelfID: FocusState<UUID?>.Binding
     /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
     @State private var confirmation: ShelfConfirmation?
-    /// Explains the badge in a popover, since tooltips only show while CocoNotch is active, which the notch never makes it.
-    @State private var isHoveringPrimary = false
     private let store = ShelfStore.shared
 
     var body: some View {
@@ -510,19 +501,6 @@ private struct ShelfSection: View {
                     .font(.headline)
                     .focused(focusedShelfID, equals: shelf.id)
                     .fixedSize()
-                    if store.defaultShelfID == shelf.id {
-                        Text("Primary")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.primary.opacity(0.12), in: Capsule())
-                            .onHover { isHoveringPrimary = $0 }
-                            .popover(isPresented: $isHoveringPrimary, arrowEdge: .bottom) {
-                                Text("Files dropped on the closed notch are added to this shelf.")
-                                    .font(.callout)
-                                    .padding(10)
-                            }
-                    }
                     Text(formatShelfSummary(shelf.items))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -550,11 +528,6 @@ private struct ShelfSection: View {
                     }
                     Menu("More", systemImage: "ellipsis.circle") {
                         Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
-                        if store.defaultShelfID != shelf.id {
-                            Button("Set as Primary") {
-                                UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey)
-                            }
-                        }
                         Divider()
                         Button("Clear Shelf") { confirmation = .clear }
                             .disabled(shelf.items.isEmpty)
@@ -768,27 +741,16 @@ private struct ShelfSettings: View {
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @AppStorage(copiesFilesKey) private var copiesFiles = false
     @AppStorage(removesAfterDragOutKey) private var removesAfterDragOut = false
-    @AppStorage(defaultShelfKey) private var storedDefaultShelfID = ""
-    private let store = ShelfStore.shared
 
     var body: some View {
         Form {
             Section {
                 Toggle("Open the notch when a drag is over it", isOn: $opensOnDragHover)
-                Picker(
-                    "Primary shelf",
-                    selection: Binding(
-                        get: { store.defaultShelfID?.uuidString ?? "" }, set: { storedDefaultShelfID = $0 })
-                ) {
-                    ForEach(store.shelves) { shelf in
-                        Text(shelf.name.isEmpty ? "Untitled" : shelf.name).tag(shelf.id.uuidString)
-                    }
-                }
             } header: {
                 Text("Dropping")
             } footer: {
                 Text(
-                    "Files dropped on the closed notch are added to the primary shelf. With the notch open, drop on any shelf; drag items between shelves to move them."
+                    "Drop on the shelf you want; drag items between shelves to move them. A drop that misses every shelf goes to the first."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
