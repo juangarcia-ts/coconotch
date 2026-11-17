@@ -21,13 +21,24 @@ private struct HomeView: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
     @AppStorage(showsMusicKey) private var showsMusic = true
+    @AppStorage(showsAskOnHomeKey) private var showsAsk = true
     @State private var dropTargetID: String?
+
+    private var isAskShown: Bool {
+        guard #available(macOS 26, *) else { return false }
+        return showsAsk
+            && getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)).contains(
+                NotchWidget.ask.id)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            if showsMusic {
-                NowPlayingPanel()
-                    .frame(width: 160)
+            if showsMusic || isAskShown {
+                VStack(spacing: 8) {
+                    if showsMusic { NowPlayingPanel() }
+                    if #available(macOS 26, *), isAskShown { AskShortcut() }
+                }
+                .frame(width: 160)
             }
             cards
         }
@@ -83,7 +94,7 @@ private struct SummaryCard: View {
         // Compact enough that three rows fit in the open panel above the footer.
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
-                Image(systemName: widget.systemImage)
+                WidgetIcon(widget: widget)
                 Text(widget.title)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -118,6 +129,7 @@ struct HomeSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
     @AppStorage(showsMusicKey) private var showsMusic = true
+    @AppStorage(showsAskOnHomeKey) private var showsAsk = true
 
     var body: some View {
         Form {
@@ -131,7 +143,11 @@ struct HomeSettings: View {
                     id in
                     if let widget = NotchWidget.find(id: id), widget.makeSummary != nil {
                         Toggle(isOn: makeVisibilityBinding(for: widget.id)) {
-                            Label(widget.title, systemImage: widget.systemImage)
+                            Label {
+                                Text(widget.title)
+                            } icon: {
+                                WidgetIcon(widget: widget)
+                            }
                         }
                         widget.makeSummarySettings?()
                             .padding(.leading, 24)
@@ -140,6 +156,12 @@ struct HomeSettings: View {
             }
             Section("Music") {
                 Toggle("Show what's playing in Music or Spotify", isOn: $showsMusic)
+            }
+            Section("Ask") {
+                Toggle("Show an Ask field under the music player", isOn: $showsAsk)
+                Text("Shown while the Ask widget is on.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

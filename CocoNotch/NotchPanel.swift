@@ -35,7 +35,8 @@ final class NotchPanel: NSPanel {
         guard !isSameScreen || scale != placedScale else { return }
         if !isSameScreen {
             let hostingView = NSHostingView(
-                rootView: NotchView(notchSize: screen.notchSize, showSettings: showSettings)
+                rootView: NotchView(
+                    notchSize: screen.notchSize, panelID: ObjectIdentifier(self), showSettings: showSettings)
             )
             hostingView.sizingOptions = []
             contentView = hostingView

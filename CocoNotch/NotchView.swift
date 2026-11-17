@@ -3,6 +3,8 @@ import SwiftUI
 
 struct NotchView: View {
     let notchSize: CGSize
+    /// The panel showing this view, so it reacts only to its own panel losing key status.
+    let panelID: ObjectIdentifier
     let showSettings: () -> Void
 
     @State private var isExpanded = false
@@ -20,6 +22,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
+    @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
+    @State private var isHovering = false
 
     private var enabledWidgets: [NotchWidget] {
         getTabIDs(
@@ -74,9 +78,17 @@ struct NotchView: View {
         .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
         .contentShape(Rectangle())
         .onHover { isHovering in
+            self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
             if isHovering, !isExpanded, let activity = activities.first { selectedWidgetID = activity.widgetID }
+            // While typing, the notch closes once the user clicks into another app instead.
+            if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
+            if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering {
+                setExpanded(false)
+            }
         }
         .onTapGesture {
             if expandsOnClick && !isExpanded { setExpanded(true) }
@@ -130,7 +142,14 @@ struct NotchView: View {
     }
 
     private func setExpanded(_ isExpanded: Bool) {
+        // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
+        if !isExpanded, NSApp.keyWindow is NotchPanel { NSWorkspace.shared.frontmostApplication?.activate() }
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
+    }
+
+    private func isTypingInNotch() -> Bool {
+        // A focused text field puts its shared field editor, an NSTextView, first in line for keys.
+        (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
     }
 
     private func expandedContent(activities: [NotchActivity]) -> some View {
@@ -140,7 +159,7 @@ struct NotchView: View {
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
-                        Image(systemName: widget.systemImage)
+                        WidgetIcon(widget: widget)
                             .frame(width: 40, height: notchSize.height - 6)
                             // Marks widgets with a live activity, since the closed notch shows only one.
                             .overlay(alignment: .topTrailing) {

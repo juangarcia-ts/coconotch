@@ -34,8 +34,12 @@ struct SettingsView: View {
                     .tag(SettingsPage.appearance)
                 DisclosureGroup(isExpanded: $isWidgetsExpanded) {
                     ForEach(widgetsWithSettings) { widget in
-                        Label(widget.title, systemImage: widget.systemImage)
-                            .tag(SettingsPage.widget(widget.id))
+                        Label {
+                            Text(widget.title)
+                        } icon: {
+                            WidgetIcon(widget: widget)
+                        }
+                        .tag(SettingsPage.widget(widget.id))
                     }
                 } label: {
                     Label("Widgets", systemImage: "square.grid.2x2")
@@ -225,7 +229,11 @@ private struct WidgetsSettings: View {
                     if let widget = NotchWidget.find(id: preference.id) {
                         HStack {
                             DragHandle()
-                            Label(widget.title, systemImage: widget.systemImage)
+                            Label {
+                                Text(widget.title)
+                            } icon: {
+                                WidgetIcon(widget: widget)
+                            }
                             Spacer()
                             Toggle("Show \(widget.title)", isOn: $preference.isEnabled)
                                 .labelsHidden()
