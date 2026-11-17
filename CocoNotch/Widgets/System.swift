@@ -238,8 +238,6 @@ private struct Metric: Identifiable {
     var history: [Double] = []
     /// Set when the color carries meaning, such as memory pressure.
     var tint: Color?
-    /// Shown as a small warning sign next to the value, with this as its tooltip.
-    var warning: String?
 }
 
 private func getPressureColor(_ pressure: MemoryPressure) -> Color {
@@ -270,8 +268,7 @@ private func makeMetrics(
                 id: "memory", title: "Memory", symbol: "memorychip",
                 value: store.memoryPressureFraction.map(formatPercent) ?? "–", fraction: store.memoryPressureFraction,
                 detail: "\(used)\(formatBytes(store.memoryTotal, isMemory: true))", history: store.memoryHistory,
-                tint: pressure.map(getPressureColor),
-                warning: pressure.flatMap { $0 == .normal ? nil : "Memory pressure: \(getMemoryPressureLabel($0))" }))
+                tint: pressure.map(getPressureColor)))
     }
     if showsDisk, let disk = store.disk {
         metrics.append(
@@ -307,24 +304,15 @@ private struct SystemView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             } else {
-                HStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
                     ForEach(metrics) { metric in
                         VStack(alignment: .leading, spacing: 6) {
                             Label(metric.title, systemImage: metric.symbol)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            HStack(spacing: 6) {
-                                Text(metric.value)
-                                    .font(.title2.weight(.semibold).monospacedDigit())
-                                    .lineLimit(1)
-                                if let warning = metric.warning {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.callout)
-                                        .foregroundStyle(metric.tint ?? .yellow)
-                                        .help(warning)
-                                        .accessibilityLabel(warning)
-                                }
-                            }
+                            Text(metric.value)
+                                .font(.title2.weight(.semibold).monospacedDigit())
+                                .lineLimit(1)
                             if showsGraphs, !metric.history.isEmpty {
                                 Sparkline(
                                     values: metric.history, limit: store.historyLimit, tint: metric.tint ?? .accentColor
@@ -340,10 +328,12 @@ private struct SystemView: View {
                                 .lineLimit(1)
                         }
                         .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
+                // Lets every tile stretch to the tallest one, so a graph doesn't make its tile stand out.
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .task { await store.sampleWhileVisible() }
