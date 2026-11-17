@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SystemStore.shared.start()
         ClipboardStore.shared.start()
         ShelfStore.shared.start()
+        HotKeyCenter.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,

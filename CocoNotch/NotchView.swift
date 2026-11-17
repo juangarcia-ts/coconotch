@@ -111,6 +111,15 @@ struct NotchView: View {
         .onTapGesture {
             if expandsOnClick && !isExpanded { setExpanded(true) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .hotKeyPressed)) { notification in
+            guard let widgetID = notification.object as? String, isHotKeyTarget() else { return }
+            let shouldOpen = shouldOpenNotchForHotKey(
+                widgetID: widgetID, isExpanded: isExpanded, selectedWidgetID: selectedWidget.id)
+            if !widgetID.isEmpty { selectedWidgetID = widgetID }
+            setExpanded(shouldOpen)
+            // Taking the keyboard lets a click elsewhere close it, as the pointer may never have been over it.
+            if shouldOpen { NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey() }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
@@ -207,6 +216,18 @@ struct NotchView: View {
         showSettings(page)
     }
 
+    /// With a notch on every display, a hotkey opens only the one under the pointer.
+    private func isHotKeyTarget() -> Bool {
+        let screens = NSScreen.screens
+        let panels = NSApp.windows.compactMap { $0 as? NotchPanel }
+        let ownScreen = panels.first { ObjectIdentifier($0) == panelID }?.screen
+        guard let ownDisplay = ownScreen.flatMap({ screens.firstIndex(of: $0) }) else { return false }
+        return shouldHandleHotKey(
+            ownDisplay: ownDisplay,
+            panelDisplays: panels.compactMap { $0.screen.flatMap { screens.firstIndex(of: $0) } }.sorted(),
+            pointerDisplay: screens.firstIndex { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
+    }
+
     private func isTypingInNotch() -> Bool {
         // A focused text field puts its shared field editor, an NSTextView, first in line for keys.
         (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
@@ -216,7 +237,7 @@ struct NotchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(Array(enabledWidgets.enumerated()), id: \.element.id) { index, widget in
-                    let digit = widgetShortcuts == .disabled ? nil : getWidgetShortcutDigit(index: index)
+                    let shortcut = widgetShortcuts == .disabled ? nil : getWidgetTabShortcut(index: index)
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
@@ -232,8 +253,8 @@ struct NotchView: View {
                                 }
                             }
                             .overlay(alignment: .bottom) {
-                                if widgetShortcuts == .visible, let digit {
-                                    Text(verbatim: "⌘\(digit)")
+                                if widgetShortcuts == .visible, let shortcut {
+                                    Text(verbatim: shortcut.label)
                                         .font(.system(size: 8).monospacedDigit())
                                         .foregroundStyle(.tertiary)
                                         .offset(y: 9)
@@ -247,8 +268,13 @@ struct NotchView: View {
                     }
                     .buttonStyle(.plain)
                     // Works once the notch has keyboard focus, so typing in other apps never switches widgets.
-                    .keyboardShortcut(digit.map { KeyboardShortcut(KeyEquivalent($0), modifiers: .command) })
-                    .help(digit.map { "\(widget.title) (⌘\($0))" } ?? widget.title)
+                    .keyboardShortcut(
+                        shortcut.map {
+                            KeyboardShortcut(
+                                KeyEquivalent($0.digit), modifiers: $0.usesOption ? [.command, .option] : .command)
+                        }
+                    )
+                    .help(shortcut.map { "\(widget.title) (\($0.label))" } ?? widget.title)
                     .background(
                         Capsule().strokeBorder(
                             Color.primary.opacity(dropTargetID == widget.id ? 0.35 : 0), lineWidth: 1)

@@ -59,9 +59,11 @@ func countsHomeColumns(cardCount: Int, maxColumns: Int, expected: Int) {
 }
 
 @Test func widgetShortcutDigitsFollowTheNumberRow() {
-    #expect(getWidgetShortcutDigit(index: 0) == "1")
-    #expect(getWidgetShortcutDigit(index: 8) == "9")
-    #expect(getWidgetShortcutDigit(index: 9) == "0")
-    #expect(getWidgetShortcutDigit(index: 10) == nil)
-    #expect(getWidgetShortcutDigit(index: -1) == nil)
+    #expect(getWidgetTabShortcut(index: 0)?.label == "⌘1")
+    #expect(getWidgetTabShortcut(index: 8)?.label == "⌘9")
+    #expect(getWidgetTabShortcut(index: 9)?.label == "⌘0")
+    #expect(getWidgetTabShortcut(index: 10)?.label == "⌥⌘1")
+    #expect(getWidgetTabShortcut(index: 19)?.label == "⌥⌘0")
+    #expect(getWidgetTabShortcut(index: 20) == nil)
+    #expect(getWidgetTabShortcut(index: -1) == nil)
 }
