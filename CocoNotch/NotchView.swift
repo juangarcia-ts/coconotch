@@ -23,7 +23,10 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
+    @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @State private var isHovering = false
+    /// Whether a drag opened the notch, so it closes again if the drag leaves without dropping.
+    @State private var isOpenedByDrag = false
 
     private var enabledWidgets: [NotchWidget] {
         getTabIDs(
@@ -77,6 +80,13 @@ struct NotchView: View {
         .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
         .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
         .contentShape(Rectangle())
+        .onDrop(
+            of: [.item],
+            delegate: ShelfDropDelegate(isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id }) {
+                isTargeted, didDrop in
+                handleShelfDrag(isTargeted: isTargeted, didDrop: didDrop)
+            }
+        )
         .onHover { isHovering in
             self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
@@ -138,6 +148,21 @@ struct NotchView: View {
         Task {
             try? await Task.sleep(for: .seconds(6))
             if alertingKey == key { alertingKey = nil }
+        }
+    }
+
+    private func handleShelfDrag(isTargeted: Bool, didDrop: Bool) {
+        if isTargeted {
+            guard isExpanded || opensOnDragHover else { return }
+            selectedWidgetID = NotchWidget.shelf.id
+            if !isExpanded {
+                isOpenedByDrag = true
+                setExpanded(true)
+            }
+        } else if isOpenedByDrag {
+            isOpenedByDrag = false
+            // After a drop the pointer is still on the notch, so hovering decides when it closes.
+            if didDrop { isHovering = true } else if !isHovering { setExpanded(false) }
         }
     }
 
