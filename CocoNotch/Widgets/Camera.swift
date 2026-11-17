@@ -31,26 +31,27 @@ private func resolveCameraID(pickedID: String, cameras: [AVCaptureDevice]) -> St
 /// Owns the capture session. Starting and stopping block, so they run in order on a queue of their own.
 nonisolated private final class CameraSession: @unchecked Sendable {
     static let shared = CameraSession()
-    let previewLayer: AVCaptureVideoPreviewLayer
-    private let session = AVCaptureSession()
+    let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "CocoNotch.camera")
-
-    init() {
-        previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-    }
+    // A rebuilt view can start before the old one stops, so the session runs while anyone still uses it.
+    private var userCount = 0
 
     func start(deviceID: String, isMirrored: Bool) {
         queue.async {
-            self.session.beginConfiguration()
-            self.session.inputs.forEach(self.session.removeInput)
-            if let device = AVCaptureDevice(uniqueID: deviceID),
-                let input = try? AVCaptureDeviceInput(device: device), self.session.canAddInput(input)
-            {
-                self.session.addInput(input)
+            self.userCount += 1
+            let current = self.session.inputs.first as? AVCaptureDeviceInput
+            if current?.device.uniqueID != deviceID {
+                self.session.beginConfiguration()
+                self.session.inputs.forEach(self.session.removeInput)
+                if let device = AVCaptureDevice(uniqueID: deviceID),
+                    let input = try? AVCaptureDeviceInput(device: device), self.session.canAddInput(input)
+                {
+                    self.session.addInput(input)
+                }
+                self.session.commitConfiguration()
             }
-            self.session.commitConfiguration()
-            if let connection = self.previewLayer.connection, connection.isVideoMirroringSupported {
+            // Includes every preview layer's connection, so each view gets the setting.
+            for connection in self.session.connections where connection.isVideoMirroringSupported {
                 connection.automaticallyAdjustsVideoMirroring = false
                 connection.isVideoMirrored = isMirrored
             }
@@ -59,14 +60,20 @@ nonisolated private final class CameraSession: @unchecked Sendable {
     }
 
     func stop() {
-        queue.async { self.session.stopRunning() }
+        queue.async {
+            self.userCount -= 1
+            if self.userCount == 0 { self.session.stopRunning() }
+        }
     }
 }
 
 private struct CameraPreview: NSViewRepresentable {
-    let layer: AVCaptureVideoPreviewLayer
+    let session: AVCaptureSession
 
     func makeNSView(context: Context) -> NSView {
+        // A layer can only live in one view, so each preview gets its own.
+        let layer = AVCaptureVideoPreviewLayer(session: session)
+        layer.videoGravity = .resizeAspectFill
         let view = NSView()
         // Set before wantsLayer, so the view hosts this layer and keeps it sized to its bounds.
         view.layer = layer
@@ -88,7 +95,7 @@ private struct CameraView: View {
         Group {
             switch status {
             case .authorized where hasCamera:
-                CameraPreview(layer: camera.previewLayer)
+                CameraPreview(session: camera.session)
                     .background(.black)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -112,21 +119,27 @@ private struct CameraView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        // The notch closing removes this view, which cancels the task and stops the session, so the light goes off.
+        // Runs while the view is on screen; the notch closing cancels it, which stops the session and the light.
         .task(id: "\(pickedID) \(isMirrored)") {
             if status == .notDetermined {
                 _ = await AVCaptureDevice.requestAccess(for: .video)
                 status = AVCaptureDevice.authorizationStatus(for: .video)
             }
-            guard status == .authorized, !Task.isCancelled else { return }
-            guard let id = resolveCameraID(pickedID: pickedID, cameras: listCameras()) else {
-                hasCamera = false
-                return
+            guard status == .authorized else { return }
+            var startedID: String?
+            // ponytail: polls for plugged and unplugged cameras; use AVCaptureDevice connect notifications if it costs.
+            while !Task.isCancelled {
+                let id = resolveCameraID(pickedID: pickedID, cameras: listCameras())
+                hasCamera = id != nil
+                if id != startedID {
+                    if startedID != nil { camera.stop() }
+                    if let id { camera.start(deviceID: id, isMirrored: isMirrored) }
+                    startedID = id
+                }
+                try? await Task.sleep(for: .seconds(2))
             }
-            hasCamera = true
-            camera.start(deviceID: id, isMirrored: isMirrored)
+            if startedID != nil { camera.stop() }
         }
-        .onDisappear { camera.stop() }
     }
 
     private func message(_ text: String) -> some View {
