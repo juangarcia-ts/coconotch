@@ -127,9 +127,7 @@ final class ShelfStore {
             else {
                 return nil
             }
-            guard copiesFiles else { return makeFileItem(url, isCopy: false) }
-            let copy = await Task.detached { copyFile(url, into: copiesDirectory) }.value
-            return copy.map { makeFileItem($0, isCopy: true) }
+            return await loadFileItem(url, copiesFiles: copiesFiles)
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
             let url = await withCheckedContinuation { continuation in
@@ -156,6 +154,35 @@ final class ShelfStore {
             }
         }
         return copy.map { makeFileItem($0, isCopy: true) }
+    }
+
+    private func loadFileItem(_ url: URL, copiesFiles: Bool) async -> ShelfItem? {
+        guard copiesFiles else { return makeFileItem(url, isCopy: false) }
+        let copiesDirectory = copiesDirectory
+        let copy = await Task.detached { copyFile(url, into: copiesDirectory) }.value
+        return copy.map { makeFileItem($0, isCopy: true) }
+    }
+
+    /// Picks files in an Open panel, for adding without dragging.
+    func chooseFiles(for shelfID: UUID) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
+        panel.prompt = "Add"
+        // Like Quick Look, the panel only comes to the front over other apps when CocoNotch is active.
+        NSApp.activate()
+        panel.begin { [self] response in
+            guard response == .OK else { return }
+            let copiesFiles = readSetting(copiesFilesKey, default: false)
+            let urls = panel.urls
+            Task {
+                var newItems: [ShelfItem] = []
+                for url in urls {
+                    if let item = await loadFileItem(url, copiesFiles: copiesFiles) { newItems.append(item) }
+                }
+                updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
+            }
+        }
     }
 
     private func makeFileItem(_ url: URL, isCopy: Bool) -> ShelfItem {
@@ -494,14 +521,27 @@ private struct ShelfSection: View {
         let isTargeted = store.dropTargetIDs.contains(shelf.id.uuidString)
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                TextField("Untitled", text: Binding(get: { shelf.name }, set: { store.rename(shelf.id, to: $0) }))
+                // On one baseline, so the smaller details sit on the name's line rather than centred against it.
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    TextField(
+                        "Untitled", text: Binding(get: { shelf.name }, set: { store.rename(shelf.id, to: $0) })
+                    )
                     .textFieldStyle(.plain)
                     .font(.headline)
                     .focused(focusedShelfID, equals: shelf.id)
                     .fixedSize()
-                Text(formatShelfSummary(shelf.items))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    if store.defaultShelfID == shelf.id {
+                        Text("Primary")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.primary.opacity(0.12), in: Capsule())
+                            .help("Files dropped on the closed notch are added to this shelf.")
+                    }
+                    Text(formatShelfSummary(shelf.items))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if let confirmation {
                     Text(confirmation == .clear ? "Clear this shelf?" : "Delete this shelf?")
@@ -524,14 +564,13 @@ private struct ShelfSection: View {
                         .help("Share")
                     }
                     Menu("More", systemImage: "ellipsis.circle") {
+                        Button("Add Files…") { store.chooseFiles(for: shelf.id) }
                         Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
-                        Toggle(
-                            "Gets Drops on the Closed Notch",
-                            isOn: Binding(
-                                get: { store.defaultShelfID == shelf.id },
-                                set: { _ in UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey) })
-                        )
-                        .disabled(store.defaultShelfID == shelf.id)
+                        if store.defaultShelfID != shelf.id {
+                            Button("Set as Primary") {
+                                UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey)
+                            }
+                        }
                         Divider()
                         Button("Clear Shelf") { confirmation = .clear }
                             .disabled(shelf.items.isEmpty)
@@ -549,7 +588,7 @@ private struct ShelfSection: View {
             .padding(.horizontal, 4)
             Group {
                 if shelf.items.isEmpty {
-                    Text("Drop files, links or text here.")
+                    Text("Drop files, links or text here, or click to choose files.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -576,8 +615,10 @@ private struct ShelfSection: View {
                         Color.primary.opacity(isTargeted ? 0.4 : 0.12),
                         style: StrokeStyle(lineWidth: 1, dash: shelf.items.isEmpty ? [5] : []))
             }
-            // A click between tiles clears the selection, like Finder.
-            .onTapGesture { store.selection = [] }
+            // A click between tiles clears the selection, like Finder; on an empty shelf it opens a file picker.
+            .onTapGesture {
+                if shelf.items.isEmpty { store.chooseFiles(for: shelf.id) } else { store.selection = [] }
+            }
         }
         .onDrop(of: [.item], delegate: ShelfDropDelegate(shelfID: shelf.id))
     }
@@ -753,7 +794,7 @@ private struct ShelfSettings: View {
             Section {
                 Toggle("Open the notch when a drag is over it", isOn: $opensOnDragHover)
                 Picker(
-                    "Drops on the closed notch go to",
+                    "Primary shelf",
                     selection: Binding(
                         get: { store.defaultShelfID?.uuidString ?? "" }, set: { storedDefaultShelfID = $0 })
                 ) {
@@ -764,9 +805,11 @@ private struct ShelfSettings: View {
             } header: {
                 Text("Dropping")
             } footer: {
-                Text("With the notch open, drop on a shelf to put it there. Drag items between shelves to move them.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Files dropped on the closed notch are added to the primary shelf. With the notch open, drop on any shelf; drag items between shelves to move them."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Keep a copy of dropped files", isOn: $copiesFiles)
