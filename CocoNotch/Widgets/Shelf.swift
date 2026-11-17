@@ -480,12 +480,6 @@ private struct ShelfSection: View {
                     .font(.headline)
                     .focused(focusedShelfID, equals: shelf.id)
                     .fixedSize()
-                if store.defaultShelfID == shelf.id {
-                    Image(systemName: "tray.and.arrow.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .help("Drops on the closed notch land here")
-                }
                 Text(formatShelfSummary(shelf.items))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -512,9 +506,12 @@ private struct ShelfSection: View {
                     }
                     Menu("More", systemImage: "ellipsis.circle") {
                         Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
-                        Button("Use for Drops on the Closed Notch") {
-                            UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey)
-                        }
+                        Toggle(
+                            "Gets Drops on the Closed Notch",
+                            isOn: Binding(
+                                get: { store.defaultShelfID == shelf.id },
+                                set: { _ in UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey) })
+                        )
                         .disabled(store.defaultShelfID == shelf.id)
                         Divider()
                         Button("Clear Shelf") { confirmation = .clear }
@@ -539,7 +536,7 @@ private struct ShelfSection: View {
                         .frame(height: 56)
                 } else {
                     ScrollView(.horizontal) {
-                        LazyHStack(spacing: 6) {
+                        LazyHStack(alignment: .top, spacing: 6) {
                             ForEach(shelf.items) { item in
                                 ShelfTile(
                                     item: item, isSelected: store.selection.contains(item.id),
@@ -549,7 +546,8 @@ private struct ShelfSection: View {
                         .padding(6)
                     }
                     .scrollIndicators(.never)
-                    .frame(height: 110)
+                    // As tall as the tallest tile, rather than stretching to fill the shelf list.
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .background {
@@ -584,10 +582,9 @@ private struct ShelfTile: View {
                 .font(.caption)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .frame(maxHeight: .infinity, alignment: .top)
         }
         .padding(6)
-        .frame(width: 84, height: 98)
+        .frame(width: 84)
         .background(Color.primary.opacity(isSelected ? 0.16 : 0), in: RoundedRectangle(cornerRadius: 10))
         .opacity(isMissing ? 0.4 : 1)
         .overlay { ShelfDragSource(item: item) }
