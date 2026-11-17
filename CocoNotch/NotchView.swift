@@ -205,13 +205,14 @@ struct NotchView: View {
     }
 
     private func setExpanded(_ isExpanded: Bool) {
-        // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
-        if !isExpanded { (NSApp.keyWindow as? NotchPanel)?.returnKeyFocus() }
         // Opening takes the keyboard so widget shortcuts reach the notch instead of the app underneath.
         if isExpanded, widgetShortcuts != .disabled {
             NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
         }
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
+        // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
+        // After the state change, so the panel's resign-key handler sees it already closed and doesn't close it again.
+        if !isExpanded { (NSApp.keyWindow as? NotchPanel)?.returnKeyFocus() }
     }
 
     private func openSettings(_ page: SettingsPage) {

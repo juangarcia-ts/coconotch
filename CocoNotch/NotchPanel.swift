@@ -29,12 +29,15 @@ final class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
-    /// Gives the keyboard back to the app the user was in. That app never stopped being active, so activating it does
-    /// nothing; the panel has to resign key, and ordering it out and back in is how it does without hiding.
+    /// Gives the keyboard back to the window the user was in. Activating the other app does nothing, as it never
+    /// stopped being active, and `makeFirstResponder(nil)` leaves the panel key; deactivating resigns it.
     func returnKeyFocus() {
         guard isKeyWindow else { return }
-        orderOut(nil)
-        orderFrontRegardless()
+        if NSApp.isActive {
+            NSApp.mainWindow?.makeKey()
+        } else {
+            NSApp.deactivate()
+        }
     }
 
     func place(on screen: NSScreen, scale: Double) {
