@@ -167,6 +167,11 @@ public func getHeadsUpMeeting(
     }
 }
 
+/// The next meeting still to start, for the low-priority reminder shown before the heads-up; all-day events never count.
+public func getNextMeeting(_ upcoming: [Meeting], now: Date) -> Meeting? {
+    upcoming.first { !$0.isAllDay && $0.start > now }
+}
+
 /// A countdown such as "9:42" or "1:05:00"; anything already reached reads "0:00".
 public func formatTimer(seconds: Int) -> String {
     let seconds = max(seconds, 0)

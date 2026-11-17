@@ -2,6 +2,8 @@ import Foundation
 
 /// How much an activity deserves the closed notch. Higher wins.
 public enum ActivityPriority: Int, Comparable, Sendable {
+    /// Shown only when nothing else is, such as the next meeting later today.
+    case low
     /// Ongoing context, such as music playing.
     case background
     /// Something coming up, such as a meeting countdown.
@@ -63,4 +65,10 @@ public func makeAlertKey(_ activity: ActivitySummary) -> String {
 /// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.
 public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> CGFloat {
     min(idealWidths.max() ?? 0, maxWidth)
+}
+
+/// The tab hovering the closed notch opens: the top activity's widget, unless it is too quiet to switch tabs.
+public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
+    guard let topActivity, topActivity.priority > .low else { return nil }
+    return topActivity.widgetID
 }
