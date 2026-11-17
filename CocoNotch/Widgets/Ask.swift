@@ -20,6 +20,7 @@ extension NotchWidget {
 }
 
 private let answerStyleKey = "ask.answerStyle"
+let showsAskOnHomeKey = "home.showsAsk"
 
 private func getAskUnavailableReason() -> AskUnavailableReason? {
     guard #available(macOS 26, *) else { return .olderSystem }
@@ -164,6 +165,32 @@ private struct AskView: View {
 }
 
 private let appleIntelligenceSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")
+
+/// A one-line field for Home: sending opens the Ask tab, where the answer streams in, or the warning when Apple
+/// Intelligence is off, keeping the question for later.
+@available(macOS 26, *)
+struct AskShortcut: View {
+    @Bindable private var store = AskStore.shared
+    @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(.tertiary)
+            TextField("Ask anything…", text: $store.draft)
+                .textFieldStyle(.plain)
+                .onSubmit {
+                    guard getAskQuestion(store.draft) != nil else { return }
+                    if getAskUnavailableReason() == nil { store.send() }
+                    selectedWidgetID = NotchWidget.ask.id
+                }
+        }
+        .font(.callout)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
 
 private struct AskUnavailableView: View {
     var body: some View {
