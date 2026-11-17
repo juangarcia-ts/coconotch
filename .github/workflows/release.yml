@@ -17,6 +17,10 @@ permissions:
 jobs:
   release:
     runs-on: macos-26
+    # An explicit shell adds pipefail, so a failed command in a pipe fails the step.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
@@ -97,9 +101,13 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+        # Claims the tag first: if someone pushed it during the build, this fails instead of mislabeling the release.
         run: |
-          gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml \
-            --target "$GITHUB_SHA" --generate-notes
+          if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" > /dev/null
+          fi
+          gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml --generate-notes
 
       - name: Update Homebrew tap
         env:
