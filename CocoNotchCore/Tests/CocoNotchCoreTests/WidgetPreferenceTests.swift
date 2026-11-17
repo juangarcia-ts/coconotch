@@ -73,4 +73,6 @@ import Testing
     #expect(move("c", onto: homeWidgetID) == ["c", "a", "b", "d"])
     #expect(move("b", onto: "b") == ["a", "b", "c", "d"])
     #expect(move(homeWidgetID, onto: "c") == ["a", "b", "c", "d"])
+    #expect(move("a", onto: widgetListEndID) == ["b", "c", "d", "a"])
+    #expect(move("d", onto: widgetListEndID) == ["a", "b", "c", "d"])
 }

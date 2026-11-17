@@ -17,7 +17,7 @@ extension NotchWidget {
 private let entriesKey = "timezones.identifiers"
 private let showsFlagsKey = "timezones.showsFlags"
 private let homeCountKey = "timezones.homeCount"
-private let defaultHomeCount = 3
+private let defaultHomeCount = maxHomeTimeZoneCount
 private let defaultStoredEntries = encodeTimeZoneEntries(
     [localTimeZoneEntryID, "America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map {
         TimeZoneEntry(identifier: $0)
@@ -131,10 +131,11 @@ private struct TimezonesSummary: View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 0) {
                 ForEach(
-                    getVisibleEntries(
+                    getHomeEntries(
                         decodeTimeZoneEntries(storedEntries),
-                        localIdentifier: TimeZone.autoupdatingCurrent.identifier
-                    ).prefix(homeCount)
+                        localIdentifier: TimeZone.autoupdatingCurrent.identifier,
+                        count: homeCount
+                    )
                 ) { entry in
                     if let zone = getZone(for: entry) {
                         VStack(spacing: 0) {
@@ -173,8 +174,11 @@ private struct TimezonesSummarySettings: View {
     @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
 
     var body: some View {
-        Picker("Cities shown", selection: $homeCount) {
-            ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+        Picker(
+            "Cities shown",
+            selection: Binding(get: { clampHomeTimeZoneCount(homeCount) }, set: { homeCount = $0 })
+        ) {
+            ForEach(1...maxHomeTimeZoneCount, id: \.self) { Text("\($0)").tag($0) }
         }
     }
 }

@@ -54,6 +54,22 @@ public func getVisibleEntries(_ entries: [TimeZoneEntry], localIdentifier: Strin
     return entries.filter { $0.isVisible && !(showsLocal && $0.identifier == localIdentifier) }
 }
 
+/// More cities than this don't fit Home's card beside the music panel.
+public let maxHomeTimeZoneCount = 2
+
+/// The cities Home's card shows. The current zone is left out, since its time is already on the menu bar clock.
+public func getHomeEntries(_ entries: [TimeZoneEntry], localIdentifier: String, count: Int) -> [TimeZoneEntry] {
+    let others = entries.filter {
+        $0.isVisible && resolveTimeZoneIdentifier($0.identifier, localIdentifier: localIdentifier) != localIdentifier
+    }
+    return Array(others.prefix(clampHomeTimeZoneCount(count)))
+}
+
+/// Brings a saved count into 1...max, since older versions allowed up to four.
+public func clampHomeTimeZoneCount(_ count: Int) -> Int {
+    min(max(count, 1), maxHomeTimeZoneCount)
+}
+
 /// Zones the add search shouldn't offer: those in the list, the local entry counted as the current zone.
 public func getAddedTimeZoneIdentifiers(_ entries: [TimeZoneEntry], localIdentifier: String) -> Set<String> {
     Set(entries.map { resolveTimeZoneIdentifier($0.identifier, localIdentifier: localIdentifier) })
