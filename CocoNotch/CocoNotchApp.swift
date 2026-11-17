@@ -103,7 +103,7 @@ private struct PlacementSettings: Equatable {
         return PlacementSettings(
             display: defaults.string(forKey: PreferenceKey.notchDisplay).flatMap { NotchDisplayChoice(rawValue: $0) }
                 ?? .main,
-            scale: clampNotchScale(defaults.object(forKey: PreferenceKey.notchScale) as? Double)
+            scale: getAppliedNotchScale(defaults.object(forKey: PreferenceKey.notchScale) as? Double)
         )
     }
 }
