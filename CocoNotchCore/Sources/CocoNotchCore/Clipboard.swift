@@ -34,11 +34,11 @@ public let ignoredPasteboardTypes: Set<String> = [
 ]
 
 /// What to record from a new clipboard: text wins over an image, since apps often add a picture of copied text.
+/// `sourceBundleIDs` lists every app that may have made the copy; if any is ignored, nothing is recorded.
 public func getClipboardCaptureKind(
-    types: [String], text: String?, sourceBundleID: String?, ignoredBundleIDs: Set<String>, capturesImages: Bool
+    types: [String], text: String?, sourceBundleIDs: [String], ignoredBundleIDs: Set<String>, capturesImages: Bool
 ) -> ClipboardItem.Kind? {
-    guard ignoredPasteboardTypes.isDisjoint(with: types),
-        !(sourceBundleID.map(ignoredBundleIDs.contains) ?? false)
+    guard ignoredPasteboardTypes.isDisjoint(with: types), ignoredBundleIDs.isDisjoint(with: sourceBundleIDs)
     else { return nil }
     if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .text }
     if capturesImages, types.contains("public.png") || types.contains("public.tiff") { return .image }
@@ -88,7 +88,8 @@ public func getUnusedImageFiles(old: [ClipboardItem], new: [ClipboardItem]) -> S
 
 /// The text without blank lines or surrounding space, cut short so a long copy doesn't slow down layout.
 public func formatClipboardPreview(_ text: String) -> String {
-    let lines = text.split(whereSeparator: \.isNewline)
+    // Only the start is shown, so a huge paste isn't split in full on every render.
+    let lines = text.prefix(2000).split(whereSeparator: \.isNewline)
         .map { $0.trimmingCharacters(in: .whitespaces) }
         .filter { !$0.isEmpty }
     return String(lines.joined(separator: "\n").prefix(300))

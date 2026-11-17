@@ -8,23 +8,24 @@ private func text(_ value: String, isPinned: Bool = false) -> ClipboardItem {
 
 @Test(
     arguments: [
-        (["public.utf8-plain-text"], "hi", nil, true, ClipboardItem.Kind.text),
-        (["public.utf8-plain-text", "public.tiff"], "hi", nil, true, .text),  // text wins
-        (["public.png"], nil, nil, true, .image),
-        (["public.tiff"], nil, nil, false, nil),  // images off
-        (["public.utf8-plain-text"], "  \n", nil, true, nil),  // blank text
-        (["public.utf8-plain-text", "org.nspasteboard.ConcealedType"], "secret", nil, true, nil),
-        (["public.utf8-plain-text", "org.nspasteboard.TransientType"], "x", nil, true, nil),
-        (["public.utf8-plain-text"], "hi", "com.ignored", true, nil),  // ignored app
-        (["public.utf8-plain-text"], "hi", "com.other", true, .text),
-        (["public.rtf"], nil, nil, true, nil),
-    ] as [([String], String?, String?, Bool, ClipboardItem.Kind?)])
+        (["public.utf8-plain-text"], "hi", [], true, ClipboardItem.Kind.text),
+        (["public.utf8-plain-text", "public.tiff"], "hi", [], true, .text),  // text wins
+        (["public.png"], nil, [], true, .image),
+        (["public.tiff"], nil, [], false, nil),  // images off
+        (["public.utf8-plain-text"], "  \n", [], true, nil),  // blank text
+        (["public.utf8-plain-text", "org.nspasteboard.ConcealedType"], "secret", [], true, nil),
+        (["public.utf8-plain-text", "org.nspasteboard.TransientType"], "x", [], true, nil),
+        (["public.utf8-plain-text"], "hi", ["com.ignored"], true, nil),  // ignored app
+        (["public.utf8-plain-text"], "hi", ["com.other", "com.ignored"], true, nil),  // left an ignored app
+        (["public.utf8-plain-text"], "hi", ["com.other"], true, .text),
+        (["public.rtf"], nil, [], true, nil),
+    ] as [([String], String?, [String], Bool, ClipboardItem.Kind?)])
 func choosesWhatToCapture(
-    types: [String], text: String?, sourceBundleID: String?, capturesImages: Bool, expected: ClipboardItem.Kind?
+    types: [String], text: String?, sourceBundleIDs: [String], capturesImages: Bool, expected: ClipboardItem.Kind?
 ) {
     #expect(
         getClipboardCaptureKind(
-            types: types, text: text, sourceBundleID: sourceBundleID, ignoredBundleIDs: ["com.ignored"],
+            types: types, text: text, sourceBundleIDs: sourceBundleIDs, ignoredBundleIDs: ["com.ignored"],
             capturesImages: capturesImages) == expected)
 }
 

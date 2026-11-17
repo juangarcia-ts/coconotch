@@ -1,6 +1,7 @@
 import ApplicationServices
 import CocoNotchCore
 import CryptoKit
+import ImageIO
 import SwiftUI
 
 extension NotchWidget {
@@ -25,10 +26,34 @@ private func readSetting<Value>(_ key: String, default defaultValue: Value) -> V
     UserDefaults.standard.object(forKey: key) as? Value ?? defaultValue
 }
 
-struct ClipboardImage {
+/// A downscaled copy of a saved image for the list and preview, with the full image's size.
+final class ClipboardImage {
     let image: NSImage
     let pixelSize: (width: Int, height: Int)?
     let byteCount: Int?
+
+    init(image: NSImage, pixelSize: (width: Int, height: Int)?, byteCount: Int?) {
+        self.image = image
+        self.pixelSize = pixelSize
+        self.byteCount = byteCount
+    }
+}
+
+/// Big enough for the preview pane at 2x.
+nonisolated private let thumbnailPixelSize = 600
+
+nonisolated private func getThumbnailName(_ fileName: String) -> String {
+    fileName.replacing(".png", with: ".thumb.png")
+}
+
+nonisolated private func makeThumbnail(of source: CGImageSource) -> CGImage? {
+    CGImageSourceCreateThumbnailAtIndex(
+        source, 0,
+        [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: thumbnailPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ] as CFDictionary)
 }
 
 /// Records the clipboard for the whole app, so copies made while the notch is closed are kept too.
@@ -38,7 +63,15 @@ final class ClipboardStore {
 
     private(set) var history: [ClipboardItem] = []
     @ObservationIgnored private var lastChangeCount = NSPasteboard.general.changeCount
-    @ObservationIgnored private var images: [String: ClipboardImage] = [:]
+    // Bounded, since a history of screenshots would otherwise keep every preview in memory.
+    @ObservationIgnored private let images = {
+        let cache = NSCache<NSString, ClipboardImage>()
+        cache.countLimit = 60
+        return cache
+    }()
+    @ObservationIgnored private var lastFrontmostBundleID: String?
+    // Writes run in order off the main actor, so a long history never stalls the notch.
+    private let writeQueue = DispatchQueue(label: "CocoNotch.clipboard.write", qos: .utility)
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     private let directory = URL.applicationSupportDirectory.appending(path: "CocoNotch/Clipboard")
     private var historyURL: URL { directory.appending(path: "history.json") }
@@ -50,7 +83,14 @@ final class ClipboardStore {
         // Copies can hold private text, so only this user may read the folder.
         try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
         if let data = try? Data(contentsOf: historyURL) {
-            history = (try? JSONDecoder().decode([ClipboardItem].self, from: data)) ?? []
+            if let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
+                history = decoded
+            } else {
+                // Kept aside so the next save doesn't overwrite a history this version can't read.
+                let backupURL = directory.appending(path: "history-unreadable.json")
+                try? FileManager.default.removeItem(at: backupURL)
+                try? FileManager.default.moveItem(at: historyURL, to: backupURL)
+            }
         }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -62,14 +102,17 @@ final class ClipboardStore {
 
     private func capture() {
         let pasteboard = NSPasteboard.general
+        let sourceBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        // The copy happened up to one poll ago, possibly in the app the user just left, so that app counts too.
+        let possibleSources = [lastFrontmostBundleID, sourceBundleID].compactMap(\.self)
+        lastFrontmostBundleID = sourceBundleID
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
         let text = pasteboard.string(forType: .string)
-        let sourceBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         let kind = getClipboardCaptureKind(
             types: pasteboard.types?.map(\.rawValue) ?? [],
             text: text,
-            sourceBundleID: sourceBundleID,
+            sourceBundleIDs: possibleSources,
             ignoredBundleIDs: decodeIDSet(readSetting(ignoredBundleIDsKey, default: "")),
             capturesImages: readSetting(capturesImagesKey, default: true)
         )
@@ -99,24 +142,41 @@ final class ClipboardStore {
 
     private func save(_ newHistory: [ClipboardItem]) {
         for fileName in getUnusedImageFiles(old: history, new: newHistory) {
-            images[fileName] = nil
-            try? FileManager.default.removeItem(at: directory.appending(path: fileName))
+            images.removeObject(forKey: fileName as NSString)
+            for name in [fileName, getThumbnailName(fileName)] {
+                try? FileManager.default.removeItem(at: directory.appending(path: name))
+            }
         }
         history = newHistory
-        if let data = try? JSONEncoder().encode(newHistory) { try? data.write(to: historyURL) }
+        let historyURL = historyURL
+        writeQueue.async {
+            do {
+                try JSONEncoder().encode(newHistory).write(to: historyURL, options: .atomic)
+            } catch {
+                print("CocoNotch couldn't save the clipboard history: \(error)")
+            }
+        }
     }
 
+    /// The image's thumbnail, saved when it was copied; older items without one get it made from the full image.
     func getImage(for item: ClipboardItem) -> ClipboardImage? {
-        if let image = images[item.value] { return image }
+        if let image = images.object(forKey: item.value as NSString) { return image }
         let url = directory.appending(path: item.value)
-        guard let image = NSImage(contentsOf: url) else { return nil }
-        let rep = image.representations.first
+        let thumbnailURL = directory.appending(path: getThumbnailName(item.value))
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let thumbnail = NSImage(contentsOf: thumbnailURL)
+                ?? makeThumbnail(of: source).map({ NSImage(cgImage: $0, size: .zero) })
+        else { return nil }
+        // Reads only the file's header, not its pixels.
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let width = properties?[kCGImagePropertyPixelWidth] as? Int
+        let height = properties?[kCGImagePropertyPixelHeight] as? Int
         let loaded = ClipboardImage(
-            image: image,
-            pixelSize: rep.map { ($0.pixelsWide, $0.pixelsHigh) },
+            image: thumbnail,
+            pixelSize: width.flatMap { width in height.map { (width, $0) } },
             byteCount: (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
         )
-        images[item.value] = loaded
+        images.setObject(loaded, forKey: item.value as NSString)
         return loaded
     }
 
@@ -128,7 +188,9 @@ final class ClipboardStore {
         case .text:
             pasteboard.setString(item.value, forType: .string)
         case .image:
-            if let image = getImage(for: item) { pasteboard.writeObjects([image.image]) }
+            if let image = NSImage(contentsOf: directory.appending(path: item.value)) {
+                pasteboard.writeObjects([image])
+            }
         }
         lastChangeCount = pasteboard.changeCount
         var item = item
@@ -168,6 +230,10 @@ nonisolated private func saveImage(png: Data?, tiff: Data?, in directory: URL) -
     let url = directory.appending(path: fileName)
     if !FileManager.default.fileExists(atPath: url.path) {
         guard (try? png.write(to: url)) != nil else { return nil }
+        if let source = CGImageSourceCreateWithData(png as CFData, nil), let thumbnail = makeThumbnail(of: source) {
+            try? NSBitmapImageRep(cgImage: thumbnail).representation(using: .png, properties: [:])?
+                .write(to: directory.appending(path: getThumbnailName(fileName)))
+        }
     }
     return fileName
 }
