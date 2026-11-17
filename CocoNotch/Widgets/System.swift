@@ -119,6 +119,8 @@ final class SystemStore {
     @ObservationIgnored private var viewerCount = 0
     @ObservationIgnored private var samplingTask: Task<Void, Never>?
     @ObservationIgnored private var batterySource: CFRunLoopSource?
+    /// The heads-up's percent and when it first went up; unrelated settings writes then change nothing.
+    @ObservationIgnored private var postedHeadsUp: (percent: Int, since: Date)?
 
     func start() {
         guard batterySource == nil else { return }
@@ -213,15 +215,19 @@ final class SystemStore {
                 threshold: readSetting(lowBatteryThresholdKey, default: defaultLowBatteryThreshold)
             ), let battery
         else {
-            ActivityCenter.shared.remove(id: lowBatteryActivityID)
+            if postedHeadsUp != nil { ActivityCenter.shared.remove(id: lowBatteryActivityID) }
+            postedHeadsUp = nil
             return
         }
+        guard postedHeadsUp?.percent != battery.percent else { return }
+        let since = postedHeadsUp?.since ?? .now
+        postedHeadsUp = (battery.percent, since)
         ActivityCenter.shared.post(
             NotchActivity(
                 id: lowBatteryActivityID,
                 widgetID: NotchWidget.system.id,
                 priority: .normal,
-                sortDate: .now,
+                sortDate: since,
                 makeLeading: {
                     AnyView(Label("Low battery", systemImage: "battery.25percent").foregroundStyle(.red))
                 },
