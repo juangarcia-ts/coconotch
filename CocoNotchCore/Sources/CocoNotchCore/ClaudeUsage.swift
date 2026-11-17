@@ -214,6 +214,15 @@ public func getUsagePriority(_ limit: UsageLimit) -> ActivityPriority {
     limit.percent >= 100 ? .urgent : .normal
 }
 
+/// How the closed notch shows the fullest limit: as a heads-up once it is due and not dismissed, otherwise as a quiet
+/// `.low` activity so the notch is never blank. Nil keeps it out of the notch.
+public func getUsageActivityPriority(
+    _ limit: UsageLimit, showsHeadsUp: Bool, threshold: Int, isDismissed: Bool, showsIdle: Bool
+) -> ActivityPriority? {
+    if showsHeadsUp, limit.percent >= threshold, !isDismissed { return getUsagePriority(limit) }
+    return showsIdle ? .low : nil
+}
+
 /// Why there are no usage numbers to show.
 public enum ClaudeUsageProblem: Equatable, Sendable {
     case notConnected
