@@ -11,12 +11,20 @@ public struct ClipboardItem: Codable, Equatable, Identifiable, Sendable {
     /// The text, or for an image its file name, which is a hash of the image so copies of one image match.
     public var value: String
     public var isPinned: Bool
+    // Optional so history saved before these existed still loads.
+    public var copiedAt: Date?
+    public var sourceBundleID: String?
 
-    public init(id: UUID = UUID(), kind: Kind, value: String, isPinned: Bool = false) {
+    public init(
+        id: UUID = UUID(), kind: Kind, value: String, isPinned: Bool = false, copiedAt: Date? = nil,
+        sourceBundleID: String? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.value = value
         self.isPinned = isPinned
+        self.copiedAt = copiedAt
+        self.sourceBundleID = sourceBundleID
     }
 }
 
@@ -59,10 +67,15 @@ public func trimClipboardHistory(_ history: [ClipboardItem], limit: Int) -> [Cli
     }
 }
 
-/// Pinned items first, then the rest, newest first; a search matches text only.
-public func getVisibleClipboardItems(_ history: [ClipboardItem], query: String) -> [ClipboardItem] {
+/// Pinned items first, then the rest, newest first; a search matches text only, and a nil kind shows every kind.
+public func getVisibleClipboardItems(_ history: [ClipboardItem], query: String, kind: ClipboardItem.Kind? = nil)
+    -> [ClipboardItem]
+{
     let query = query.trimmingCharacters(in: .whitespaces)
-    let matches = history.filter { query.isEmpty || ($0.kind == .text && $0.value.localizedStandardContains(query)) }
+    let matches = history.filter { item in
+        (kind == nil || item.kind == kind)
+            && (query.isEmpty || (item.kind == .text && item.value.localizedStandardContains(query)))
+    }
     return matches.filter(\.isPinned) + matches.filter { !$0.isPinned }
 }
 
@@ -78,4 +91,38 @@ public func formatClipboardPreview(_ text: String) -> String {
         .map { $0.trimmingCharacters(in: .whitespaces) }
         .filter { !$0.isEmpty }
     return String(lines.joined(separator: "\n").prefix(300))
+}
+
+/// The item's one-line name in the list: the first line of text, or "Image (W×H)".
+public func getClipboardItemTitle(_ item: ClipboardItem, pixelSize: (width: Int, height: Int)?) -> String {
+    switch item.kind {
+    case .text:
+        return formatClipboardPreview(item.value).split(separator: "\n").first.map(String.init) ?? ""
+    case .image:
+        return pixelSize.map { "Image (\($0.width)×\($0.height))" } ?? "Image"
+    }
+}
+
+/// The label and value rows under the preview, like Raycast's Information section.
+public func makeClipboardDetails(
+    _ item: ClipboardItem, sourceName: String?, pixelSize: (width: Int, height: Int)?, byteCount: Int?, now: Date
+) -> [(label: String, value: String)] {
+    var rows: [(label: String, value: String)] = []
+    if let sourceName { rows.append(("Source", sourceName)) }
+    switch item.kind {
+    case .text:
+        rows.append(("Content type", "Text"))
+        rows.append(("Characters", item.value.count.formatted()))
+        rows.append(("Words", item.value.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count.formatted()))
+    case .image:
+        rows.append(("Content type", "Image"))
+        if let pixelSize { rows.append(("Dimensions", "\(pixelSize.width)×\(pixelSize.height)")) }
+        if let byteCount {
+            rows.append(("Image size", ByteCountFormatter.string(fromByteCount: Int64(byteCount), countStyle: .file)))
+        }
+    }
+    if let copiedAt = item.copiedAt {
+        rows.append(("Copied", RelativeDateTimeFormatter().localizedString(for: copiedAt, relativeTo: now)))
+    }
+    return rows
 }

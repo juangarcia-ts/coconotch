@@ -1,4 +1,5 @@
 import CocoNotchCore
+import Foundation
 import Testing
 
 private func text(_ value: String, isPinned: Bool = false) -> ClipboardItem {
@@ -60,6 +61,7 @@ func choosesWhatToCapture(
     let history = [text("Hello"), text("world", isPinned: true), ClipboardItem(kind: .image, value: "hello.png")]
     #expect(getVisibleClipboardItems(history, query: "").map(\.value) == ["world", "Hello", "hello.png"])
     #expect(getVisibleClipboardItems(history, query: " hel ").map(\.value) == ["Hello"])
+    #expect(getVisibleClipboardItems(history, query: "", kind: .image).map(\.value) == ["hello.png"])
 }
 
 @Test func findsImageFilesNoLongerUsed() {
@@ -71,4 +73,24 @@ func choosesWhatToCapture(
 @Test func previewsTextWithoutBlankLines() {
     #expect(formatClipboardPreview("\n  first  \n\n\tsecond\n") == "first\nsecond")
     #expect(formatClipboardPreview(String(repeating: "x", count: 500)).count == 300)
+}
+
+@Test func titlesItems() {
+    #expect(getClipboardItemTitle(text("\n  first line \nsecond"), pixelSize: nil) == "first line")
+    let image = ClipboardItem(kind: .image, value: "a.png")
+    #expect(getClipboardItemTitle(image, pixelSize: (823, 450)) == "Image (823×450)")
+    #expect(getClipboardItemTitle(image, pixelSize: nil) == "Image")
+}
+
+@Test func describesItems() {
+    let now = Date(timeIntervalSince1970: 1000)
+    let textRows = makeClipboardDetails(
+        ClipboardItem(kind: .text, value: "two words", copiedAt: now), sourceName: "Notes", pixelSize: nil,
+        byteCount: nil, now: now)
+    #expect(textRows.map(\.label) == ["Source", "Content type", "Characters", "Words", "Copied"])
+    #expect(textRows.map(\.value).prefix(4) == ["Notes", "Text", "9", "2"])
+    let imageRows = makeClipboardDetails(
+        ClipboardItem(kind: .image, value: "a.png"), sourceName: nil, pixelSize: (10, 20), byteCount: 2048, now: now)
+    #expect(imageRows.map(\.label) == ["Content type", "Dimensions", "Image size"])
+    #expect(imageRows[1].value == "10×20")
 }
