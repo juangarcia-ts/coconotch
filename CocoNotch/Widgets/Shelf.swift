@@ -163,28 +163,6 @@ final class ShelfStore {
         return copy.map { makeFileItem($0, isCopy: true) }
     }
 
-    /// Picks files in an Open panel, for adding without dragging.
-    func chooseFiles(for shelfID: UUID) {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
-        panel.prompt = "Add"
-        // Like Quick Look, the panel only comes to the front over other apps when CocoNotch is active.
-        NSApp.activate()
-        panel.begin { [self] response in
-            guard response == .OK else { return }
-            let copiesFiles = readSetting(copiesFilesKey, default: false)
-            let urls = panel.urls
-            Task {
-                var newItems: [ShelfItem] = []
-                for url in urls {
-                    if let item = await loadFileItem(url, copiesFiles: copiesFiles) { newItems.append(item) }
-                }
-                updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
-            }
-        }
-    }
-
     private func makeFileItem(_ url: URL, isCopy: Bool) -> ShelfItem {
         ShelfItem(
             kind: .file,
@@ -564,7 +542,6 @@ private struct ShelfSection: View {
                         .help("Share")
                     }
                     Menu("More", systemImage: "ellipsis.circle") {
-                        Button("Add Files…") { store.chooseFiles(for: shelf.id) }
                         Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
                         if store.defaultShelfID != shelf.id {
                             Button("Set as Primary") {
@@ -588,7 +565,7 @@ private struct ShelfSection: View {
             .padding(.horizontal, 4)
             Group {
                 if shelf.items.isEmpty {
-                    Text("Drop files, links or text here, or click to choose files.")
+                    Text("Drop files, links or text here.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -615,10 +592,8 @@ private struct ShelfSection: View {
                         Color.primary.opacity(isTargeted ? 0.4 : 0.12),
                         style: StrokeStyle(lineWidth: 1, dash: shelf.items.isEmpty ? [5] : []))
             }
-            // A click between tiles clears the selection, like Finder; on an empty shelf it opens a file picker.
-            .onTapGesture {
-                if shelf.items.isEmpty { store.chooseFiles(for: shelf.id) } else { store.selection = [] }
-            }
+            // A click between tiles clears the selection, like Finder.
+            .onTapGesture { store.selection = [] }
         }
         .onDrop(of: [.item], delegate: ShelfDropDelegate(shelfID: shelf.id))
     }
