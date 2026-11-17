@@ -3,6 +3,7 @@ import SwiftUI
 
 struct NotchView: View {
     let notchSize: CGSize
+    let cameraHousingHeight: CGFloat
     /// The panel showing this view, so it reacts only to its own panel losing key status.
     let panelID: ObjectIdentifier
     let showSettings: (SettingsPage) -> Void
@@ -15,9 +16,9 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     /// The tab a dragged tab is over, highlighted to show where it will land.
     @State private var dropTargetID: String?
-    @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
+    @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.blur
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
-    @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
+    @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 0.85
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
@@ -71,7 +72,7 @@ struct NotchView: View {
         let shape = UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
 
         // Only the open panel scales; the closed notch has to match the physical one exactly.
-        let scale = isExpanded ? clampNotchScale(storedNotchScale) : 1
+        let scale = isExpanded ? getAppliedNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
         let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
 
@@ -121,6 +122,8 @@ struct NotchView: View {
             if shouldOpen { NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // AppKit insets the safe area by the camera housing, which would push the notch below the physical one.
+        .ignoresSafeArea()
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
 
@@ -202,13 +205,14 @@ struct NotchView: View {
     }
 
     private func setExpanded(_ isExpanded: Bool) {
-        // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
-        if !isExpanded, NSApp.keyWindow is NotchPanel { NSWorkspace.shared.frontmostApplication?.activate() }
         // Opening takes the keyboard so widget shortcuts reach the notch instead of the app underneath.
         if isExpanded, widgetShortcuts != .disabled {
             NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
         }
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
+        // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
+        // After the state change, so the panel's resign-key handler sees it already closed and doesn't close it again.
+        if !isExpanded { (NSApp.keyWindow as? NotchPanel)?.returnKeyFocus() }
     }
 
     private func openSettings(_ page: SettingsPage) {
@@ -234,7 +238,9 @@ struct NotchView: View {
     }
 
     private func expandedContent(activities: [NotchActivity]) -> some View {
-        VStack(spacing: 0) {
+        let housingInset = getCameraHousingInset(
+            height: cameraHousingHeight, notchScale: getAppliedNotchScale(storedNotchScale))
+        return VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(Array(enabledWidgets.enumerated()), id: \.element.id) { index, widget in
                     let shortcut = widgetShortcuts == .disabled ? nil : getWidgetTabShortcut(index: index)
@@ -307,7 +313,8 @@ struct NotchView: View {
             }
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)
-            .padding(.top, 8)
+            // Below a physical notch, so the camera housing doesn't hide the middle tabs.
+            .padding(.top, 8 + housingInset)
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
@@ -330,7 +337,7 @@ struct NotchView: View {
         }
         .foregroundStyle(.primary)
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.
-        .frame(maxHeight: NotchPanel.baseSize.height, alignment: .top)
+        .frame(maxHeight: NotchPanel.baseSize.height + housingInset, alignment: .top)
         .clipped()
     }
 }

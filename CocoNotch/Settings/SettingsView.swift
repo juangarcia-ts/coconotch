@@ -175,9 +175,9 @@ private struct GeneralSettings: View {
 }
 
 private struct AppearanceSettings: View {
-    @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.solid
+    @AppStorage(PreferenceKey.backgroundStyle) private var backgroundStyle = BackgroundStyle.blur
     @AppStorage(PreferenceKey.backgroundColor) private var backgroundColorData = Data()
-    @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 1.0
+    @AppStorage(PreferenceKey.backgroundOpacity) private var backgroundOpacity = 0.85
     @AppStorage(PreferenceKey.notchScale) private var notchScale = 1.0
     @Environment(\.self) private var environment
 

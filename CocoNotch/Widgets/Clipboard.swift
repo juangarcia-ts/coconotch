@@ -241,7 +241,7 @@ nonisolated private func saveImage(png: Data?, tiff: Data?, in directory: URL) -
 /// Sends ⌘V to the app the user was in. The notch panel never activates CocoNotch, but a click can make it the key
 /// window, so the other app gets keyboard focus back first.
 private func pasteIntoFrontmostApp() {
-    NSWorkspace.shared.frontmostApplication?.activate()
+    (NSApp.keyWindow as? NotchPanel)?.returnKeyFocus()
     Task {
         try? await Task.sleep(for: .milliseconds(100))
         let source = CGEventSource(stateID: .combinedSessionState)

@@ -29,6 +29,17 @@ final class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
+    /// Gives the keyboard back to the window the user was in. Activating the other app does nothing, as it never
+    /// stopped being active, and `makeFirstResponder(nil)` leaves the panel key; deactivating resigns it.
+    func returnKeyFocus() {
+        guard isKeyWindow else { return }
+        if NSApp.isActive, let mainWindow = NSApp.mainWindow {
+            mainWindow.makeKey()
+        } else {
+            NSApp.deactivate()
+        }
+    }
+
     func place(on screen: NSScreen, scale: Double) {
         // Keep the view, and whether it's open, when neither the screen nor its notch changed.
         let isSameScreen = screen.frame == placedScreenFrame && screen.notchSize == placedNotchSize
@@ -36,7 +47,8 @@ final class NotchPanel: NSPanel {
         if !isSameScreen {
             let hostingView = NSHostingView(
                 rootView: NotchView(
-                    notchSize: screen.notchSize, panelID: ObjectIdentifier(self), showSettings: showSettings)
+                    notchSize: screen.notchSize, cameraHousingHeight: screen.cameraHousingHeight,
+                    panelID: ObjectIdentifier(self), showSettings: showSettings)
             )
             hostingView.sizingOptions = []
             contentView = hostingView
@@ -44,7 +56,9 @@ final class NotchPanel: NSPanel {
         placedScreenFrame = screen.frame
         placedNotchSize = screen.notchSize
         placedScale = scale
-        let size = NSSize(width: Self.baseSize.width * scale, height: Self.baseSize.height * scale)
+        // The camera housing doesn't scale, so its room is added on top of the scaled panel.
+        let size = NSSize(
+            width: Self.baseSize.width * scale, height: Self.baseSize.height * scale + screen.cameraHousingHeight)
         setFrame(
             NSRect(
                 x: screen.frame.midX - size.width / 2,
@@ -65,5 +79,10 @@ extension NSScreen {
             return CGSize(width: 200, height: max(frame.maxY - visibleFrame.maxY, 24))
         }
         return CGSize(width: frame.width - left.width - right.width, height: safeAreaInsets.top)
+    }
+
+    /// How far the physical camera housing reaches down from the top; 0 on a display without one.
+    var cameraHousingHeight: CGFloat {
+        auxiliaryTopLeftArea == nil ? 0 : safeAreaInsets.top
     }
 }
