@@ -19,6 +19,8 @@ private let showsCPUKey = "system.showsCPU"
 private let showsMemoryKey = "system.showsMemory"
 private let showsDiskKey = "system.showsDisk"
 private let showsBatteryKey = "system.showsBattery"
+private let showsMemoryPercentKey = "system.showsMemoryPercent"
+private let showsDiskPercentKey = "system.showsDiskPercent"
 private let sampleSecondsKey = "system.sampleSeconds"
 private let showsGraphsKey = "system.showsGraphs"
 private let showsLowBatteryHeadsUpKey = "system.showsLowBatteryHeadsUp"
@@ -273,21 +275,22 @@ private func makeMetrics(
                 history: store.cpuHistory))
     }
     if showsMemory {
-        let used = store.memoryUsed.map { "\(formatBytes($0, isMemory: true)) of " } ?? ""
-        let pressure = store.memoryPressure
+        let text = formatMemory(
+            used: store.memoryUsed, total: store.memoryTotal, pressureFraction: store.memoryPressureFraction,
+            isPercent: readSetting(showsMemoryPercentKey, default: true))
         metrics.append(
             Metric(
-                id: "memory", title: "Memory", symbol: "memorychip",
-                value: store.memoryPressureFraction.map(formatPercent) ?? "–", fraction: store.memoryPressureFraction,
-                detail: "\(used)\(formatBytes(store.memoryTotal, isMemory: true))", history: store.memoryHistory,
-                tint: pressure.map(getPressureColor)))
+                id: "memory", title: "Memory", symbol: "memorychip", value: text.value,
+                fraction: store.memoryPressureFraction, detail: text.detail, history: store.memoryHistory,
+                tint: store.memoryPressure.map(getPressureColor)))
     }
     if showsDisk, let disk = store.disk {
+        let text = formatDisk(
+            free: disk.free, total: disk.total, isPercent: readSetting(showsDiskPercentKey, default: true))
         metrics.append(
             Metric(
-                id: "disk", title: "Disk", symbol: "internaldrive", value: formatBytes(disk.free, isMemory: false),
-                fraction: getDiskUsedFraction(free: disk.free, total: disk.total),
-                detail: "free of \(formatBytes(disk.total, isMemory: false))"))
+                id: "disk", title: "Disk", symbol: "internaldrive", value: text.value,
+                fraction: getDiskUsedFraction(free: disk.free, total: disk.total), detail: text.detail))
     }
     if showsBattery, let battery = store.battery {
         metrics.append(
@@ -422,6 +425,8 @@ private struct SystemSettings: View {
     @AppStorage(showsMemoryKey) private var showsMemory = true
     @AppStorage(showsDiskKey) private var showsDisk = true
     @AppStorage(showsBatteryKey) private var showsBattery = true
+    @AppStorage(showsMemoryPercentKey) private var showsMemoryPercent = true
+    @AppStorage(showsDiskPercentKey) private var showsDiskPercent = true
     @AppStorage(sampleSecondsKey) private var sampleSeconds = defaultSampleSeconds
     @AppStorage(showsGraphsKey) private var showsGraphs = true
     @AppStorage(showsLowBatteryHeadsUpKey) private var showsLowBatteryHeadsUp = true
@@ -432,7 +437,17 @@ private struct SystemSettings: View {
             Section("Metrics") {
                 Toggle("CPU", isOn: $showsCPU)
                 Toggle("Memory", isOn: $showsMemory)
+                Picker("Show memory as", selection: $showsMemoryPercent) {
+                    Text("Pressure (%)").tag(true)
+                    Text("Amount in use").tag(false)
+                }
+                .disabled(!showsMemory)
                 Toggle("Disk", isOn: $showsDisk)
+                Picker("Show disk as", selection: $showsDiskPercent) {
+                    Text("Used (%)").tag(true)
+                    Text("Free space").tag(false)
+                }
+                .disabled(!showsDisk)
                 Toggle("Battery", isOn: $showsBattery)
                 Toggle("Graph the last minute of CPU and memory pressure", isOn: $showsGraphs)
             }

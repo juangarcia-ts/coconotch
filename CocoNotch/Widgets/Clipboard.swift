@@ -274,13 +274,19 @@ private struct ClipboardView: View {
         let selected = items.first { $0.id == selectedID } ?? items.first
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                TextField("Type to filter entries…", text: $query)
-                    .textFieldStyle(.plain)
-                    .font(.title3)
-                    .focused($isSearchFocused)
-                    .onSubmit { selected.map(store.copy) }
-                    .onKeyPress(.downArrow) { select(offset: 1, in: items, from: selected) }
-                    .onKeyPress(.upArrow) { select(offset: -1, in: items, from: selected) }
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search clipboard history", text: $query)
+                        .textFieldStyle(.plain)
+                        .focused($isSearchFocused)
+                        .onSubmit { selected.map(store.copy) }
+                        .onKeyPress(.downArrow) { select(offset: 1, in: items, from: selected) }
+                        .onKeyPress(.upArrow) { select(offset: -1, in: items, from: selected) }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                 Picker("Type", selection: $kind) {
                     Text("All Types").tag(ClipboardItem.Kind?.none)
                     Text("Text").tag(ClipboardItem.Kind?.some(.text))
@@ -289,10 +295,6 @@ private struct ClipboardView: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 6)
-            .padding(.vertical, 6)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
             if let selected {
                 HStack(alignment: .top, spacing: 0) {
                     ScrollViewReader { proxy in

@@ -49,8 +49,8 @@ struct SettingsView: View {
                         .tag(SettingsPage.widgets)
                 }
             }
-            // Wide enough for the longest widget name, "Time Zones", without truncating.
-            .navigationSplitViewColumnWidth(230)
+            // Wide enough for the longest names, "Appearance" and the indented "Time Zones", without truncating.
+            .navigationSplitViewColumnWidth(min: 220, ideal: 220, max: 220)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
@@ -62,6 +62,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
+        .modifier(HidesWindowTitle())
         // Grouped forms have no natural height, so without a fixed size the window collapses.
         .frame(width: Self.size.width, height: Self.size.height)
     }
@@ -265,6 +266,17 @@ struct DragHandle: View {
             .frame(width: 20, height: 24)
             .contentShape(Rectangle())
             .help("Drag to reorder")
+    }
+}
+
+/// The page title is the heading; the window's own title would sit off its edge in the toolbar.
+private struct HidesWindowTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content
+        }
     }
 }
 

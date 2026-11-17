@@ -91,6 +91,33 @@ import Testing
     #expect(formatTimeRemaining(minutes: 600) == "10:00")
 }
 
+@Test func formatsDiskAsPercentOrAmount() {
+    let locale = Locale(identifier: "en_US")
+    let percent = formatDisk(free: 250_000_000_000, total: 1_000_000_000_000, isPercent: true, locale: locale)
+    #expect(percent.value == "75%")
+    #expect(percent.detail == "250 GB free of 1 TB")
+    let amount = formatDisk(free: 250_000_000_000, total: 1_000_000_000_000, isPercent: false, locale: locale)
+    #expect(amount.value == "250 GB")
+    #expect(amount.detail == "free of 1 TB")
+}
+
+@Test func formatsMemoryAsPercentOrAmount() {
+    let locale = Locale(identifier: "en_US")
+    let gigabyte: UInt64 = 1024 * 1024 * 1024
+    let percent = formatMemory(
+        used: 6 * gigabyte, total: 16 * gigabyte, pressureFraction: 0.3, isPercent: true, locale: locale)
+    #expect(percent.value == "30%")
+    #expect(percent.detail == "6 GB of 16 GB")
+    let amount = formatMemory(
+        used: 6 * gigabyte, total: 16 * gigabyte, pressureFraction: 0.3, isPercent: false, locale: locale)
+    #expect(amount.value == "6 GB")
+    #expect(amount.detail == "of 16 GB")
+    let unsampled = formatMemory(
+        used: nil, total: 16 * gigabyte, pressureFraction: nil, isPercent: true, locale: locale)
+    #expect(unsampled.value == "–")
+    #expect(unsampled.detail == "16 GB")
+}
+
 @Test func readsMemoryPressure() {
     #expect(parseMemoryPressure(level: 1) == .normal)
     #expect(parseMemoryPressure(level: 2) == .warning)

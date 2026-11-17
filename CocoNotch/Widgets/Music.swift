@@ -290,15 +290,9 @@ private struct AutomationHint: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Allow in System Settings") {
-                if let url = URL(
-                    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
-                {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            .buttonStyle(.link)
-            .font(.caption)
+            Button("Allow in System Settings") { openPrivacySettings("Privacy_Automation") }
+                .buttonStyle(.link)
+                .font(.caption)
         }
     }
 }

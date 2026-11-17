@@ -450,33 +450,18 @@ private struct WeatherProblemView: View {
     private let store = WeatherStore.shared
 
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "cloud.sun")
-                .font(.title)
-                .foregroundStyle(.secondary)
-            Text(getWeatherProblemMessage(problem))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+        WidgetPrompt(systemImage: NotchWidget.weather.systemImage, message: getWeatherProblemMessage(problem)) {
             switch problem {
             case .locationNotAsked:
                 Button("Use My Location", systemImage: "location.fill") { store.requestLocationAccess() }
             case .locationDenied:
-                Button("Open Privacy Settings") {
-                    if let url = URL(
-                        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
-                    {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+                Button("Open Privacy Settings") { openPrivacySettings("Privacy_LocationServices") }
             case .locationFailed, .network:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             case .noPlace:
                 EmptyView()
             }
         }
-        .frame(maxWidth: 360)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
     }
 }
 

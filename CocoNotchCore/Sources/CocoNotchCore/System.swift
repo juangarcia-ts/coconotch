@@ -111,6 +111,29 @@ public func getDiskUsedFraction(free: UInt64, total: UInt64) -> Double {
     return Double(total - min(free, total)) / Double(total)
 }
 
+/// The Disk tile's value and the line under it: the share in use, or the free space.
+public func formatDisk(free: UInt64, total: UInt64, isPercent: Bool, locale: Locale = .current) -> (
+    value: String, detail: String
+) {
+    let totalText = formatBytes(total, isMemory: false, locale: locale)
+    let freeText = formatBytes(free, isMemory: false, locale: locale)
+    return isPercent
+        ? (formatPercent(getDiskUsedFraction(free: free, total: total)), "\(freeText) free of \(totalText)")
+        : (freeText, "free of \(totalText)")
+}
+
+/// The Memory tile's value and the line under it: the pressure as a percent, or the amount in use.
+public func formatMemory(
+    used: UInt64?, total: UInt64, pressureFraction: Double?, isPercent: Bool, locale: Locale = .current
+) -> (value: String, detail: String) {
+    let totalText = formatBytes(total, isMemory: true, locale: locale)
+    let usedText = used.map { formatBytes($0, isMemory: true, locale: locale) }
+    if isPercent {
+        return (pressureFraction.map(formatPercent) ?? "–", usedText.map { "\($0) of \(totalText)" } ?? totalText)
+    }
+    return (usedText ?? "–", "of \(totalText)")
+}
+
 public func formatPercent(_ fraction: Double) -> String {
     "\(Int((min(max(fraction, 0), 1) * 100).rounded()))%"
 }
