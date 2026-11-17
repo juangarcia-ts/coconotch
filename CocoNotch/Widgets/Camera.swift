@@ -101,19 +101,15 @@ private struct CameraView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .frame(maxWidth: 360)
             case .authorized:
-                message("No camera found.")
+                WidgetPrompt(systemImage: NotchWidget.camera.systemImage, message: "No camera found.")
             case .notDetermined:
                 ProgressView()
             default:
-                VStack(spacing: 10) {
-                    message("CocoNotch can't use the camera. You can allow it in System Settings.")
-                    Button("Open Privacy Settings") {
-                        if let url = URL(
-                            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")
-                        {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
+                WidgetPrompt(
+                    systemImage: NotchWidget.camera.systemImage,
+                    message: "CocoNotch can't use the camera. You can allow it in System Settings."
+                ) {
+                    Button("Open Privacy Settings") { openPrivacySettings("Privacy_Camera") }
                 }
             }
         }
@@ -140,13 +136,6 @@ private struct CameraView: View {
             }
             if startedID != nil { camera.stop() }
         }
-    }
-
-    private func message(_ text: String) -> some View {
-        Text(text)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: 360)
     }
 }
 

@@ -187,12 +187,12 @@ private struct AskView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            if !store.history.isEmpty || !store.turns.isEmpty {
-                header
-            }
             if store.turns.isEmpty {
+                // The header floats here, so a History button doesn't push the empty state down.
                 AskEmptyState()
+                    .overlay(alignment: .topTrailing) { header }
             } else {
+                header
                 conversation
             }
             AskComposer(draft: $store.draft, isResponding: store.isResponding, send: store.send, stop: store.stop)
@@ -378,24 +378,11 @@ struct AskShortcut: View {
 private struct AskUnavailableView: View {
     var body: some View {
         let reason = getAskUnavailableReason() ?? .unknown
-        VStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.tertiary)
-            Text("Apple Intelligence is off")
-                .font(.headline)
-            Text(getAskUnavailableMessage(reason))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        WidgetPrompt(systemImage: NotchWidget.ask.systemImage, message: getAskUnavailableMessage(reason)) {
             if canFixAskInSettings(reason), let appleIntelligenceSettingsURL {
                 Button("Open System Settings") { NSWorkspace.shared.open(appleIntelligenceSettingsURL) }
-                    .controlSize(.small)
-                    .padding(.top, 4)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
     }
 }
 
