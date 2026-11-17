@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AIUsageStore.shared.start()
         MusicStore.shared.start()
         SystemStore.shared.start()
+        ClipboardStore.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,
