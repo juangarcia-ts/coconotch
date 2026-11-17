@@ -33,8 +33,8 @@ final class NotchPanel: NSPanel {
     /// stopped being active, and `makeFirstResponder(nil)` leaves the panel key; deactivating resigns it.
     func returnKeyFocus() {
         guard isKeyWindow else { return }
-        if NSApp.isActive {
-            NSApp.mainWindow?.makeKey()
+        if NSApp.isActive, let mainWindow = NSApp.mainWindow {
+            mainWindow.makeKey()
         } else {
             NSApp.deactivate()
         }
