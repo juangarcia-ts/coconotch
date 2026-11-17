@@ -49,7 +49,7 @@ Ask needs macOS 26 with Apple Intelligence turned on.
 
 ## Build
 
-Requires macOS 14+ and Xcode 26+.
+Requires macOS 15+ and Xcode 26+.
 
 ```sh
 xcodebuild -project CocoNotch.xcodeproj -scheme CocoNotch -derivedDataPath build build

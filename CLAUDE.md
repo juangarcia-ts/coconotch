@@ -1,6 +1,6 @@
 # CocoNotch
 
-macOS notch + menu bar widget hub. SwiftUI, Swift 6 strict concurrency, macOS 14+. GPL-3.0.
+macOS notch + menu bar widget hub. SwiftUI, Swift 6 strict concurrency, macOS 15+. GPL-3.0.
 
 ## Layout
 
