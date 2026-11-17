@@ -195,6 +195,9 @@ func getsAgendaMeetings(showsPastEvents: Bool, isPickedDay: Bool, expected: [Str
     #expect(pick([meeting("holiday", startsIn: 0, allDay: true), meeting("soon", startsIn: 5)]) == "soon")
     #expect(pick([meeting("soon", startsIn: 5)], dismissed: ["soon"]) == nil)
     #expect(pick([meeting("soon", startsIn: 5)], lead: 0) == nil)
+    let sticky = getHeadsUpMeeting(
+        [meeting("long ago", startsIn: -50)], now: now, leadTime: lead, grace: .infinity, dismissedIDs: [])
+    #expect(sticky?.id == "long ago")
 }
 
 @Test func picksNextMeeting() {

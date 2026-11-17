@@ -19,6 +19,7 @@ private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
+private let headsUpSticksKey = "meetings.headsUpSticks"
 private let showsNextMeetingKey = "meetings.showsNextMeeting"
 private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
@@ -26,6 +27,7 @@ private let defaultHidesAllDay = true
 private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
 private let defaultShowsPastEvents = false
+private let defaultHeadsUpSticks = true
 private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
@@ -125,11 +127,13 @@ final class MeetingsStore {
             hiddenCalendarIDs: decodeIDSet(defaults.string(forKey: hiddenCalendarIDsKey) ?? "")
         )
         let leadMinutes = defaults.object(forKey: headsUpMinutesKey) as? Int ?? defaultHeadsUpMinutes
+        let sticks = defaults.object(forKey: headsUpSticksKey) as? Bool ?? defaultHeadsUpSticks
         let meeting = getHeadsUpMeeting(
             upcoming,
             now: now,
             leadTime: TimeInterval(leadMinutes * 60),
-            grace: headsUpGrace,
+            // A sticky heads-up stays until dismissed or the meeting ends.
+            grace: sticks ? .infinity : headsUpGrace,
             dismissedIDs: dismissedHeadsUpIDs
         )
         headsUpMeetingID = meeting?.id
@@ -140,15 +144,17 @@ final class MeetingsStore {
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
         }
+        let priority = getHeadsUpPriority(start: meeting.start, now: now)
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
                 widgetID: NotchWidget.meetings.id,
-                priority: getHeadsUpPriority(start: meeting.start, now: now),
+                priority: priority,
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
-                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) }
+                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) },
+                isAlertSticky: sticks && priority == .urgent
             )
         )
     }
@@ -535,6 +541,7 @@ private struct MeetingsSettings: View {
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
     @AppStorage(showsNextMeetingKey) private var showsNextMeeting = true
+    @AppStorage(headsUpSticksKey) private var headsUpSticks = defaultHeadsUpSticks
 
     var body: some View {
         Form {
@@ -549,6 +556,9 @@ private struct MeetingsSettings: View {
                     Text("\(minutes) min before").tag(minutes)
                 }
             }
+            Toggle("Keep the heads-up open once the meeting starts, until I dismiss it", isOn: $headsUpSticks)
+                .disabled(headsUpMinutes == 0)
+                .onChange(of: headsUpSticks) { MeetingsStore.shared.updateHeadsUp() }
             Section("Calendars") {
                 if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
                     Text("Open the Meetings tab in the notch and allow calendar access to choose calendars here.")

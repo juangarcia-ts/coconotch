@@ -14,6 +14,8 @@ struct NotchActivity: Identifiable {
     let makeTrailing: () -> AnyView
     /// A bigger view shown under the island for a few seconds when the activity appears or its priority rises.
     var makeAlert: (() -> AnyView)?
+    /// Keeps the alert open until the activity goes away or changes, instead of folding it back after a few seconds.
+    var isAlertSticky = false
 
     var summary: ActivitySummary {
         ActivitySummary(id: id, widgetID: widgetID, priority: priority, sortDate: sortDate)

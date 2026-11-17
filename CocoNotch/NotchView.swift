@@ -88,7 +88,9 @@ struct NotchView: View {
         }
         .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
         .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
-        .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
+        .onChange(of: alertKey, initial: true) { _, key in
+            showAlert(key: key, isSticky: activities.first?.isAlertSticky == true)
+        }
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
@@ -185,9 +187,9 @@ struct NotchView: View {
     }
 
     /// Shows the new top activity's alert, then folds it back into the island.
-    private func showAlert(key: String?) {
+    private func showAlert(key: String?, isSticky: Bool) {
         alertingKey = key
-        guard let key else { return }
+        guard let key, !isSticky else { return }
         Task {
             try? await Task.sleep(for: .seconds(6))
             if alertingKey == key { alertingKey = nil }
