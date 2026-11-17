@@ -127,11 +127,13 @@ public func getFullestProviderLimit(
 
 /// The limit the quiet closed-notch activity shows: the next to reset, such as the 5-hour session, or the fullest.
 public func getIdleProviderLimit(
-    _ candidates: [(provider: AIProvider, limit: UsageLimit)], showsFullest: Bool
+    _ candidates: [(provider: AIProvider, limit: UsageLimit)], showsFullest: Bool, now: Date
 ) -> (provider: AIProvider, limit: UsageLimit)? {
     if !showsFullest,
-        let soonest = candidates.compactMap({ candidate in candidate.limit.resetsAt.map { (candidate, $0) } })
-            .min(by: { $0.1 < $1.1 })
+        let soonest = candidates.compactMap({ candidate in
+            candidate.limit.resetsAt.flatMap { $0 > now ? (candidate, $0) : nil }
+        })
+        .min(by: { $0.1 < $1.1 })
     {
         return soonest.0
     }

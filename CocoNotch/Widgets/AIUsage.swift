@@ -105,6 +105,8 @@ final class AIUsageStore {
     private var updatedAt: Date?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    // Picks the next limit once the shown one resets, without waiting for the next fetch.
+    @ObservationIgnored private var resetTask: Task<Void, Never>?
     /// The heads-up showing in the closed notch, if any, as a `makeUsageHeadsUpKey`.
     private(set) var headsUpKey: String?
     /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
@@ -249,6 +251,7 @@ final class AIUsageStore {
     }
 
     func updateHeadsUp() {
+        resetTask?.cancel()
         let now = Date.now
         dismissedHeadsUpKeys = pruneDismissedHeadsUpKeys(dismissedHeadsUpKeys, now: now)
         let shown = getShownProviders(
@@ -279,9 +282,16 @@ final class AIUsageStore {
         let display =
             isHeadsUp
             ? (provider: provider, limit: limit)
-            : getIdleProviderLimit(candidates, showsFullest: readDefault(idleShowsFullestKey, default: false))
+            : getIdleProviderLimit(
+                candidates, showsFullest: readDefault(idleShowsFullestKey, default: false), now: now)
                 ?? (provider: provider, limit: limit)
         postActivity(display.provider, display.limit, priority: priority, isHeadsUp: isHeadsUp)
+        if let resetsAt = display.limit.resetsAt, resetsAt > now {
+            resetTask = Task { [weak self] in
+                guard (try? await Task.sleep(for: .seconds(resetsAt.timeIntervalSince(now)))) != nil else { return }
+                self?.updateHeadsUp()
+            }
+        }
     }
 
     private func postActivity(_ provider: AIProvider, _ limit: UsageLimit, priority: ActivityPriority, isHeadsUp: Bool)
