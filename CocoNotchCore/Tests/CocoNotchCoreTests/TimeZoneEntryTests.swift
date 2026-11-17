@@ -152,3 +152,13 @@ func normalizesLabel(text: String, expected: String?) {
             == ["America/Sao_Paulo", "Asia/Tokyo"]
     )
 }
+
+@Test func leavesTheCurrentZoneOffHomeAndShowsTwoAtMost() {
+    let entries = [localTimeZoneEntryID, "America/Sao_Paulo", "America/Los_Angeles", "America/New_York", "Asia/Tokyo"]
+        .map { TimeZoneEntry(identifier: $0) }
+    let ids = { (count: Int) in
+        getHomeEntries(entries, localIdentifier: "America/Sao_Paulo", count: count).map(\.identifier)
+    }
+    #expect(ids(4) == ["America/Los_Angeles", "America/New_York"])
+    #expect(ids(1) == ["America/Los_Angeles"])
+}
