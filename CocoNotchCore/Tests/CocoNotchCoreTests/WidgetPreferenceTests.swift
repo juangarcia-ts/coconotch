@@ -10,7 +10,7 @@ import Testing
     )
 }
 
-@Test func keepsSavedOrderAndAddsNewWidgetsAtTheEnd() {
+@Test func keepsSavedOrderAndAddsNewWidgetsAfterTheirDefaultNeighbor() {
     let stored = encodeWidgetPreferences([
         WidgetPreference(id: "meetings", isEnabled: false),
         WidgetPreference(id: "removed"),
@@ -20,8 +20,17 @@ import Testing
     #expect(
         decodeWidgetPreferences(stored, availableIDs: ["timezones", "meetings", "music"]) == [
             WidgetPreference(id: "meetings", isEnabled: false),
-            WidgetPreference(id: "timezones"),
             WidgetPreference(id: "music"),
+            WidgetPreference(id: "timezones"),
+        ]
+    )
+}
+
+@Test func addsNewWidgetsBeforeOneThatStaysLast() {
+    let stored = encodeWidgetPreferences([WidgetPreference(id: "system"), WidgetPreference(id: "camera")])
+    #expect(
+        decodeWidgetPreferences(stored, availableIDs: ["new", "system", "clipboard", "camera"]).map(\.id) == [
+            "new", "system", "clipboard", "camera",
         ]
     )
 }
