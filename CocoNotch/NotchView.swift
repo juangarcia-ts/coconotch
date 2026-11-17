@@ -24,7 +24,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
-    @AppStorage(PreferenceKey.showsTabShortcuts) private var showsTabShortcuts = true
+    @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
     @State private var isHovering = false
     /// Whether a drag opened the notch, so it closes again if the drag leaves without dropping.
     @State private var isOpenedByDrag = false
@@ -192,8 +192,10 @@ struct NotchView: View {
     private func setExpanded(_ isExpanded: Bool) {
         // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
         if !isExpanded, NSApp.keyWindow is NotchPanel { NSWorkspace.shared.frontmostApplication?.activate() }
-        // Opening takes the keyboard so tab shortcuts reach the notch instead of the app underneath.
-        if isExpanded { NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey() }
+        // Opening takes the keyboard so widget shortcuts reach the notch instead of the app underneath.
+        if isExpanded, widgetShortcuts != .disabled {
+            NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
+        }
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
     }
 
@@ -206,7 +208,7 @@ struct NotchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(Array(enabledWidgets.enumerated()), id: \.element.id) { index, widget in
-                    let digit = getTabShortcutDigit(index: index)
+                    let digit = widgetShortcuts == .disabled ? nil : getWidgetShortcutDigit(index: index)
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
@@ -222,7 +224,7 @@ struct NotchView: View {
                                 }
                             }
                             .overlay(alignment: .bottom) {
-                                if showsTabShortcuts, let digit {
+                                if widgetShortcuts == .visible, let digit {
                                     Text(verbatim: "⌘\(digit)")
                                         .font(.system(size: 8).monospacedDigit())
                                         .foregroundStyle(.tertiary)
@@ -236,7 +238,7 @@ struct NotchView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    // Works once the notch has keyboard focus, so typing in other apps never switches tabs.
+                    // Works once the notch has keyboard focus, so typing in other apps never switches widgets.
                     .keyboardShortcut(digit.map { KeyboardShortcut(KeyEquivalent($0), modifiers: .command) })
                     .help(digit.map { "\(widget.title) (⌘\($0))" } ?? widget.title)
                     .background(
@@ -273,7 +275,7 @@ struct NotchView: View {
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
-                .padding(.top, 20)
+                .padding(.top, getWidgetTopPadding(widgetShortcuts: widgetShortcuts))
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
                 // A tall widget is cut here rather than pushing the footer past the panel's edge.

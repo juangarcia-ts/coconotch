@@ -52,10 +52,16 @@ func countsHomeColumns(cardCount: Int, maxColumns: Int, expected: Int) {
     #expect(getWidgetMaxHeight(panelHeight: 50, tabBarHeight: 40, footerHeight: 26) == 0)
 }
 
-@Test func tabShortcutDigitsFollowTheNumberRow() {
-    #expect(getTabShortcutDigit(index: 0) == "1")
-    #expect(getTabShortcutDigit(index: 8) == "9")
-    #expect(getTabShortcutDigit(index: 9) == "0")
-    #expect(getTabShortcutDigit(index: 10) == nil)
-    #expect(getTabShortcutDigit(index: -1) == nil)
+@Test func widgetTopPaddingMakesRoomForShortcutHints() {
+    #expect(getWidgetTopPadding(widgetShortcuts: .visible) == 20)
+    #expect(getWidgetTopPadding(widgetShortcuts: .hidden) == 12)
+    #expect(getWidgetTopPadding(widgetShortcuts: .disabled) == 12)
+}
+
+@Test func widgetShortcutDigitsFollowTheNumberRow() {
+    #expect(getWidgetShortcutDigit(index: 0) == "1")
+    #expect(getWidgetShortcutDigit(index: 8) == "9")
+    #expect(getWidgetShortcutDigit(index: 9) == "0")
+    #expect(getWidgetShortcutDigit(index: 10) == nil)
+    #expect(getWidgetShortcutDigit(index: -1) == nil)
 }
