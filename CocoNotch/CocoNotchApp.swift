@@ -7,7 +7,7 @@ struct CocoNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("CocoNotch", systemImage: "rectangle.topthird.inset.filled") {
-            Button("Settings…", action: appDelegate.showSettings)
+            Button("Settings…") { appDelegate.showSettings() }
                 .keyboardShortcut(",")
             Divider()
             Button("Quit CocoNotch") { NSApp.terminate(nil) }
@@ -19,10 +19,11 @@ struct CocoNotchApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panels: [NotchPanel] = []
     private var placedSettings: PlacementSettings?
+    private let settingsNavigation = SettingsNavigation()
 
     // An AppKit window rather than a SwiftUI Settings scene, which the notch panel has no way to open.
     private lazy var settingsWindow: NSWindow = {
-        let hostingController = NSHostingController(rootView: SettingsView())
+        let hostingController = NSHostingController(rootView: SettingsView(navigation: settingsNavigation))
         // The window has a fixed size. Letting SwiftUI resize it to fit loops with the full-size content view's safe
         // area during layout, and AppKit aborts the app.
         hostingController.sizingOptions = []
@@ -65,7 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func showSettings() {
+    /// Every open picks its page, so the menu bar and the gear always start on General.
+    func showSettings(page: SettingsPage = .general) {
+        settingsNavigation.page = page
         // A menu bar app is never frontmost, so without this the window opens behind other apps.
         NSApp.activate()
         settingsWindow.makeKeyAndOrderFront(nil)
@@ -79,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let indices = getNotchDisplayIndices(hasNotch: screens.map { $0.safeAreaInsets.top > 0 }, choice: choice)
 
         while panels.count < indices.count {
-            panels.append(NotchPanel(showSettings: { [weak self] in self?.showSettings() }))
+            panels.append(NotchPanel(showSettings: { [weak self] in self?.showSettings(page: $0) }))
         }
         while panels.count > indices.count {
             panels.removeLast().close()

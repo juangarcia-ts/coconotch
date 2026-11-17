@@ -5,7 +5,7 @@ struct NotchView: View {
     let notchSize: CGSize
     /// The panel showing this view, so it reacts only to its own panel losing key status.
     let panelID: ObjectIdentifier
-    let showSettings: () -> Void
+    let showSettings: (SettingsPage) -> Void
 
     @State private var isExpanded = false
     /// The top activity whose alert is showing, as an `alertKey`.
@@ -92,6 +92,7 @@ struct NotchView: View {
             handleShelfDrag(isTargeted: isTargeted)
         }
         .environment(\.shelfDropScope, shelfDropScope)
+        .environment(\.showSettings, ShowSettingsAction(action: openSettings))
         .onHover { isHovering in
             self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
@@ -210,6 +211,11 @@ struct NotchView: View {
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
     }
 
+    private func openSettings(_ page: SettingsPage) {
+        setExpanded(false)
+        showSettings(page)
+    }
+
     /// With a notch on every display, a hotkey opens only the one under the pointer.
     private func isHotKeyTarget() -> Bool {
         let screens = NSScreen.screens
@@ -291,8 +297,7 @@ struct NotchView: View {
                         delegate: WidgetDropDelegate(targetID: widgetListEndID, dropTargetID: $dropTargetID)
                     )
                 Button("Settings", systemImage: "gearshape") {
-                    setExpanded(false)
-                    showSettings()
+                    openSettings(.general)
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)

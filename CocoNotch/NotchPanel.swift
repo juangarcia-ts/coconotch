@@ -6,12 +6,12 @@ final class NotchPanel: NSPanel {
     // area fall through to the menu bar.
     static let baseSize = NSSize(width: 720, height: 400)
 
-    private let showSettings: () -> Void
+    private let showSettings: (SettingsPage) -> Void
     private var placedScreenFrame: NSRect?
     private var placedNotchSize: CGSize?
     private var placedScale: Double?
 
-    init(showSettings: @escaping () -> Void) {
+    init(showSettings: @escaping (SettingsPage) -> Void) {
         self.showSettings = showSettings
         super.init(
             contentRect: NSRect(origin: .zero, size: Self.baseSize),

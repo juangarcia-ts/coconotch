@@ -2,7 +2,7 @@ import CocoNotchCore
 import ServiceManagement
 import SwiftUI
 
-private enum SettingsPage: Hashable {
+enum SettingsPage: Hashable {
     case general
     case appearance
     case shortcuts
@@ -10,11 +10,30 @@ private enum SettingsPage: Hashable {
     case widget(String)
 }
 
+/// The page the Settings window shows, owned by the app so it can open Settings on a given page.
+@Observable
+final class SettingsNavigation {
+    var page = SettingsPage.general
+}
+
+/// Closes the notch and shows Settings on a page, for example a widget's own tab; called like a function.
+struct ShowSettingsAction {
+    let action: (SettingsPage) -> Void
+
+    func callAsFunction(_ page: SettingsPage) {
+        action(page)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var showSettings = ShowSettingsAction { _ in }
+}
+
 struct SettingsView: View {
     static let size = CGSize(width: 760, height: 520)
 
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
-    @State private var page = SettingsPage.general
+    @Bindable var navigation: SettingsNavigation
     @State private var isWidgetsExpanded = true
 
     /// Home first, then every widget with settings in the user's order, switched on or not.
@@ -28,7 +47,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $page) {
+            List(selection: $navigation.page) {
                 Label("General", systemImage: "gearshape")
                     .tag(SettingsPage.general)
                 Label("Appearance", systemImage: "paintpalette")
@@ -54,7 +73,7 @@ struct SettingsView: View {
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
-                Text(getTitle(of: page))
+                Text(getTitle(of: navigation.page))
                     .font(.title2.weight(.semibold))
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
@@ -68,7 +87,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var detail: some View {
-        switch page {
+        switch navigation.page {
         case .general:
             GeneralSettings()
         case .appearance:
