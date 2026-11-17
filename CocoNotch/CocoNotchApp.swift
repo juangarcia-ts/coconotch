@@ -1,4 +1,5 @@
 import CocoNotchCore
+import Sparkle
 import SwiftUI
 
 @main
@@ -9,6 +10,7 @@ struct CocoNotchApp: App {
         MenuBarExtra("CocoNotch", image: "MenuBarIcon") {
             Button("Settings…") { appDelegate.showSettings() }
                 .keyboardShortcut(",")
+            Button("Check for Updates…") { appDelegate.updaterController.checkForUpdates(nil) }
             Divider()
             Button("Quit CocoNotch") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
@@ -20,10 +22,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panels: [NotchPanel] = []
     private var placedSettings: PlacementSettings?
     private let settingsNavigation = SettingsNavigation()
+    let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     // An AppKit window rather than a SwiftUI Settings scene, which the notch panel has no way to open.
     private lazy var settingsWindow: NSWindow = {
-        let hostingController = NSHostingController(rootView: SettingsView(navigation: settingsNavigation))
+        let hostingController = NSHostingController(
+            rootView: SettingsView(navigation: settingsNavigation, updater: updaterController.updater))
         // The window has a fixed size. Letting SwiftUI resize it to fit loops with the full-size content view's safe
         // area during layout, and AppKit aborts the app.
         hostingController.sizingOptions = []
