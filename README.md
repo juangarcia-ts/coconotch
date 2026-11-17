@@ -31,6 +31,8 @@ Open **Settings…** (⌘,) from the menu bar icon:
 
 - **Shelf**: drop files, links or text on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share.
 
+- **Convert**: drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF.
+
 - **Ask**: quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them.
 
 - **Camera**: a mirrored preview from any camera, to check how you look before a call.
@@ -51,7 +53,7 @@ Ask needs macOS 26 with Apple Intelligence turned on.
 
 ## Build
 
-Requires macOS 14+ and Xcode 26+.
+Requires macOS 15+ and Xcode 26+.
 
 ```sh
 xcodebuild -project CocoNotch.xcodeproj -scheme CocoNotch -derivedDataPath build build

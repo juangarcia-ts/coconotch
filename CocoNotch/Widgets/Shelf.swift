@@ -103,10 +103,26 @@ final class ShelfStore {
             for provider in providers {
                 if let item = await loadItem(from: provider, copiesFiles: copiesFiles) { newItems.append(item) }
             }
-            // Checked after loading, since the shelf may have been deleted while a large copy ran.
-            guard let shelfID = getShelfDropTarget(shelfID, in: shelves) else { return }
-            updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
+            insert(newItems, into: shelfID)
         }
+    }
+
+    /// Adds files picked in the open panel.
+    func add(_ urls: [URL], to shelfID: UUID) {
+        let copiesFiles = readSetting(copiesFilesKey, default: false)
+        Task {
+            var newItems: [ShelfItem] = []
+            for url in urls {
+                if let item = await loadFileItem(url, copiesFiles: copiesFiles) { newItems.append(item) }
+            }
+            insert(newItems, into: shelfID)
+        }
+    }
+
+    private func insert(_ newItems: [ShelfItem], into shelfID: UUID?) {
+        // Checked after loading, since the shelf may have been deleted while a large copy ran.
+        guard !newItems.isEmpty, let shelfID = getShelfDropTarget(shelfID, in: shelves) else { return }
+        updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
     }
 
     func isDropTargeted(scope: UUID) -> Bool {
@@ -285,7 +301,7 @@ private final class ShelfPreview: NSObject, @MainActor QLPreviewPanelDataSource 
 }
 
 // The item provider calls back on a background queue, so these build their callbacks outside the main actor.
-nonisolated private func loadURL(from provider: NSItemProvider, completion: @escaping @Sendable (URL?) -> Void) {
+nonisolated func loadURL(from provider: NSItemProvider, completion: @escaping @Sendable (URL?) -> Void) {
     _ = provider.loadObject(ofClass: URL.self) { url, _ in completion(url) }
 }
 
@@ -319,6 +335,8 @@ nonisolated private func copyFile(_ url: URL, into directory: URL, name: String?
 struct ShelfDropTarget: Hashable {
     let scope: UUID?
     let shelfID: UUID?
+    /// A Convert drop zone, whose files go to Convert instead of a shelf.
+    var isConvert = false
 }
 
 extension EnvironmentValues {
@@ -332,8 +350,10 @@ struct ShelfDropDelegate: DropDelegate {
     let scope: UUID?
     var shelfID: UUID?
     var isEnabled = true
+    /// Sends the files to Convert: set on its drop zones, and on the whole notch while Convert is open.
+    var isConvert = false
     private let store = ShelfStore.shared
-    private var target: ShelfDropTarget { ShelfDropTarget(scope: scope, shelfID: shelfID) }
+    private var target: ShelfDropTarget { ShelfDropTarget(scope: scope, shelfID: shelfID, isConvert: isConvert) }
 
     func validateDrop(info: DropInfo) -> Bool {
         // Text and links are turned away here, so dragging them over the notch doesn't open it.
@@ -341,6 +361,8 @@ struct ShelfDropDelegate: DropDelegate {
             && info.itemProviders(for: [.item]).contains {
                 getShelfDropSource(typeIdentifiers: $0.registeredTypeIdentifiers) != nil
             }
+            // Convert only reads files on disk, and takes no more while a batch runs.
+            && (!isConvert || (info.hasItemsConforming(to: [.fileURL]) && !ConvertStore.shared.isRunning))
     }
 
     func dropEntered(info: DropInfo) {
@@ -358,8 +380,15 @@ struct ShelfDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         // The notch-wide target also covers the shelves, so a shelf under the pointer wins over the default one.
         let shelfID = shelfID ?? store.dropTargets.first { $0.scope == scope && $0.shelfID != nil }?.shelfID
+        let isConvert = isConvert || store.dropTargets.contains { $0.scope == scope && $0.isConvert }
         store.dropTargets.remove(target)
         store.didDrop = true
+        if isConvert {
+            // A shelf item dragged here is converted too, and stays on its shelf.
+            store.draggedIDs = []
+            ConvertStore.shared.add(info.itemProviders(for: [.fileURL]))
+            return true
+        }
         if store.draggedIDs.isEmpty {
             store.add(info.itemProviders(for: [.item]), to: shelfID)
             return true
@@ -373,6 +402,7 @@ struct ShelfDropDelegate: DropDelegate {
 
 private struct ShelfView: View {
     @State private var query = ""
+    @State private var keyMonitor: Any?
     @State private var contentHeight: CGFloat = 0
     @FocusState private var focusedShelfID: UUID?
     private let store = ShelfStore.shared
@@ -424,7 +454,24 @@ private struct ShelfView: View {
                 .frame(height: min(contentHeight, 236))
             }
         }
-        .onAppear { store.refresh() }
+        .onAppear {
+            store.refresh()
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [store] event in
+                // The monitor sees keys for every window, like the file picker and Settings.
+                let notch = NSApp.keyWindow as? NotchPanel
+                guard
+                    shouldRemoveShelfSelection(
+                        keyCode: event.keyCode, isNotchKey: notch != nil,
+                        isTyping: notch?.firstResponder is NSTextView, hasSelection: !store.selection.isEmpty)
+                else { return event }
+                store.remove(store.selection)
+                return nil
+            }
+        }
+        .onDisappear {
+            keyMonitor.map(NSEvent.removeMonitor)
+            keyMonitor = nil
+        }
     }
 }
 
@@ -450,6 +497,7 @@ private struct ShelfSection: View {
     var focusedShelfID: FocusState<UUID?>.Binding
     /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
     @State private var confirmation: ShelfConfirmation?
+    @State private var rowWidth: CGFloat = 0
     @Environment(\.shelfDropScope) private var scope
     private let store = ShelfStore.shared
 
@@ -493,6 +541,7 @@ private struct ShelfSection: View {
                         .help("Share")
                     }
                     Menu("More", systemImage: "ellipsis.circle") {
+                        Button("Add Files…", action: chooseFiles)
                         Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
                         Divider()
                         Button("Clear Shelf") { confirmation = .clear }
@@ -511,10 +560,13 @@ private struct ShelfSection: View {
             .padding(.horizontal, 4)
             Group {
                 if shelf.items.isEmpty {
-                    Text("Drop files here")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
+                    HStack(spacing: 10) {
+                        Text("Drop files here or")
+                            .foregroundStyle(.secondary)
+                        ChooseFilesButton(action: chooseFiles)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
                 } else {
                     ScrollView(.horizontal) {
                         LazyHStack(alignment: .top, spacing: 6) {
@@ -525,7 +577,11 @@ private struct ShelfSection: View {
                             }
                         }
                         .padding(6)
+                        // Fills the row, so a click right of the last tile lands on the clearing background.
+                        .frame(minWidth: rowWidth, alignment: .leading)
+                        .background(ShelfClearingBackground())
                     }
+                    .onGeometryChange(for: CGFloat.self, of: \.size.width) { rowWidth = $0 }
                     .scrollIndicators(.never)
                     // As tall as the tallest tile, rather than stretching to fill the shelf list.
                     .fixedSize(horizontal: false, vertical: true)
@@ -538,10 +594,23 @@ private struct ShelfSection: View {
                         Color.primary.opacity(isTargeted ? 0.4 : 0.12),
                         style: StrokeStyle(lineWidth: 1, dash: shelf.items.isEmpty ? [5] : []))
             }
-            // A click between tiles clears the selection, like Finder.
-            .onTapGesture { store.selection = [] }
+            .background(ShelfClearingBackground())
         }
         .onDrop(of: [.item], delegate: ShelfDropDelegate(scope: scope, shelfID: shelf.id))
+    }
+
+    private func chooseFiles() {
+        Task { store.add(await FilePicker.shared.chooseFiles(allowsFolders: true), to: shelf.id) }
+    }
+}
+
+/// A click on empty space clears the selection, like Finder. It sits behind the tiles rather than on the shelf, since a
+/// tap gesture on an ancestor also fires for clicks on the tiles' AppKit views and would undo a ⌘- or ⇧-click.
+private struct ShelfClearingBackground: View {
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { ShelfStore.shared.selection = [] }
     }
 }
 
@@ -657,6 +726,13 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
             makeMenuItem("Open") { [store] in store.open(items) },
             makeMenuItem("Quick Look") { [store] in store.showQuickLook(items) },
             makeMenuItem("Show in Finder") { [store] in store.revealInFinder(items) },
+        ]
+        if ConvertStore.isWidgetEnabled, !ConvertStore.shared.isRunning,
+            !addConvertFiles(items.map(\.path), to: [], isFinished: false).isEmpty
+        {
+            menu.items.append(makeMenuItem("Convert…") { ConvertStore.shared.show(items.map(\.url)) })
+        }
+        menu.items += [
             .separator(),
             makeMenuItem("Copy") { [store] in store.copyToPasteboard(items) },
             makeMenuItem("AirDrop") { [store] in store.sendWithAirDrop(items) },

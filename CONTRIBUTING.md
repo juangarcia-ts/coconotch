@@ -4,7 +4,7 @@ Thanks for helping. This page covers setting up your Mac, the checks every chang
 
 ## Set up
 
-You need macOS 14 or later and Xcode 26 or later.
+You need macOS 15 or later and Xcode 26 or later.
 
 ```sh
 git clone https://github.com/juangarcia-ts/coconotch.git
