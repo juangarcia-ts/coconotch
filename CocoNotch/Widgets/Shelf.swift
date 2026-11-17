@@ -492,6 +492,8 @@ private struct ShelfSection: View {
     var focusedShelfID: FocusState<UUID?>.Binding
     /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
     @State private var confirmation: ShelfConfirmation?
+    /// Explains the badge in place, since tooltips only show while CocoNotch is active, which the notch never makes it.
+    @State private var isHoveringPrimary = false
     private let store = ShelfStore.shared
 
     var body: some View {
@@ -514,11 +516,14 @@ private struct ShelfSection: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.primary.opacity(0.12), in: Capsule())
-                            .help("Files dropped on the closed notch are added to this shelf.")
+                            .onHover { isHoveringPrimary = $0 }
                     }
-                    Text(formatShelfSummary(shelf.items))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        isHoveringPrimary
+                            ? "Files dropped on the closed notch go here" : formatShelfSummary(shelf.items)
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if let confirmation {
