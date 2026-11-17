@@ -57,9 +57,10 @@ public func rankActivities(
 }
 
 /// Identifies one alert-worthy state of an activity: it changes when the activity appears, its priority rises, or it
-/// moves to a new date, such as a heads-up switching to the next meeting under the same id.
-public func makeAlertKey(_ activity: ActivitySummary) -> String {
-    "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)"
+/// moves to a new date, such as a heads-up switching to the next meeting under the same id. Stickiness is part of it,
+/// so turning stickiness off restarts the alert's fold-back timer.
+public func makeAlertKey(_ activity: ActivitySummary, isSticky: Bool) -> String {
+    "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)-\(isSticky)"
 }
 
 /// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.

@@ -19,6 +19,7 @@ private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
+private let headsUpSticksKey = "meetings.headsUpSticks"
 private let showsNextMeetingKey = "meetings.showsNextMeeting"
 private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
@@ -26,6 +27,7 @@ private let defaultHidesAllDay = true
 private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
 private let defaultShowsPastEvents = false
+private let defaultHeadsUpSticks = true
 private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
@@ -125,11 +127,13 @@ final class MeetingsStore {
             hiddenCalendarIDs: decodeIDSet(defaults.string(forKey: hiddenCalendarIDsKey) ?? "")
         )
         let leadMinutes = defaults.object(forKey: headsUpMinutesKey) as? Int ?? defaultHeadsUpMinutes
+        let sticks = defaults.object(forKey: headsUpSticksKey) as? Bool ?? defaultHeadsUpSticks
         let meeting = getHeadsUpMeeting(
             upcoming,
             now: now,
             leadTime: TimeInterval(leadMinutes * 60),
-            grace: headsUpGrace,
+            // A sticky heads-up stays until dismissed or the meeting ends.
+            grace: sticks ? .infinity : headsUpGrace,
             dismissedIDs: dismissedHeadsUpIDs
         )
         headsUpMeetingID = meeting?.id
@@ -140,15 +144,17 @@ final class MeetingsStore {
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
         }
+        let priority = getHeadsUpPriority(start: meeting.start, now: now)
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
                 widgetID: NotchWidget.meetings.id,
-                priority: getHeadsUpPriority(start: meeting.start, now: now),
+                priority: priority,
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
-                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) }
+                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) },
+                isAlertSticky: sticks && priority == .urgent
             )
         )
     }
@@ -535,6 +541,7 @@ private struct MeetingsSettings: View {
     @AppStorage(headsUpMinutesKey) private var headsUpMinutes = defaultHeadsUpMinutes
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
     @AppStorage(showsNextMeetingKey) private var showsNextMeeting = true
+    @AppStorage(headsUpSticksKey) private var headsUpSticks = defaultHeadsUpSticks
 
     var body: some View {
         Form {
@@ -549,6 +556,9 @@ private struct MeetingsSettings: View {
                     Text("\(minutes) min before").tag(minutes)
                 }
             }
+            Toggle("Keep the heads-up open once the meeting starts, until I dismiss it", isOn: $headsUpSticks)
+                .disabled(headsUpMinutes == 0)
+                .onChange(of: headsUpSticks) { MeetingsStore.shared.updateHeadsUp() }
             Section("Calendars") {
                 if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
                     Text("Open the Meetings tab in the notch and allow calendar access to choose calendars here.")
@@ -649,6 +659,14 @@ private struct HeadsUpAlert: View {
     let meeting: Meeting
 
     var body: some View {
+        if meeting.start <= .now {
+            StartedMeetingAlert(meeting: meeting)
+        } else {
+            upcoming
+        }
+    }
+
+    private var upcoming: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(meeting.title)
                 .font(.title3.bold())
@@ -660,5 +678,69 @@ private struct HeadsUpAlert: View {
         .padding(.horizontal, 18)
         .padding(.top, 4)
         .padding(.bottom, 16)
+    }
+}
+
+/// The alert once the meeting has started: a red, pulsing card, since it stays open until dismissed.
+private struct StartedMeetingAlert: View {
+    let meeting: Meeting
+    @State private var isPulsing = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image(systemName: "video.fill")
+                    .font(.title)
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Color.red, in: Circle())
+                    .symbolEffect(.pulse)
+                VStack(alignment: .leading, spacing: 2) {
+                    TimelineView(.everyMinute) { context in
+                        Text(formatStartedAgo(now: context.date, start: meeting.start).uppercased())
+                            .font(.callout.weight(.heavy))
+                            .foregroundStyle(.red)
+                    }
+                    Text(meeting.title)
+                        .font(.title.bold())
+                    Text(formatTimeRange(meeting))
+                        .font(.body.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 10) {
+                if let link = meeting.link {
+                    Button {
+                        NSWorkspace.shared.open(link)
+                        MeetingsStore.shared.dismissHeadsUp()
+                    } label: {
+                        Label("Join", systemImage: "video.fill").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+                Button {
+                    MeetingsStore.shared.dismissHeadsUp()
+                } label: {
+                    Label("Dismiss", systemImage: "xmark").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.large)
+        }
+        // Wider than the island's row, which follows the short closed-notch titles.
+        .frame(minWidth: 460, maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.red.opacity(0.18), in: RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(Color.red.opacity(isPulsing ? 1 : 0.3), lineWidth: 2)
+        )
+        .padding(.horizontal, 10)
+        .padding(.top, 4)
+        .padding(.bottom, 12)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever()) { isPulsing = true }
+        }
     }
 }

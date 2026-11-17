@@ -60,12 +60,15 @@ private func makeActivity(
 
 @Test func changesAlertKeyForNewMeetingOrPriority() {
     let start = Date(timeIntervalSince1970: 100_000)
-    func key(_ priority: ActivityPriority, _ date: Date) -> String {
-        makeAlertKey(ActivitySummary(id: "meetings.headsUp", widgetID: "meetings", priority: priority, sortDate: date))
+    func key(_ priority: ActivityPriority, _ date: Date, isSticky: Bool = false) -> String {
+        makeAlertKey(
+            ActivitySummary(id: "meetings.headsUp", widgetID: "meetings", priority: priority, sortDate: date),
+            isSticky: isSticky)
     }
     #expect(key(.normal, start) == key(.normal, start))
     #expect(key(.normal, start) != key(.urgent, start))
     #expect(key(.normal, start) != key(.normal, start + 1800))
+    #expect(key(.urgent, start, isSticky: true) != key(.urgent, start))
 }
 
 @Test(arguments: [([70.0, 40.0], 70.0), ([40.0, 90.0], 90.0), ([300.0, 40.0], 140.0), ([], 0.0)])
