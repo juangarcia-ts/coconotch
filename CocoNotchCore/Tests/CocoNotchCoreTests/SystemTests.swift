@@ -35,12 +35,50 @@ import Testing
     #expect(parseBattery(["Type": "UPS", "Current Capacity": 80, "Max Capacity": 100]) == nil)
 }
 
-@Test func flagsLowBatteryOnlyOffPower() {
+@Test func showsLowBatteryHeadsUpOnlyOffPowerAndWhenOn() {
     let low = BatteryStatus(percent: 15, isCharging: false, isOnPower: false, minutesRemaining: nil)
-    #expect(isBatteryLow(low, threshold: 20))
-    #expect(!isBatteryLow(low, threshold: 10))
+    #expect(shouldShowLowBatteryHeadsUp(low, isWidgetEnabled: true, isHeadsUpOn: true, threshold: 20))
+    #expect(shouldShowLowBatteryHeadsUp(low, isWidgetEnabled: true, isHeadsUpOn: true, threshold: 15))
+    #expect(!shouldShowLowBatteryHeadsUp(low, isWidgetEnabled: true, isHeadsUpOn: true, threshold: 10))
+    #expect(!shouldShowLowBatteryHeadsUp(low, isWidgetEnabled: false, isHeadsUpOn: true, threshold: 20))
+    #expect(!shouldShowLowBatteryHeadsUp(low, isWidgetEnabled: true, isHeadsUpOn: false, threshold: 20))
+    #expect(!shouldShowLowBatteryHeadsUp(nil, isWidgetEnabled: true, isHeadsUpOn: true, threshold: 20))
     let pluggedIn = BatteryStatus(percent: 15, isCharging: true, isOnPower: true, minutesRemaining: nil)
-    #expect(!isBatteryLow(pluggedIn, threshold: 20))
+    #expect(!shouldShowLowBatteryHeadsUp(pluggedIn, isWidgetEnabled: true, isHeadsUpOn: true, threshold: 20))
+}
+
+@Test func picksBatterySymbolByLevel() {
+    func symbol(_ percent: Int, isCharging: Bool = false) -> String {
+        getBatterySymbol(
+            BatteryStatus(percent: percent, isCharging: isCharging, isOnPower: isCharging, minutesRemaining: nil))
+    }
+    #expect(symbol(12) == "battery.0percent")
+    #expect(symbol(13) == "battery.25percent")
+    #expect(symbol(37) == "battery.25percent")
+    #expect(symbol(38) == "battery.50percent")
+    #expect(symbol(62) == "battery.50percent")
+    #expect(symbol(63) == "battery.75percent")
+    #expect(symbol(87) == "battery.75percent")
+    #expect(symbol(88) == "battery.100percent")
+    #expect(symbol(5, isCharging: true) == "battery.100percent.bolt")
+}
+
+@Test func describesBatteryState() {
+    func detail(isCharging: Bool, isOnPower: Bool, minutes: Int?) -> String {
+        getBatteryDetail(
+            BatteryStatus(percent: 50, isCharging: isCharging, isOnPower: isOnPower, minutesRemaining: minutes))
+    }
+    #expect(detail(isCharging: true, isOnPower: true, minutes: 45) == "0:45 until full")
+    #expect(detail(isCharging: true, isOnPower: true, minutes: nil) == "Charging")
+    #expect(detail(isCharging: false, isOnPower: true, minutes: nil) == "On power")
+    #expect(detail(isCharging: false, isOnPower: false, minutes: 125) == "2:05 left")
+    #expect(detail(isCharging: false, isOnPower: false, minutes: nil) == "On battery")
+}
+
+@Test func measuresDiskUsedFraction() {
+    #expect(getDiskUsedFraction(free: 250, total: 1000) == 0.75)
+    #expect(getDiskUsedFraction(free: 1200, total: 1000) == 0)
+    #expect(getDiskUsedFraction(free: 0, total: 0) == 0)
 }
 
 @Test func formatsSystemValues() {

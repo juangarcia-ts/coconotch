@@ -116,6 +116,8 @@ final class SystemStore {
     private(set) var battery: BatteryStatus?
     @ObservationIgnored private var lastTicks: CPUTicks?
     @ObservationIgnored private var sampledAt: Date?
+    @ObservationIgnored private var viewerCount = 0
+    @ObservationIgnored private var samplingTask: Task<Void, Never>?
     @ObservationIgnored private var batterySource: CFRunLoopSource?
 
     func start() {
@@ -128,11 +130,29 @@ final class SystemStore {
                 MainActor.assumeIsolated { SystemStore.shared.updateBattery() }
             }, nil)?.takeRetainedValue()
         CFRunLoopAddSource(CFRunLoopGetMain(), batterySource, .defaultMode)
+        // Catches the widget being switched on or off, and the heads-up settings, wherever they change.
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
+            _ in
+            MainActor.assumeIsolated { SystemStore.shared.updateLowBatteryHeadsUp() }
+        }
         updateLowBatteryHeadsUp()
     }
 
-    /// Runs while the calling view is visible, sampling on the user's interval.
-    func sampleWhileVisible() async {
+    /// Called as a System view appears; one loop serves every visible view, so the rate stays the user's interval.
+    func beginSampling() {
+        viewerCount += 1
+        guard viewerCount == 1 else { return }
+        samplingTask = Task { await runSampling() }
+    }
+
+    func endSampling() {
+        viewerCount = max(viewerCount - 1, 0)
+        guard viewerCount == 0 else { return }
+        samplingTask?.cancel()
+        samplingTask = nil
+    }
+
+    private func runSampling() async {
         let sampleSeconds = readSetting(sampleSecondsKey, default: defaultSampleSeconds)
         // Switching between Home and the tab keeps the graphs; after a longer gap they would join unrelated stretches.
         var delay = Double(sampleSeconds)
@@ -182,12 +202,16 @@ final class SystemStore {
         updateLowBatteryHeadsUp()
     }
 
-    func updateLowBatteryHeadsUp() {
+    private func updateLowBatteryHeadsUp() {
         let preferences = NotchWidget.getPreferences(
             stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
-        guard getEnabledWidgetIDs(preferences).contains(NotchWidget.system.id),
-            readSetting(showsLowBatteryHeadsUpKey, default: true), let battery,
-            isBatteryLow(battery, threshold: readSetting(lowBatteryThresholdKey, default: defaultLowBatteryThreshold))
+        guard
+            shouldShowLowBatteryHeadsUp(
+                battery,
+                isWidgetEnabled: getEnabledWidgetIDs(preferences).contains(NotchWidget.system.id),
+                isHeadsUpOn: readSetting(showsLowBatteryHeadsUpKey, default: true),
+                threshold: readSetting(lowBatteryThresholdKey, default: defaultLowBatteryThreshold)
+            ), let battery
         else {
             ActivityCenter.shared.remove(id: lowBatteryActivityID)
             return
@@ -205,24 +229,6 @@ final class SystemStore {
             )
         )
     }
-}
-
-private func getBatterySymbol(_ battery: BatteryStatus) -> String {
-    if battery.isCharging { return "battery.100percent.bolt" }
-    return switch battery.percent {
-    case ..<13: "battery.0percent"
-    case ..<38: "battery.25percent"
-    case ..<63: "battery.50percent"
-    case ..<88: "battery.75percent"
-    default: "battery.100percent"
-    }
-}
-
-private func getBatteryDetail(_ battery: BatteryStatus) -> String {
-    let time = battery.minutesRemaining.map(formatTimeRemaining)
-    if battery.isCharging { return time.map { "\($0) until full" } ?? "Charging" }
-    if battery.isOnPower { return "On power" }
-    return time.map { "\($0) left" } ?? "On battery"
 }
 
 private struct Metric: Identifiable {
@@ -274,7 +280,7 @@ private func makeMetrics(
         metrics.append(
             Metric(
                 id: "disk", title: "Disk", symbol: "internaldrive", value: formatBytes(disk.free, isMemory: false),
-                fraction: Double(disk.total - min(disk.free, disk.total)) / Double(max(disk.total, 1)),
+                fraction: getDiskUsedFraction(free: disk.free, total: disk.total),
                 detail: "free of \(formatBytes(disk.total, isMemory: false))"))
     }
     if showsBattery, let battery = store.battery {
@@ -336,7 +342,8 @@ private struct SystemView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .task { await store.sampleWhileVisible() }
+        .onAppear { store.beginSampling() }
+        .onDisappear { store.endSampling() }
     }
 }
 
@@ -386,7 +393,8 @@ private struct SystemSummary: View {
                 }
             }
         }
-        .task { await store.sampleWhileVisible() }
+        .onAppear { store.beginSampling() }
+        .onDisappear { store.endSampling() }
     }
 
     private func item(_ metric: Metric) -> some View {
@@ -412,7 +420,6 @@ private struct SystemSettings: View {
     @AppStorage(showsGraphsKey) private var showsGraphs = true
     @AppStorage(showsLowBatteryHeadsUpKey) private var showsLowBatteryHeadsUp = true
     @AppStorage(lowBatteryThresholdKey) private var lowBatteryThreshold = defaultLowBatteryThreshold
-    private let store = SystemStore.shared
 
     var body: some View {
         Form {
@@ -443,7 +450,5 @@ private struct SystemSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onChange(of: showsLowBatteryHeadsUp) { store.updateLowBatteryHeadsUp() }
-        .onChange(of: lowBatteryThreshold) { store.updateLowBatteryHeadsUp() }
     }
 }
