@@ -137,11 +137,11 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
         locationManager.requestWhenInUseAuthorization()
     }
 
-    static func searchPlaces(_ query: String) async -> [WeatherPlace] {
-        guard let url = makeGeocodingURL(query: query),
-            let (data, _) = try? await URLSession.shared.data(from: url)
-        else { return [] }
-        return (try? parseGeocoding(data)) ?? []
+    /// Nil when the search failed, so the search can say so instead of showing no matches.
+    static func searchPlaces(_ query: String) async -> [WeatherPlace]? {
+        guard let url = makeGeocodingURL(query: query) else { return [] }
+        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
+        return try? parseGeocoding(data)
     }
 
     private func show(_ problem: WeatherProblem) {
@@ -466,8 +466,14 @@ private struct WeatherProblemView: View {
                     Button("Use My Location", systemImage: "location.fill") { store.requestLocationAccess() }
                 }
             case .locationDenied:
-                Button("Open Privacy Settings") { openPrivacySettings("Privacy_LocationServices") }
-            case .locationFailed, .network:
+                CitySearch(onPick: pick) {
+                    Button("Open Privacy Settings") { openPrivacySettings("Privacy_LocationServices") }
+                }
+            case .locationFailed:
+                CitySearch(onPick: pick) {
+                    Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
+                }
+            case .network:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             case .noPlace:
                 CitySearch(onPick: pick) { EmptyView() }
@@ -487,12 +493,13 @@ private struct CitySearch<Accessory: View>: View {
     let onPick: (WeatherPlace) -> Void
     @ViewBuilder var accessory: Accessory
     @State private var query = ""
-    @State private var results: [WeatherPlace] = []
+    @State private var searchedQuery = ""
+    @State private var results: [WeatherPlace]? = []
     @State private var selectedID: WeatherPlace.ID?
 
     var body: some View {
         // The notch caps a widget at about 290pt, so four matches is all that fits under the prompt.
-        let shown = Array(results.prefix(4))
+        let shown = Array((results ?? []).prefix(4))
         let selected = shown.first { $0.id == selectedID } ?? shown.first
         VStack(spacing: 6) {
             HStack(spacing: 8) {
@@ -501,7 +508,8 @@ private struct CitySearch<Accessory: View>: View {
                         .foregroundStyle(.secondary)
                     TextField("Search for a city", text: $query)
                         .textFieldStyle(.plain)
-                        .onSubmit { selected.map(pick) }
+                        // Return waits for the search to catch up, so it never picks a match for older text.
+                        .onSubmit { if searchedQuery == query { selected.map(pick) } }
                         .onKeyPress(.downArrow) { select(offset: 1, in: shown, from: selected) }
                         .onKeyPress(.upArrow) { select(offset: -1, in: shown, from: selected) }
                 }
@@ -517,13 +525,22 @@ private struct CitySearch<Accessory: View>: View {
                         .onTapGesture { pick(place) }
                 }
             }
+            if let note = getCitySearchNote(query: query, searchedQuery: searchedQuery, results: results) {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .animation(.easeOut(duration: 0.15), value: shown)
         .task(id: query) {
             // Waits for a pause in typing, so each keystroke doesn't send a search.
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            results = await WeatherStore.searchPlaces(query)
+            let found = await WeatherStore.searchPlaces(query)
+            // A newer query cancels this one; its aborted request must not show as a failed search.
+            guard !Task.isCancelled else { return }
+            results = found
+            searchedQuery = query
         }
     }
 
@@ -533,8 +550,8 @@ private struct CitySearch<Accessory: View>: View {
     }
 
     private func select(offset: Int, in places: [WeatherPlace], from selected: WeatherPlace?) -> KeyPress.Result {
-        guard let index = places.firstIndex(where: { $0.id == selected?.id }) else { return .ignored }
-        selectedID = places[max(0, min(places.count - 1, index + offset))].id
+        guard let id = getMovedSelection(in: places.map(\.id), from: selected?.id, by: offset) else { return .ignored }
+        selectedID = id
         return .handled
     }
 }
