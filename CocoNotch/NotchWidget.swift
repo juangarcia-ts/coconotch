@@ -15,7 +15,7 @@ struct NotchWidget: Identifiable {
 
     // The default order; users can reorder and switch widgets off in Settings → Widgets. Home is always first, so
     // it isn't in this list.
-    static let all: [NotchWidget] = [.timezones, .meetings, .weather, .aiUsage, .music, .camera, .system, .clipboard]
+    static let all: [NotchWidget] = [.timezones, .meetings, .weather, .aiUsage, .music, .system, .clipboard, .camera]
 
     static var summaryIDs: Set<String> {
         Set(all.filter { $0.makeSummary != nil }.map(\.id))

@@ -78,8 +78,37 @@ public func parseBattery(_ description: [String: Any]) -> BatteryStatus? {
     )
 }
 
-public func isBatteryLow(_ battery: BatteryStatus, threshold: Int) -> Bool {
-    !battery.isOnPower && battery.percent <= threshold
+/// The closed-notch heads-up shows only off power, at or below the threshold, while the widget and the setting are on.
+public func shouldShowLowBatteryHeadsUp(
+    _ battery: BatteryStatus?, isWidgetEnabled: Bool, isHeadsUpOn: Bool, threshold: Int
+) -> Bool {
+    guard isWidgetEnabled, isHeadsUpOn, let battery else { return false }
+    return !battery.isOnPower && battery.percent <= threshold
+}
+
+public func getBatterySymbol(_ battery: BatteryStatus) -> String {
+    if battery.isCharging { return "battery.100percent.bolt" }
+    return switch battery.percent {
+    case ..<13: "battery.0percent"
+    case ..<38: "battery.25percent"
+    case ..<63: "battery.50percent"
+    case ..<88: "battery.75percent"
+    default: "battery.100percent"
+    }
+}
+
+/// "1:05 left", "Charging", "On power"…, for under the battery level.
+public func getBatteryDetail(_ battery: BatteryStatus) -> String {
+    let time = battery.minutesRemaining.map { formatTimeRemaining(minutes: $0) }
+    if battery.isCharging { return time.map { "\($0) until full" } ?? "Charging" }
+    if battery.isOnPower { return "On power" }
+    return time.map { "\($0) left" } ?? "On battery"
+}
+
+/// The share of a disk in use, from 0 to 1; 0 for a disk that reports no size.
+public func getDiskUsedFraction(free: UInt64, total: UInt64) -> Double {
+    guard total > 0 else { return 0 }
+    return Double(total - min(free, total)) / Double(total)
 }
 
 public func formatPercent(_ fraction: Double) -> String {
