@@ -2,6 +2,8 @@ import Foundation
 
 /// How much an activity deserves the closed notch. Higher wins.
 public enum ActivityPriority: Int, Comparable, Sendable {
+    /// Shown only when nothing else is, such as the next meeting later today.
+    case low
     /// Ongoing context, such as music playing.
     case background
     /// Something coming up, such as a meeting countdown.

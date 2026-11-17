@@ -197,6 +197,18 @@ func getsAgendaMeetings(showsPastEvents: Bool, isPickedDay: Bool, expected: [Str
     #expect(pick([meeting("soon", startsIn: 5)], lead: 0) == nil)
 }
 
+@Test func picksNextMeeting() {
+    let now = Date(timeIntervalSince1970: 100_000)
+    func meeting(_ id: String, startsIn minutes: Double, allDay: Bool = false) -> Meeting {
+        Meeting(id: id, title: id, start: now + minutes * 60, end: now + minutes * 60 + 3600, isAllDay: allDay)
+    }
+
+    #expect(
+        getNextMeeting([meeting("started", startsIn: -5), meeting("later", startsIn: 90)], now: now)?.id == "later")
+    #expect(getNextMeeting([meeting("holiday", startsIn: 30, allDay: true)], now: now) == nil)
+    #expect(getNextMeeting([], now: now) == nil)
+}
+
 @Test(arguments: [(582, "9:42"), (5, "0:05"), (0, "0:00"), (-30, "0:00"), (3900, "1:05:00")])
 func formatsTimer(seconds: Int, expected: String) {
     #expect(formatTimer(seconds: seconds) == expected)

@@ -94,8 +94,10 @@ struct NotchView: View {
         .environment(\.shelfDropScope, shelfDropScope)
         .onHover { isHovering in
             self.isHovering = isHovering
-            // Opening the notch from an activity shows the widget it came from.
-            if isHovering, !isExpanded, let activity = activities.first { selectedWidgetID = activity.widgetID }
+            // Opening the notch from an activity shows the widget it came from; a low one is too quiet to switch tabs.
+            if isHovering, !isExpanded, let activity = activities.first, activity.priority > .low {
+                selectedWidgetID = activity.widgetID
+            }
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
