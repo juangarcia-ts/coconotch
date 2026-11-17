@@ -1,0 +1,372 @@
+import CocoNotchCore
+import Darwin
+import IOKit.ps
+import SwiftUI
+
+extension NotchWidget {
+    static let system = NotchWidget(
+        id: "system",
+        title: "System",
+        systemImage: "cpu",
+        makeView: { AnyView(SystemView()) },
+        makeSettings: { AnyView(SystemSettings()) },
+        makeSummary: { AnyView(SystemSummary()) },
+        makeSummarySettings: { AnyView(SystemSummarySettings()) }
+    )
+}
+
+private let showsCPUKey = "system.showsCPU"
+private let showsMemoryKey = "system.showsMemory"
+private let showsDiskKey = "system.showsDisk"
+private let showsBatteryKey = "system.showsBattery"
+private let sampleSecondsKey = "system.sampleSeconds"
+private let showsLowBatteryHeadsUpKey = "system.showsLowBatteryHeadsUp"
+private let lowBatteryThresholdKey = "system.lowBatteryThreshold"
+private let summaryShowsBarsKey = "system.summaryShowsBars"
+
+private let defaultSampleSeconds = 3
+private let defaultLowBatteryThreshold = 20
+private let lowBatteryActivityID = "system.lowBattery"
+
+private func readSetting<Value>(_ key: String, default defaultValue: Value) -> Value {
+    UserDefaults.standard.object(forKey: key) as? Value ?? defaultValue
+}
+
+private func readCPUTicks() -> CPUTicks? {
+    var cpuCount: natural_t = 0
+    var info: processor_info_array_t?
+    var infoCount: mach_msg_type_number_t = 0
+    guard host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &cpuCount, &info, &infoCount) == KERN_SUCCESS,
+        let info
+    else { return nil }
+    defer {
+        vm_deallocate(
+            mach_task_self_, vm_address_t(bitPattern: info),
+            vm_size_t(Int(infoCount) * MemoryLayout<integer_t>.stride))
+    }
+    var ticks = CPUTicks()
+    for cpu in 0..<Int(cpuCount) {
+        let base = cpu * Int(CPU_STATE_MAX)
+        let read = { (state: Int32) in UInt64(UInt32(bitPattern: info[base + Int(state)])) }
+        ticks.user += read(CPU_STATE_USER)
+        ticks.system += read(CPU_STATE_SYSTEM)
+        ticks.idle += read(CPU_STATE_IDLE)
+        ticks.nice += read(CPU_STATE_NICE)
+    }
+    return ticks
+}
+
+private func readMemoryUsed() -> UInt64? {
+    var stats = vm_statistics64()
+    var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+    let result = withUnsafeMutablePointer(to: &stats) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+        }
+    }
+    guard result == KERN_SUCCESS else { return nil }
+    let pages = MemoryPages(
+        internalPages: UInt64(stats.internal_page_count),
+        purgeable: UInt64(stats.purgeable_count),
+        wired: UInt64(stats.wire_count),
+        compressed: UInt64(stats.compressor_page_count)
+    )
+    return getMemoryUsed(pages, pageSize: UInt64(getpagesize()))
+}
+
+private func readDisk() -> (free: UInt64, total: UInt64)? {
+    guard
+        let values = try? URL(filePath: "/").resourceValues(forKeys: [
+            .volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey,
+        ]),
+        let free = values.volumeAvailableCapacityForImportantUsage, let total = values.volumeTotalCapacity
+    else { return nil }
+    return (UInt64(clamping: free), UInt64(clamping: total))
+}
+
+/// nil on a Mac without a battery.
+private func readBattery() -> BatteryStatus? {
+    let info = IOPSCopyPowerSourcesInfo().takeRetainedValue()
+    let sources = IOPSCopyPowerSourcesList(info).takeRetainedValue() as [CFTypeRef]
+    return sources.lazy.compactMap { source in
+        (IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any]).flatMap(parseBattery)
+    }.first
+}
+
+/// Samples only while a System view is on screen; battery changes arrive from IOKit, so the heads-up needs no polling.
+@Observable
+final class SystemStore {
+    static let shared = SystemStore()
+
+    private(set) var cpuUsage: Double?
+    private(set) var memoryUsed: UInt64?
+    let memoryTotal = ProcessInfo.processInfo.physicalMemory
+    private(set) var disk: (free: UInt64, total: UInt64)?
+    private(set) var battery: BatteryStatus?
+    @ObservationIgnored private var lastTicks: CPUTicks?
+    @ObservationIgnored private var batterySource: CFRunLoopSource?
+
+    func start() {
+        guard batterySource == nil else { return }
+        battery = readBattery()
+        // Desktop Macs have no battery, so nothing is ever posted.
+        guard battery != nil else { return }
+        batterySource = IOPSNotificationCreateRunLoopSource(
+            { _ in
+                MainActor.assumeIsolated { SystemStore.shared.updateBattery() }
+            }, nil)?.takeRetainedValue()
+        CFRunLoopAddSource(CFRunLoopGetMain(), batterySource, .defaultMode)
+        updateLowBatteryHeadsUp()
+    }
+
+    /// Runs while the calling view is visible, sampling on the user's interval.
+    func sampleWhileVisible() async {
+        lastTicks = nil
+        cpuUsage = nil
+        // A quick second sample, so CPU doesn't read "–" for a whole interval.
+        var delay = 1
+        while !Task.isCancelled {
+            sample()
+            try? await Task.sleep(for: .seconds(delay))
+            delay = readSetting(sampleSecondsKey, default: defaultSampleSeconds)
+        }
+    }
+
+    private func sample() {
+        if let ticks = readCPUTicks() {
+            if let lastTicks { cpuUsage = getCPUUsage(from: lastTicks, to: ticks) ?? cpuUsage }
+            lastTicks = ticks
+        }
+        memoryUsed = readMemoryUsed()
+        disk = readDisk()
+        battery = readBattery()
+    }
+
+    private func updateBattery() {
+        battery = readBattery()
+        updateLowBatteryHeadsUp()
+    }
+
+    func updateLowBatteryHeadsUp() {
+        let preferences = NotchWidget.getPreferences(
+            stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
+        guard getEnabledWidgetIDs(preferences).contains(NotchWidget.system.id),
+            readSetting(showsLowBatteryHeadsUpKey, default: true), let battery,
+            isBatteryLow(battery, threshold: readSetting(lowBatteryThresholdKey, default: defaultLowBatteryThreshold))
+        else {
+            ActivityCenter.shared.remove(id: lowBatteryActivityID)
+            return
+        }
+        ActivityCenter.shared.post(
+            NotchActivity(
+                id: lowBatteryActivityID,
+                widgetID: NotchWidget.system.id,
+                priority: .normal,
+                sortDate: .now,
+                makeLeading: {
+                    AnyView(Label("Low battery", systemImage: "battery.25percent").foregroundStyle(.red))
+                },
+                makeTrailing: { AnyView(Text("\(battery.percent)%").monospacedDigit()) }
+            )
+        )
+    }
+}
+
+private func getBatterySymbol(_ battery: BatteryStatus) -> String {
+    if battery.isCharging { return "battery.100percent.bolt" }
+    return switch battery.percent {
+    case ..<13: "battery.0percent"
+    case ..<38: "battery.25percent"
+    case ..<63: "battery.50percent"
+    case ..<88: "battery.75percent"
+    default: "battery.100percent"
+    }
+}
+
+private func getBatteryDetail(_ battery: BatteryStatus) -> String {
+    let time = battery.minutesRemaining.map(formatTimeRemaining)
+    if battery.isCharging { return time.map { "\($0) until full" } ?? "Charging" }
+    if battery.isOnPower { return "On power" }
+    return time.map { "\($0) left" } ?? "On battery"
+}
+
+private struct Metric: Identifiable {
+    let id: String
+    let title: String
+    let symbol: String
+    let value: String
+    let fraction: Double?
+    let detail: String
+}
+
+/// The metrics the user switched on, in a fixed order, from the store's latest sample.
+private func makeMetrics(
+    _ store: SystemStore, showsCPU: Bool, showsMemory: Bool, showsDisk: Bool, showsBattery: Bool
+) -> [Metric] {
+    var metrics: [Metric] = []
+    if showsCPU {
+        metrics.append(
+            Metric(
+                id: "cpu", title: "CPU", symbol: "cpu", value: store.cpuUsage.map(formatPercent) ?? "–",
+                fraction: store.cpuUsage, detail: "\(ProcessInfo.processInfo.activeProcessorCount) cores"))
+    }
+    if showsMemory {
+        let fraction = store.memoryUsed.map { Double($0) / Double(max(store.memoryTotal, 1)) }
+        metrics.append(
+            Metric(
+                id: "memory", title: "Memory", symbol: "memorychip",
+                value: store.memoryUsed.map { formatBytes($0, isMemory: true) } ?? "–", fraction: fraction,
+                detail: "of \(formatBytes(store.memoryTotal, isMemory: true))"))
+    }
+    if showsDisk, let disk = store.disk {
+        metrics.append(
+            Metric(
+                id: "disk", title: "Disk", symbol: "internaldrive", value: formatBytes(disk.free, isMemory: false),
+                fraction: Double(disk.total - min(disk.free, disk.total)) / Double(max(disk.total, 1)),
+                detail: "free of \(formatBytes(disk.total, isMemory: false))"))
+    }
+    if showsBattery, let battery = store.battery {
+        metrics.append(
+            Metric(
+                id: "battery", title: "Battery", symbol: getBatterySymbol(battery), value: "\(battery.percent)%",
+                fraction: Double(battery.percent) / 100, detail: getBatteryDetail(battery)))
+    }
+    return metrics
+}
+
+private struct SystemView: View {
+    @AppStorage(showsCPUKey) private var showsCPU = true
+    @AppStorage(showsMemoryKey) private var showsMemory = true
+    @AppStorage(showsDiskKey) private var showsDisk = true
+    @AppStorage(showsBatteryKey) private var showsBattery = true
+    private let store = SystemStore.shared
+
+    var body: some View {
+        let metrics = makeMetrics(
+            store, showsCPU: showsCPU, showsMemory: showsMemory, showsDisk: showsDisk, showsBattery: showsBattery)
+        Group {
+            if metrics.isEmpty {
+                Text("Choose what System shows in Settings → System.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(metrics) { metric in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(metric.title, systemImage: metric.symbol)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Text(metric.value)
+                                .font(.title2.weight(.semibold).monospacedDigit())
+                                .lineLimit(1)
+                            ProgressView(value: metric.fraction ?? 0)
+                                .progressViewStyle(.linear)
+                            Text(metric.detail)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+        }
+        .task { await store.sampleWhileVisible() }
+    }
+}
+
+/// One line per metric, for the Home tab.
+private struct SystemSummary: View {
+    @AppStorage(showsCPUKey) private var showsCPU = true
+    @AppStorage(showsMemoryKey) private var showsMemory = true
+    @AppStorage(showsDiskKey) private var showsDisk = true
+    @AppStorage(showsBatteryKey) private var showsBattery = true
+    @AppStorage(summaryShowsBarsKey) private var showsBars = false
+    private let store = SystemStore.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(
+                makeMetrics(
+                    store, showsCPU: showsCPU, showsMemory: showsMemory, showsDisk: showsDisk,
+                    showsBattery: showsBattery)
+            ) { metric in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Image(systemName: metric.symbol)
+                            .frame(width: 14)
+                            .foregroundStyle(.secondary)
+                        Text(metric.title)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 6)
+                        Text(metric.value)
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                    }
+                    .font(.caption)
+                    .lineLimit(1)
+                    if showsBars {
+                        ProgressView(value: metric.fraction ?? 0)
+                            .progressViewStyle(.linear)
+                            .controlSize(.mini)
+                    }
+                }
+            }
+        }
+        .task { await store.sampleWhileVisible() }
+    }
+}
+
+private struct SystemSummarySettings: View {
+    @AppStorage(summaryShowsBarsKey) private var showsBars = false
+
+    var body: some View {
+        Toggle("Show usage bars", isOn: $showsBars)
+    }
+}
+
+private struct SystemSettings: View {
+    @AppStorage(showsCPUKey) private var showsCPU = true
+    @AppStorage(showsMemoryKey) private var showsMemory = true
+    @AppStorage(showsDiskKey) private var showsDisk = true
+    @AppStorage(showsBatteryKey) private var showsBattery = true
+    @AppStorage(sampleSecondsKey) private var sampleSeconds = defaultSampleSeconds
+    @AppStorage(showsLowBatteryHeadsUpKey) private var showsLowBatteryHeadsUp = true
+    @AppStorage(lowBatteryThresholdKey) private var lowBatteryThreshold = defaultLowBatteryThreshold
+    private let store = SystemStore.shared
+
+    var body: some View {
+        Form {
+            Section("Metrics") {
+                Toggle("CPU", isOn: $showsCPU)
+                Toggle("Memory", isOn: $showsMemory)
+                Toggle("Disk", isOn: $showsDisk)
+                Toggle("Battery", isOn: $showsBattery)
+            }
+            Section {
+                Picker("Update every", selection: $sampleSeconds) {
+                    ForEach([1, 2, 3, 5, 10], id: \.self) { Text("\($0) s").tag($0) }
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("CocoNotch reads these only while the System tab or its Home card is on screen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Low battery heads-up") {
+                Toggle("Show a heads-up in the closed notch when the battery is low", isOn: $showsLowBatteryHeadsUp)
+                Picker("When the battery reaches", selection: $lowBatteryThreshold) {
+                    ForEach([10, 15, 20, 30], id: \.self) { Text("\($0)%").tag($0) }
+                }
+                .disabled(!showsLowBatteryHeadsUp)
+            }
+        }
+        .formStyle(.grouped)
+        .onChange(of: showsLowBatteryHeadsUp) { store.updateLowBatteryHeadsUp() }
+        .onChange(of: lowBatteryThreshold) { store.updateLowBatteryHeadsUp() }
+    }
+}

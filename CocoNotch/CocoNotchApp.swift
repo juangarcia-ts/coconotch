@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MeetingsStore.shared.start()
         WeatherStore.shared.start()
         AIUsageStore.shared.start()
+        SystemStore.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,
