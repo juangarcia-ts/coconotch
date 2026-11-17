@@ -283,6 +283,7 @@ private struct HidesWindowTitle: ViewModifier {
 private struct ShortcutsSettings: View {
     @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @AppStorage(PreferenceKey.showsHome) private var showsHome = true
 
     var body: some View {
         Form {
@@ -302,12 +303,13 @@ private struct ShortcutsSettings: View {
                     Text("Disabled").tag(WidgetShortcutsMode.disabled)
                 }
             }
-            Section("Open a widget from any app") {
+            Section {
+                // The same tabs HotKeyCenter registers, so a switched-off widget can't get a shortcut that never fires.
                 ForEach(
-                    [NotchWidget.home]
-                        + NotchWidget.getPreferences(stored: storedWidgetPreferences).compactMap {
-                            NotchWidget.find(id: $0.id)
-                        }
+                    getTabIDs(
+                        enabledIDs: getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)),
+                        showsHome: showsHome
+                    ).compactMap { NotchWidget.find(id: $0) }
                 ) { widget in
                     LabeledContent {
                         HotKeyRecorder(storageKey: getWidgetHotKeyKey(widgetID: widget.id))
@@ -319,6 +321,14 @@ private struct ShortcutsSettings: View {
                         }
                     }
                 }
+            } header: {
+                Text("Open a widget from any app")
+            } footer: {
+                Text(
+                    "Switched-off widgets aren't listed. A shortcut you recorded comes back when you switch its widget on."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
