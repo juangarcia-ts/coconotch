@@ -2,18 +2,36 @@ import CocoNotchCore
 import ServiceManagement
 import SwiftUI
 
-private enum SettingsPage: Hashable {
+enum SettingsPage: Hashable {
     case general
     case appearance
     case widgets
     case widget(String)
 }
 
+extension Notification.Name {
+    /// Asks the app to show the Settings window; `SettingsRouter.page` says which page.
+    static let openSettings = Notification.Name("CocoNotch.openSettings")
+}
+
+/// The Settings page shown, kept outside the view so the notch can open Settings on a given page.
+@Observable
+final class SettingsRouter {
+    static let shared = SettingsRouter()
+    var page = SettingsPage.general
+}
+
+/// Shows the Settings window on `page`, for example a widget's own tab.
+func openSettings(on page: SettingsPage) {
+    SettingsRouter.shared.page = page
+    NotificationCenter.default.post(name: .openSettings, object: nil)
+}
+
 struct SettingsView: View {
     static let size = CGSize(width: 760, height: 520)
 
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
-    @State private var page = SettingsPage.general
+    @Bindable private var router = SettingsRouter.shared
     @State private var isWidgetsExpanded = true
 
     /// Home first, then every widget with settings in the user's order, switched on or not.
@@ -27,7 +45,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $page) {
+            List(selection: $router.page) {
                 Label("General", systemImage: "gearshape")
                     .tag(SettingsPage.general)
                 Label("Appearance", systemImage: "paintpalette")
@@ -51,7 +69,7 @@ struct SettingsView: View {
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
-                Text(getTitle(of: page))
+                Text(getTitle(of: router.page))
                     .font(.title2.weight(.semibold))
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
@@ -65,7 +83,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var detail: some View {
-        switch page {
+        switch router.page {
         case .general:
             GeneralSettings()
         case .appearance:

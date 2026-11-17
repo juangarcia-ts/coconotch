@@ -47,6 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardStore.shared.start()
         ShelfStore.shared.start()
         placePanels()
+        NotificationCenter.default.addObserver(forName: .openSettings, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showSettings() }
+        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(placePanels),

@@ -108,6 +108,7 @@ struct NotchView: View {
         .onTapGesture {
             if expandsOnClick && !isExpanded { setExpanded(true) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in setExpanded(false) }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, usesDarkText ? .light : .dark)
     }
