@@ -62,7 +62,12 @@ public func getHomeEntries(_ entries: [TimeZoneEntry], localIdentifier: String, 
     let others = entries.filter {
         $0.isVisible && resolveTimeZoneIdentifier($0.identifier, localIdentifier: localIdentifier) != localIdentifier
     }
-    return Array(others.prefix(min(count, maxHomeTimeZoneCount)))
+    return Array(others.prefix(clampHomeTimeZoneCount(count)))
+}
+
+/// Brings a saved count into 1...max, since older versions allowed up to four.
+public func clampHomeTimeZoneCount(_ count: Int) -> Int {
+    min(max(count, 1), maxHomeTimeZoneCount)
 }
 
 /// Zones the add search shouldn't offer: those in the list, the local entry counted as the current zone.

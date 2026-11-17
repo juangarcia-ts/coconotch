@@ -30,30 +30,16 @@ private let players: [(name: String, bundleID: String, artwork: String, duration
     ("Music", "com.apple.Music", "\"\"", "duration of t", "com.apple.Music.playerInfo"),
 ]
 
-private func runScript(_ source: String) -> String? {
-    var error: NSDictionary?
-    return NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue
-}
-
-// Only running players are asked, since telling a closed app anything launches it.
-private func readNowPlaying() -> NowPlaying? {
-    let runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-    return pickNowPlaying(
-        players.filter { runningIDs.contains($0.bundleID) }.compactMap { player in
-            let output = runScript(
-                """
-                tell application "\(player.name)"
-                    if player state is stopped then return "stopped"
-                    set t to current track
-                    return (player state as text) & tab & (name of t) & tab & (artist of t) & tab & \(player.artwork) ¬
-                        & tab & (album of t) & tab & ((player position) as text) & tab & ((\(player.duration)) as text) ¬
-                        & tab & ((sound volume) as text)
-                end tell
-                """
-            )
-            return output.flatMap { parseNowPlaying($0, player: player.name) }
-        }
-    )
+/// Runs AppleScript off the main thread, one script at a time since `NSAppleScript` isn't thread-safe, so a busy
+/// player can't freeze the notch.
+private actor ScriptRunner {
+    /// The script's text, or nil when it failed; `isDenied` when the user hasn't allowed CocoNotch to control the app.
+    func run(_ source: String) -> (output: String?, isDenied: Bool) {
+        var error: NSDictionary?
+        let output = NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue
+        // -1743 is errAEEventNotPermitted: the Automation permission was denied.
+        return (output, error?[NSAppleScript.errorNumber] as? Int == -1743)
+    }
 }
 
 /// What's playing, for the whole app, so the closed notch can show it too, not just the Music tab.
@@ -64,6 +50,9 @@ final class MusicStore {
     private(set) var nowPlaying: NowPlaying?
     /// When `nowPlaying` was read, to count its position on from.
     private(set) var readAt = Date.now
+    /// A running player macOS won't let CocoNotch control, so the views can say where to allow it.
+    private(set) var deniedPlayer: String?
+    private let scriptRunner = ScriptRunner()
     private var isStarted = false
 
     /// The players announce play, pause and track changes, so the closed notch follows them without polling.
@@ -74,14 +63,37 @@ final class MusicStore {
             DistributedNotificationCenter.default().addObserver(
                 forName: .init(player.notification), object: nil, queue: .main
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
+                Task { @MainActor in await self?.refresh() }
             }
         }
-        refresh()
+        Task { await refresh() }
     }
 
-    func refresh() {
-        nowPlaying = readNowPlaying()
+    // Only running players are asked, since telling a closed app anything launches it.
+    func refresh() async {
+        let runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        var tracks: [NowPlaying] = []
+        var denied: String?
+        for player in players where runningIDs.contains(player.bundleID) {
+            // The timeout caps a hung player at a few seconds instead of the default two minutes.
+            let result = await scriptRunner.run(
+                """
+                tell application "\(player.name)"
+                    with timeout of 3 seconds
+                        if player state is stopped then return "stopped"
+                        set t to current track
+                        return (player state as text) & tab & (name of t) & tab & (artist of t) & tab ¬
+                            & \(player.artwork) & tab & (album of t) & tab & ((player position) as text) & tab ¬
+                            & ((\(player.duration)) as text) & tab & ((sound volume) as text)
+                    end timeout
+                end tell
+                """
+            )
+            if result.isDenied { denied = player.name }
+            if let track = result.output.flatMap({ parseNowPlaying($0, player: player.name) }) { tracks.append(track) }
+        }
+        nowPlaying = pickNowPlaying(tracks)
+        deniedPlayer = denied
         readAt = .now
         updateActivity()
     }
@@ -89,15 +101,17 @@ final class MusicStore {
     /// Re-reads once a second while a music view is open, since seeking and volume aren't announced.
     func poll() async {
         while !Task.isCancelled {
-            refresh()
+            await refresh()
             try? await Task.sleep(for: .seconds(1))
         }
     }
 
     func send(_ command: String) {
         guard let player = nowPlaying?.player else { return }
-        _ = runScript("tell application \"\(player)\" to \(command)")
-        refresh()
+        Task {
+            _ = await scriptRunner.run("tell application \"\(player)\" to \(command)")
+            await refresh()
+        }
     }
 
     func getPosition(at date: Date) -> Double {
@@ -257,6 +271,29 @@ private struct PlayerControls: View {
     }
 }
 
+/// macOS asks for Automation only once, so after a "Don't Allow" the only way back is System Settings.
+private struct AutomationHint: View {
+    let player: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("CocoNotch isn't allowed to control \(player).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Allow in System Settings") {
+                if let url = URL(
+                    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
+                {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+        }
+    }
+}
+
 struct NowPlayingPanel: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
 
@@ -268,10 +305,14 @@ struct NowPlayingPanel: View {
             Text(nowPlaying?.title ?? "Nothing playing")
                 .font(.callout.weight(.semibold))
                 .lineLimit(1)
-            Text(nowPlaying?.artist ?? "Music or Spotify")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if nowPlaying == nil, let player = MusicStore.shared.deniedPlayer {
+                AutomationHint(player: player)
+            } else {
+                Text(nowPlaying?.artist ?? "Music or Spotify")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             if let nowPlaying, nowPlaying.duration > 0 {
                 SeekBar(track: nowPlaying)
             }
@@ -306,10 +347,14 @@ private struct MusicView: View {
                 Text(nowPlaying?.title ?? "Nothing playing")
                     .font(.headline)
                     .lineLimit(2)
-                Text(nowPlaying?.artist ?? "Play something in Music or Spotify.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if nowPlaying == nil, let player = MusicStore.shared.deniedPlayer {
+                    AutomationHint(player: player)
+                } else {
+                    Text(nowPlaying?.artist ?? "Play something in Music or Spotify.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if showsAlbum, let album = nowPlaying?.album, !album.isEmpty {
                     Text(album)
                         .font(.caption)
@@ -434,7 +479,7 @@ private struct MusicSettings: View {
                 Toggle("Volume", isOn: $showsVolume)
                 Toggle("Show on Home", isOn: $showsOnHome)
                 Toggle("Show the playing song in the closed notch", isOn: $showsInNotch)
-                    .onChange(of: showsInNotch) { MusicStore.shared.refresh() }
+                    .onChange(of: showsInNotch) { Task { await MusicStore.shared.refresh() } }
             }
             Section("Lyrics") {
                 Toggle("Show lyrics", isOn: $showsLyrics)

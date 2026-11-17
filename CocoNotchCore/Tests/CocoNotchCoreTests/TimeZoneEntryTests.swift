@@ -162,3 +162,8 @@ func normalizesLabel(text: String, expected: String?) {
     #expect(ids(4) == ["America/Los_Angeles", "America/New_York"])
     #expect(ids(1) == ["America/Los_Angeles"])
 }
+
+@Test(arguments: [(0, 1), (1, 1), (2, 2), (3, 2), (4, 2)])
+func clampsTheSavedHomeTimeZoneCount(saved: Int, expected: Int) {
+    #expect(clampHomeTimeZoneCount(saved) == expected)
+}

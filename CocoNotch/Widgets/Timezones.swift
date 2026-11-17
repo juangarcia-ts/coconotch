@@ -174,7 +174,10 @@ private struct TimezonesSummarySettings: View {
     @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
 
     var body: some View {
-        Picker("Cities shown", selection: $homeCount) {
+        Picker(
+            "Cities shown",
+            selection: Binding(get: { clampHomeTimeZoneCount(homeCount) }, set: { homeCount = $0 })
+        ) {
             ForEach(1...maxHomeTimeZoneCount, id: \.self) { Text("\($0)").tag($0) }
         }
     }
