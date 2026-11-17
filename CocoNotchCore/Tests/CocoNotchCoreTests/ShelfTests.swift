@@ -3,17 +3,12 @@ import Foundation
 import Testing
 
 private func file(_ path: String, isCopy: Bool = false, byteCount: Int? = nil) -> ShelfItem {
-    ShelfItem(kind: .file, value: path, isCopy: isCopy, byteCount: byteCount)
+    ShelfItem(path: path, isCopy: isCopy, byteCount: byteCount)
 }
 
 @Test func addsNewItemsAfterExistingOnes() {
     let items = addShelfItems([file("/b"), file("/a"), file("/b")], to: [file("/a")])
-    #expect(items.map(\.value) == ["/a", "/b"])
-}
-
-@Test func keepsTextAndFileWithTheSameValueApart() {
-    let items = addShelfItems([ShelfItem(kind: .text, value: "/a")], to: [file("/a")])
-    #expect(items.count == 2)
+    #expect(items.map(\.path) == ["/a", "/b"])
 }
 
 @Test func findsCopiesToDelete() {
@@ -35,21 +30,26 @@ func decidesWhatToDoWithAResolvedFile(saved: String, resolved: String?, isStale:
     #expect(getShelfFileStatus(savedPath: saved, resolvedPath: resolved, isStale: isStale) == expected)
 }
 
+@Test func namesItemsByFileName() {
+    #expect(file("/Users/me/Report final.pdf").name == "Report final.pdf")
+}
+
 @Test(
     arguments: [
-        (ShelfItem.Kind.file, "/Users/me/Report final.pdf", "Report final.pdf"),
-        (.text, "\n  First line  \nsecond", "First line"),
-        (.link, "https://example.com/docs/page", "example.com/docs/page"),
-        (.link, "https://example.com/", "example.com"),
-        (.link, "not a url", "not a url"),
-    ])
-func titlesItems(kind: ShelfItem.Kind, value: String, expected: String) {
-    #expect(getShelfItemTitle(ShelfItem(kind: kind, value: value)) == expected)
+        (["public.file-url", "public.utf8-plain-text"], ShelfDropSource.fileURL),
+        (["public.jpeg", "public.url"], .data(type: "public.jpeg")),
+        (["public.url", "public.png"], .data(type: "public.png")),
+        (["com.adobe.pdf"], .data(type: "com.adobe.pdf")),
+        (["public.url", "public.utf8-plain-text", "com.apple.webarchive"], nil),
+        (["public.utf8-plain-text", "public.rtf"], nil),
+    ] as [([String], ShelfDropSource?)])
+func takesOnlyFilesFromDrops(types: [String], expected: ShelfDropSource?) {
+    #expect(getShelfDropSource(typeIdentifiers: types) == expected)
 }
 
 @Test func summarizesCountAndSize() {
     #expect(formatShelfSummary([]) == "0 items")
-    #expect(formatShelfSummary([ShelfItem(kind: .text, value: "x")]) == "1 item")
+    #expect(formatShelfSummary([file("/a")]) == "1 item")
     let summary = formatShelfSummary([file("/a", byteCount: 1_000_000), file("/b", byteCount: 1_000_000)])
     #expect(summary.hasPrefix("2 items · 2"))
 }
@@ -99,7 +99,7 @@ func titlesItems(kind: ShelfItem.Kind, value: String, expected: String) {
     let target = Shelf(name: "Two", items: [duplicate])
     let moved = moveShelfItems([a.id, b.id], to: target.id, in: [source, target])
     #expect(moved[0].items.isEmpty)
-    #expect(moved[1].items.map(\.value) == ["/b", "/a"])
+    #expect(moved[1].items.map(\.path) == ["/b", "/a"])
 }
 
 @Test func searchesShelvesAndItems() {
@@ -109,6 +109,6 @@ func titlesItems(kind: ShelfItem.Kind, value: String, expected: String) {
     #expect(filterShelves([work, trip], query: "work").map(\.items.count) == [2])
     let pdfs = filterShelves([work, trip], query: ".pdf")
     #expect(pdfs.map(\.name) == ["Work", "Trip"])
-    #expect(pdfs.flatMap(\.items).map(getShelfItemTitle) == ["Report.pdf", "tickets.pdf"])
+    #expect(pdfs.flatMap(\.items).map(\.name) == ["Report.pdf", "tickets.pdf"])
     #expect(filterShelves([work, trip], query: "nothing").isEmpty)
 }

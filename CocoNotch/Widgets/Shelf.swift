@@ -65,7 +65,6 @@ final class ShelfStore {
         let updated = shelves.map { shelf in
             var shelf = shelf
             shelf.items = shelf.items.compactMap { item in
-                guard item.kind == .file else { return item }
                 var item = item
                 var isStale = false
                 let url = item.bookmark.flatMap {
@@ -74,12 +73,12 @@ final class ShelfStore {
                         bookmarkDataIsStale: &isStale)
                 }
                 switch getShelfFileStatus(
-                    savedPath: item.value, resolvedPath: url?.path(percentEncoded: false), isStale: isStale)
+                    savedPath: item.path, resolvedPath: url?.path(percentEncoded: false), isStale: isStale)
                 {
                 case .available:
                     return item
                 case .refresh(let path):
-                    item.value = path
+                    item.path = path
                     item.bookmark = (try? url?.bookmarkData()) ?? item.bookmark
                     isChanged = true
                     return item
@@ -111,42 +110,25 @@ final class ShelfStore {
     }
 
     private func loadItem(from provider: NSItemProvider, copiesFiles: Bool) async -> ShelfItem? {
-        let copiesDirectory = copiesDirectory
-        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            guard
-                let url = await withCheckedContinuation({ continuation in
-                    loadURL(from: provider) { continuation.resume(returning: $0) }
-                })
-            else {
-                return nil
-            }
-            return await loadFileItem(url, copiesFiles: copiesFiles)
-        }
-        if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+        switch getShelfDropSource(typeIdentifiers: provider.registeredTypeIdentifiers) {
+        case .fileURL:
             let url = await withCheckedContinuation { continuation in
                 loadURL(from: provider) { continuation.resume(returning: $0) }
             }
-            return url.map { ShelfItem(kind: .link, value: $0.absoluteString) }
-        }
-        if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-            let text = await withCheckedContinuation { continuation in
-                loadText(from: provider) { continuation.resume(returning: $0) }
+            guard let url else { return nil }
+            return await loadFileItem(url, copiesFiles: copiesFiles)
+        case .data(let type):
+            // There's no file to point at, so it's always copied.
+            let copiesDirectory = copiesDirectory
+            let copy = await withCheckedContinuation { continuation in
+                copyFileRepresentation(from: provider, type: type, into: copiesDirectory) {
+                    continuation.resume(returning: $0)
+                }
             }
-            return text.map { ShelfItem(kind: .text, value: $0) }
+            return copy.map { makeFileItem($0, isCopy: true) }
+        case nil:
+            return nil
         }
-        // Images from a browser and attachments from Mail come as data or a promised file, so they're always copied.
-        guard
-            let type = provider.registeredTypeIdentifiers.first(where: {
-                UTType($0)?.conforms(to: .data) == true
-            })
-        else { return nil }
-        let copy = await withCheckedContinuation {
-            continuation in
-            copyFileRepresentation(from: provider, type: type, into: copiesDirectory) {
-                continuation.resume(returning: $0)
-            }
-        }
-        return copy.map { makeFileItem($0, isCopy: true) }
     }
 
     private func loadFileItem(_ url: URL, copiesFiles: Bool) async -> ShelfItem? {
@@ -158,8 +140,7 @@ final class ShelfStore {
 
     private func makeFileItem(_ url: URL, isCopy: Bool) -> ShelfItem {
         ShelfItem(
-            kind: .file,
-            value: url.path(percentEncoded: false),
+            path: url.path(percentEncoded: false),
             bookmark: try? url.bookmarkData(),
             isCopy: isCopy,
             byteCount: (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
@@ -241,48 +222,30 @@ final class ShelfStore {
         items.filter { ids.contains($0.id) }
     }
 
-    func getURL(for item: ShelfItem) -> URL? {
-        switch item.kind {
-        case .file: URL(filePath: item.value)
-        case .link: URL(string: item.value)
-        case .text: nil
-        }
-    }
-
     func getIcon(for item: ShelfItem) -> NSImage {
-        switch item.kind {
-        case .file:
-            return thumbnails.object(forKey: item.value as NSString) ?? NSWorkspace.shared.icon(forFile: item.value)
-        case .text:
-            return NSImage(systemSymbolName: "doc.plaintext", accessibilityDescription: "Text") ?? NSImage()
-        case .link:
-            return NSImage(systemSymbolName: "link", accessibilityDescription: "Link") ?? NSImage()
-        }
+        thumbnails.object(forKey: item.path as NSString) ?? NSWorkspace.shared.icon(forFile: item.path)
     }
 
     func loadThumbnail(for item: ShelfItem) async {
-        guard item.kind == .file, thumbnails.object(forKey: item.value as NSString) == nil else { return }
+        guard thumbnails.object(forKey: item.path as NSString) == nil else { return }
         let request = QLThumbnailGenerator.Request(
-            fileAt: URL(filePath: item.value), size: CGSize(width: 48, height: 48), scale: 2,
-            representationTypes: .thumbnail)
+            fileAt: item.url, size: CGSize(width: 48, height: 48), scale: 2, representationTypes: .thumbnail)
         if let thumbnail = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) {
-            thumbnails.setObject(thumbnail.nsImage, forKey: item.value as NSString)
+            thumbnails.setObject(thumbnail.nsImage, forKey: item.path as NSString)
         }
     }
 
     /// What a drag or Copy puts on the pasteboard for each item.
     func getPasteboardWriters(_ items: [ShelfItem]) -> [NSPasteboardWriting] {
-        items.compactMap { item in
-            item.kind == .text ? item.value as NSString : getURL(for: item).map { $0 as NSURL }
-        }
+        items.map { $0.url as NSURL }
     }
 
     func open(_ items: [ShelfItem]) {
-        for url in items.compactMap(getURL) { NSWorkspace.shared.open(url) }
+        for url in items.map(\.url) { NSWorkspace.shared.open(url) }
     }
 
     func showQuickLook(_ items: [ShelfItem]) {
-        preview.urls = items.compactMap(getURL).filter(\.isFileURL)
+        preview.urls = items.map(\.url)
         guard !preview.urls.isEmpty, let panel = QLPreviewPanel.shared() else { return }
         // The notch never activates CocoNotch, and Quick Look only shows over other apps when it is active.
         NSApp.activate()
@@ -292,19 +255,12 @@ final class ShelfStore {
     }
 
     func revealInFinder(_ items: [ShelfItem]) {
-        NSWorkspace.shared.activateFileViewerSelecting(items.compactMap(getURL).filter(\.isFileURL))
+        NSWorkspace.shared.activateFileViewerSelecting(items.map(\.url))
     }
 
     func sendWithAirDrop(_ items: [ShelfItem]) {
         NSApp.activate()
-        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: getShareItems(items))
-    }
-
-    func getShareItems(_ items: [ShelfItem]) -> [Any] {
-        items.map { item -> Any in
-            if let url = getURL(for: item) { return url }
-            return item.value
-        }
+        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: items.map(\.url))
     }
 
     func copyToPasteboard(_ items: [ShelfItem]) {
@@ -329,10 +285,6 @@ private final class ShelfPreview: NSObject, @MainActor QLPreviewPanelDataSource 
 // The item provider calls back on a background queue, so these build their callbacks outside the main actor.
 nonisolated private func loadURL(from provider: NSItemProvider, completion: @escaping @Sendable (URL?) -> Void) {
     _ = provider.loadObject(ofClass: URL.self) { url, _ in completion(url) }
-}
-
-nonisolated private func loadText(from provider: NSItemProvider, completion: @escaping @Sendable (String?) -> Void) {
-    _ = provider.loadObject(ofClass: String.self) { text, _ in completion(text) }
 }
 
 /// The provider deletes its file once the callback returns, so it's copied inside it.
@@ -373,7 +325,11 @@ struct ShelfDropDelegate: DropDelegate {
     private var targetID: String { shelfID?.uuidString ?? notchDropTargetID }
 
     func validateDrop(info: DropInfo) -> Bool {
+        // Text and links are turned away here, so dragging them over the notch doesn't open it.
         isEnabled && !info.hasItemsConforming(to: [widgetDragType])
+            && info.itemProviders(for: [.item]).contains {
+                getShelfDropSource(typeIdentifiers: $0.registeredTypeIdentifiers) != nil
+            }
     }
 
     func dropEntered(info: DropInfo) {
@@ -521,7 +477,7 @@ private struct ShelfSection: View {
                             .help("Quick Look")
                         Button("AirDrop", systemImage: "airplayaudio") { store.sendWithAirDrop(targets) }
                             .help("Send with AirDrop")
-                        ShareLink(items: targets.compactMap(store.getURL)) {
+                        ShareLink(items: targets.map(\.url)) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .help("Share")
@@ -545,7 +501,7 @@ private struct ShelfSection: View {
             .padding(.horizontal, 4)
             Group {
                 if shelf.items.isEmpty {
-                    Text("Drop files, links or text here.")
+                    Text("Drop files here.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -593,7 +549,7 @@ private struct ShelfTile: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 48, height: 48)
                 .id(thumbnailVersion)
-            Text(getShelfItemTitle(item))
+            Text(item.name)
                 .font(.caption)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -603,8 +559,8 @@ private struct ShelfTile: View {
         .background(Color.primary.opacity(isSelected ? 0.16 : 0), in: RoundedRectangle(cornerRadius: 10))
         .opacity(isMissing ? 0.4 : 1)
         .overlay { ShelfDragSource(item: item) }
-        .help(isMissing ? "\(item.value) can't be found right now." : item.value)
-        .task(id: item.value) {
+        .help(isMissing ? "\(item.path) can't be found right now." : item.path)
+        .task(id: item.path) {
             await store.loadThumbnail(for: item)
             thumbnailVersion += 1
         }
@@ -683,16 +639,14 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
 
     private func makeMenu(for items: [ShelfItem]) -> NSMenu {
         let menu = NSMenu()
-        menu.autoenablesItems = false
-        let hasFiles = items.contains { $0.kind == .file }
         menu.items = [
-            makeMenuItem("Open", isEnabled: items.contains { $0.kind != .text }) { [store] in store.open(items) },
-            makeMenuItem("Quick Look", isEnabled: hasFiles) { [store] in store.showQuickLook(items) },
-            makeMenuItem("Show in Finder", isEnabled: hasFiles) { [store] in store.revealInFinder(items) },
+            makeMenuItem("Open") { [store] in store.open(items) },
+            makeMenuItem("Quick Look") { [store] in store.showQuickLook(items) },
+            makeMenuItem("Show in Finder") { [store] in store.revealInFinder(items) },
             .separator(),
             makeMenuItem("Copy") { [store] in store.copyToPasteboard(items) },
             makeMenuItem("AirDrop") { [store] in store.sendWithAirDrop(items) },
-            NSSharingServicePicker(items: store.getShareItems(items)).standardShareMenuItem,
+            NSSharingServicePicker(items: items.map(\.url)).standardShareMenuItem,
             .separator(),
             makeMenuItem(items.count == 1 ? "Remove" : "Remove \(items.count) Items") { [store] in
                 store.remove(Set(items.map(\.id)))
@@ -727,13 +681,12 @@ private final class MenuAction: NSObject {
     }
 }
 
-private func makeMenuItem(_ title: String, isEnabled: Bool = true, handler: @escaping () -> Void) -> NSMenuItem {
+private func makeMenuItem(_ title: String, handler: @escaping () -> Void) -> NSMenuItem {
     let action = MenuAction(handler)
     let item = NSMenuItem(title: title, action: #selector(MenuAction.run), keyEquivalent: "")
     item.target = action
     // A menu item holds its target weakly, so it keeps the action alive here.
     item.representedObject = action
-    item.isEnabled = isEnabled
     return item
 }
 
@@ -762,7 +715,7 @@ private struct ShelfSettings: View {
                 Text("Items")
             } footer: {
                 Text(
-                    "Without a copy, the shelf points at the original and follows it when it moves; a file moved to the Trash leaves the shelf. With a copy, the shelf keeps its own, so the original can go. Dragging out always copies. Images and attachments from apps that don't hand over a file are always copied."
+                    "Without a copy, the shelf points at the original and follows it when it moves; a file moved to the Trash leaves the shelf. With a copy, the shelf keeps its own, so the original can go. Dragging out always copies. Images and attachments from apps that don't hand over a file are always copied. Text and links aren't kept."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

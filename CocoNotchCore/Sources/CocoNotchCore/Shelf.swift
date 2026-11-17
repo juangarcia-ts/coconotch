@@ -1,30 +1,26 @@
 import Foundation
+import UniformTypeIdentifiers
 
-/// Something dropped on the shelf. Files are kept as bookmarks so they follow the original when it moves.
+/// A file on a shelf, kept as a bookmark so it follows the original when it moves.
 public struct ShelfItem: Codable, Equatable, Identifiable, Sendable {
-    public enum Kind: String, Codable, Sendable {
-        case file
-        case text
-        case link
-    }
-
     public var id: UUID
-    public var kind: Kind
-    /// A file's last known path, the text, or the link's address.
-    public var value: String
+    /// The file's last known path.
+    public var path: String
     public var bookmark: Data?
     /// Whether the file is CocoNotch's own copy, deleted from disk with the item.
     public var isCopy: Bool
     public var byteCount: Int?
     public var addedAt: Date
 
+    public var url: URL { URL(filePath: path) }
+    public var name: String { url.lastPathComponent }
+
     public init(
-        id: UUID = UUID(), kind: Kind, value: String, bookmark: Data? = nil, isCopy: Bool = false,
-        byteCount: Int? = nil, addedAt: Date = .now
+        id: UUID = UUID(), path: String, bookmark: Data? = nil, isCopy: Bool = false, byteCount: Int? = nil,
+        addedAt: Date = .now
     ) {
         self.id = id
-        self.kind = kind
-        self.value = value
+        self.path = path
         self.bookmark = bookmark
         self.isCopy = isCopy
         self.byteCount = byteCount
@@ -32,10 +28,27 @@ public struct ShelfItem: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public enum ShelfDropSource: Equatable, Sendable {
+    /// A file on disk, which the shelf points at or copies.
+    case fileURL
+    /// Data or a promised file in this type, like an image from a browser or a Mail attachment, saved as a copy.
+    case data(type: String)
+}
+
+/// How to take a file from a drop's types, or nil for text and links, which the shelf doesn't hold.
+public func getShelfDropSource(typeIdentifiers: [String]) -> ShelfDropSource? {
+    let types = typeIdentifiers.compactMap { UTType($0) }
+    if types.contains(where: { $0.conforms(to: .fileURL) }) { return .fileURL }
+    // A dragged picture also carries its link, so an image counts even next to a URL.
+    if let image = types.first(where: { $0.conforms(to: .image) }) { return .data(type: image.identifier) }
+    if types.contains(where: { $0.conforms(to: .url) || $0.conforms(to: .text) }) { return nil }
+    return types.first { $0.conforms(to: .data) }.map { .data(type: $0.identifier) }
+}
+
 /// Adds new items after the ones already there, skipping any the shelf already holds.
 public func addShelfItems(_ newItems: [ShelfItem], to items: [ShelfItem]) -> [ShelfItem] {
     var result = items
-    for item in newItems where !result.contains(where: { $0.kind == item.kind && $0.value == item.value }) {
+    for item in newItems where !result.contains(where: { $0.path == item.path }) {
         result.append(item)
     }
     return result
@@ -43,7 +56,7 @@ public func addShelfItems(_ newItems: [ShelfItem], to items: [ShelfItem]) -> [Sh
 
 /// Copies the old list owned that the new one doesn't, to delete from disk.
 public func getUnusedShelfCopies(old: [ShelfItem], new: [ShelfItem]) -> Set<String> {
-    let copies = { (items: [ShelfItem]) in Set(items.filter(\.isCopy).map(\.value)) }
+    let copies = { (items: [ShelfItem]) in Set(items.filter(\.isCopy).map(\.path)) }
     return copies(old).subtracting(copies(new))
 }
 
@@ -63,22 +76,6 @@ public func getShelfFileStatus(savedPath: String, resolvedPath: String?, isStale
     // A volume's own trash is .Trashes; the home folder's is .Trash.
     if resolvedPath.contains("/.Trash/") || resolvedPath.contains("/.Trashes/") { return .trashed }
     return isStale || resolvedPath != savedPath ? .refresh(path: resolvedPath) : .available
-}
-
-/// The item's one-line name: a file's name, the first line of text, or a link without its scheme.
-public func getShelfItemTitle(_ item: ShelfItem) -> String {
-    switch item.kind {
-    case .file:
-        return URL(filePath: item.value).lastPathComponent
-    case .text:
-        let firstLine = item.value.prefix(500).split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty }
-        return String((firstLine ?? "").prefix(80))
-    case .link:
-        guard let url = URL(string: item.value), let host = url.host() else { return item.value }
-        return host + (url.path() == "/" ? "" : url.path())
-    }
 }
 
 /// "3 items · 12 MB", leaving the size out when no file's size is known.
@@ -151,7 +148,7 @@ public func filterShelves(_ shelves: [Shelf], query: String) -> [Shelf] {
     return shelves.compactMap { shelf in
         if shelf.name.localizedStandardContains(query) { return shelf }
         var shelf = shelf
-        shelf.items = shelf.items.filter { getShelfItemTitle($0).localizedStandardContains(query) }
+        shelf.items = shelf.items.filter { $0.name.localizedStandardContains(query) }
         return shelf.items.isEmpty ? nil : shelf
     }
 }
