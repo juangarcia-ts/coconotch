@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part of the version to raise
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   contents: write
@@ -10,10 +17,28 @@ permissions:
 jobs:
   release:
     runs-on: macos-26
-    env:
-      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+
+      # A tag pushed with the workflow token wouldn't start this workflow, so the button picks the version here.
+      - name: Pick the version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [[ $GITHUB_EVENT_NAME == push ]]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          [[ $GITHUB_REF == refs/heads/main ]] || { echo "::error::Release from main only."; exit 1; }
+          latest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/v##' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+          IFS=. read -r major minor patch <<< "${latest:-0.0.0}"
+          case $BUMP in
+            major) next="$((major + 1)).0.0" ;;
+            minor) next="$major.$((minor + 1)).0" ;;
+            *) next="$major.$minor.$((patch + 1))" ;;
+          esac
+          echo "Releasing v$next (latest was v${latest:-none})"
+          echo "VERSION=v$next" >> "$GITHUB_ENV"
 
       - name: Import Developer ID certificate
         env:
@@ -72,7 +97,9 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml --generate-notes
+        run: |
+          gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml \
+            --target "$GITHUB_SHA" --generate-notes
 
       - name: Update Homebrew tap
         env:
