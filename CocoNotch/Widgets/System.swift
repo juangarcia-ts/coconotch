@@ -313,9 +313,9 @@ private struct SystemSummary: View {
                 .foregroundStyle(.secondary)
         }
         .font(.callout.monospacedDigit())
-            .lineLimit(1)
-            .fixedSize()
-            .help(metric.title)
+        .lineLimit(1)
+        .fixedSize()
+        .help(metric.title)
     }
 }
 
