@@ -6,7 +6,7 @@ struct CocoNotchApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     var body: some Scene {
-        MenuBarExtra("CocoNotch", systemImage: "rectangle.topthird.inset.filled") {
+        MenuBarExtra("CocoNotch", image: "MenuBarIcon") {
             Button("Settings…") { appDelegate.showSettings() }
                 .keyboardShortcut(",")
             Divider()
