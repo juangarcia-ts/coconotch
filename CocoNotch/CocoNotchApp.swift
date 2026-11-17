@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WeatherStore.shared.start()
         AIUsageStore.shared.start()
         MusicStore.shared.start()
+        SystemStore.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,

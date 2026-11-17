@@ -80,7 +80,7 @@ private struct SummaryCard: View {
     @State private var isHovering = false
 
     var body: some View {
-        // Compact enough that two rows fit in the open panel above the footer.
+        // Compact enough that three rows fit in the open panel above the footer.
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: widget.systemImage)
