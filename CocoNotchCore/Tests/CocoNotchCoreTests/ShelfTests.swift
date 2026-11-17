@@ -179,3 +179,11 @@ func decidesHowTheNotchFollowsADrag(
             isTargeted: isTargeted, isExpanded: isExpanded, opensOnDragHover: opensOnDragHover,
             isOpenedByDrag: isOpenedByDrag, didDrop: didDrop, isHovering: isHovering) == expected)
 }
+
+@Test func removesTheSelectionWithDeleteKeys() {
+    #expect(shouldRemoveShelfSelection(keyCode: 51, isTyping: false, hasSelection: true))
+    #expect(shouldRemoveShelfSelection(keyCode: 117, isTyping: false, hasSelection: true))
+    #expect(!shouldRemoveShelfSelection(keyCode: 51, isTyping: true, hasSelection: true))
+    #expect(!shouldRemoveShelfSelection(keyCode: 51, isTyping: false, hasSelection: false))
+    #expect(!shouldRemoveShelfSelection(keyCode: 0, isTyping: false, hasSelection: true))
+}

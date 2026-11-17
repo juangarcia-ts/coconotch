@@ -373,6 +373,7 @@ struct ShelfDropDelegate: DropDelegate {
 
 private struct ShelfView: View {
     @State private var query = ""
+    @State private var keyMonitor: Any?
     @State private var contentHeight: CGFloat = 0
     @FocusState private var focusedShelfID: UUID?
     private let store = ShelfStore.shared
@@ -424,7 +425,22 @@ private struct ShelfView: View {
                 .frame(height: min(contentHeight, 236))
             }
         }
-        .onAppear { store.refresh() }
+        .onAppear {
+            store.refresh()
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [store] event in
+                let isTyping = (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
+                guard
+                    shouldRemoveShelfSelection(
+                        keyCode: event.keyCode, isTyping: isTyping, hasSelection: !store.selection.isEmpty)
+                else { return event }
+                store.remove(store.selection)
+                return nil
+            }
+        }
+        .onDisappear {
+            keyMonitor.map(NSEvent.removeMonitor)
+            keyMonitor = nil
+        }
     }
 }
 
@@ -450,6 +466,7 @@ private struct ShelfSection: View {
     var focusedShelfID: FocusState<UUID?>.Binding
     /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
     @State private var confirmation: ShelfConfirmation?
+    @State private var rowWidth: CGFloat = 0
     @Environment(\.shelfDropScope) private var scope
     private let store = ShelfStore.shared
 
@@ -525,7 +542,11 @@ private struct ShelfSection: View {
                             }
                         }
                         .padding(6)
+                        // Fills the row, so a click right of the last tile lands on the clearing background.
+                        .frame(minWidth: rowWidth, alignment: .leading)
+                        .background(ShelfClearingBackground())
                     }
+                    .onGeometryChange(for: CGFloat.self, of: \.size.width) { rowWidth = $0 }
                     .scrollIndicators(.never)
                     // As tall as the tallest tile, rather than stretching to fill the shelf list.
                     .fixedSize(horizontal: false, vertical: true)
@@ -538,10 +559,19 @@ private struct ShelfSection: View {
                         Color.primary.opacity(isTargeted ? 0.4 : 0.12),
                         style: StrokeStyle(lineWidth: 1, dash: shelf.items.isEmpty ? [5] : []))
             }
-            // A click between tiles clears the selection, like Finder.
-            .onTapGesture { store.selection = [] }
+            .background(ShelfClearingBackground())
         }
         .onDrop(of: [.item], delegate: ShelfDropDelegate(scope: scope, shelfID: shelf.id))
+    }
+}
+
+/// A click on empty space clears the selection, like Finder. It sits behind the tiles rather than on the shelf, since a
+/// tap gesture on an ancestor also fires for clicks on the tiles' AppKit views and would undo a ⌘- or ⇧-click.
+private struct ShelfClearingBackground: View {
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { ShelfStore.shared.selection = [] }
     }
 }
 

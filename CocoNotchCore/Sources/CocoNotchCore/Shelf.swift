@@ -214,3 +214,9 @@ public func getShelfDragChange(
     if didDrop { return .leaveToHover }
     return isHovering ? .none : .close
 }
+
+/// Delete or Forward Delete removes the selected items, unless the key is meant for a text field.
+public func shouldRemoveShelfSelection(keyCode: UInt16, isTyping: Bool, hasSelection: Bool) -> Bool {
+    let deleteKeyCodes: Set<UInt16> = [51, 117]
+    return deleteKeyCodes.contains(keyCode) && !isTyping && hasSelection
+}
