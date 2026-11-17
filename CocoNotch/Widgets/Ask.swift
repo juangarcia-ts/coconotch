@@ -115,52 +115,114 @@ private struct AskTurn: Identifiable {
     }
 }
 
+// Apple Intelligence's colours, used for Ask's mark and the focused composer.
+private let intelligenceGradient = LinearGradient(
+    colors: [.orange, .pink, .purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+
 @available(macOS 26, *)
 private struct AskView: View {
     @Bindable private var store = AskStore.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 12) {
             if store.turns.isEmpty {
-                Text("Ask a quick question. Answers come from Apple Intelligence on this Mac.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
+                AskEmptyState()
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if let note = store.note {
-                                Text(note).font(.caption).foregroundStyle(.secondary)
-                            }
-                            ForEach(store.turns) { AskTurnView(turn: $0) }
-                            Color.clear.frame(height: 1).id("end")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(height: 200)
-                    .onChange(of: store.turns.last?.answer) { proxy.scrollTo("end", anchor: .bottom) }
-                }
+                conversation
             }
-            HStack {
-                TextField("Ask anything…", text: $store.draft)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(store.send)
-                if store.isResponding {
-                    Button("Stop", systemImage: "stop.circle.fill", action: store.stop)
-                        .help("Stop answering")
-                } else {
-                    Button("Send", systemImage: "arrow.up.circle.fill", action: store.send)
-                        .help("Send")
-                        .disabled(getAskQuestion(store.draft) == nil)
+            AskComposer(draft: $store.draft, isResponding: store.isResponding, send: store.send, stop: store.stop)
+        }
+    }
+
+    private var conversation: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let note = store.note {
+                        Label(note, systemImage: "arrow.counterclockwise")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
+                    ForEach(store.turns) { AskTurnView(turn: $0) }
+                    Color.clear.frame(height: 1).id("end")
                 }
-                Button("New Chat", systemImage: "square.and.pencil", action: store.startNewChat)
-                    .help("New chat")
-                    .disabled(store.turns.isEmpty)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.never)
+            .frame(height: 200)
+            .overlay(alignment: .topTrailing) {
+                Button(action: store.startNewChat) {
+                    Label("New Chat", systemImage: "square.and.pencil")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .help("Start a new chat")
+            }
+            .onChange(of: store.turns.last?.answer) { proxy.scrollTo("end", anchor: .bottom) }
+        }
+    }
+}
+
+private struct AskEmptyState: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(intelligenceGradient)
+                .padding(.bottom, 2)
+            Text("Ask Apple Intelligence")
+                .font(.headline)
+            Text("Quick answers, made on this Mac. Nothing leaves it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+    }
+}
+
+/// The question field with its send button inside, like Messages.
+private struct AskComposer: View {
+    @Binding var draft: String
+    let isResponding: Bool
+    let send: () -> Void
+    let stop: () -> Void
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        let canSend = getAskQuestion(draft) != nil
+        HStack(spacing: 8) {
+            TextField("Ask anything…", text: $draft)
+                .textFieldStyle(.plain)
+                .focused($isFocused)
+                .onSubmit(send)
+            Button(
+                isResponding ? "Stop" : "Send", systemImage: isResponding ? "stop.circle.fill" : "arrow.up.circle.fill"
+            ) {
+                isResponding ? stop() : send()
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
+            .font(.system(size: 20))
+            .foregroundStyle(isResponding || canSend ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary))
+            .disabled(!isResponding && !canSend)
+            .help(isResponding ? "Stop answering" : "Send")
         }
+        .padding(.leading, 14)
+        .padding(.trailing, 5)
+        .padding(.vertical, 5)
+        .background(Color.primary.opacity(0.07), in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(
+                isFocused ? AnyShapeStyle(intelligenceGradient) : AnyShapeStyle(Color.primary.opacity(0.12)),
+                lineWidth: 1)
+        )
+        .animation(.easeOut(duration: 0.15), value: isFocused)
     }
 }
 
@@ -174,37 +236,38 @@ struct AskShortcut: View {
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sparkles")
-                .foregroundStyle(.tertiary)
-            TextField("Ask anything…", text: $store.draft)
-                .textFieldStyle(.plain)
-                .onSubmit {
-                    guard getAskQuestion(store.draft) != nil else { return }
-                    if getAskUnavailableReason() == nil { store.send() }
-                    selectedWidgetID = NotchWidget.ask.id
-                }
-        }
-        .font(.callout)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        AskComposer(draft: $store.draft, isResponding: false, send: send, stop: {})
+            .font(.callout)
+    }
+
+    private func send() {
+        guard getAskQuestion(store.draft) != nil else { return }
+        if getAskUnavailableReason() == nil { store.send() }
+        selectedWidgetID = NotchWidget.ask.id
     }
 }
 
 private struct AskUnavailableView: View {
     var body: some View {
         let reason = getAskUnavailableReason() ?? .unknown
-        VStack(spacing: 10) {
-            Label(getAskUnavailableMessage(reason), systemImage: "exclamationmark.triangle")
+        VStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.tertiary)
+            Text("Apple Intelligence is off")
+                .font(.headline)
+            Text(getAskUnavailableMessage(reason))
+                .font(.callout)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             if canFixAskInSettings(reason), let appleIntelligenceSettingsURL {
                 Button("Open System Settings") { NSWorkspace.shared.open(appleIntelligenceSettingsURL) }
                     .controlSize(.small)
+                    .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, 14)
     }
 }
 
@@ -212,16 +275,27 @@ private struct AskTurnView: View {
     let turn: AskTurn
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(turn.question)
-                .font(.callout.weight(.semibold))
-            if let failure = turn.failure {
-                Text(failure).foregroundStyle(.orange)
-            } else if turn.answer.isEmpty {
-                ProgressView().controlSize(.small)
-            } else {
-                Text(formatAskAnswer(turn.answer))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+                .padding(.leading, 80)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.caption)
+                    .foregroundStyle(intelligenceGradient)
+                if let failure = turn.failure {
+                    Text(failure).foregroundStyle(.orange)
+                } else if turn.answer.isEmpty {
+                    Text("Thinking…").foregroundStyle(.secondary)
+                } else {
+                    Text(formatAskAnswer(turn.answer))
+                        .lineSpacing(2)
+                }
             }
+            .padding(.trailing, 40)
         }
         .textSelection(.enabled)
     }
