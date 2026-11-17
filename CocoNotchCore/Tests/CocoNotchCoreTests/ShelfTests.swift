@@ -112,3 +112,70 @@ func takesOnlyFilesFromDrops(types: [String], expected: ShelfDropSource?) {
     #expect(pdfs.flatMap(\.items).map(\.name) == ["Report.pdf", "tickets.pdf"])
     #expect(filterShelves([work, trip], query: "nothing").isEmpty)
 }
+
+@Test(
+    arguments: [
+        ("photo.jpg", "tmp123.jpeg", "photo.jpg"),
+        ("../../evil", "tmp.png", "evil.png"),
+        ("a/b.txt", "tmp", "b.txt"),
+        ("..", "tmp.pdf", "tmp.pdf"),
+        ("", "tmp.pdf", "tmp.pdf"),
+        (nil, "Report.pdf", "Report.pdf"),
+    ] as [(String?, String, String)])
+func namesCopiesSafely(suggested: String?, source: String, expected: String) {
+    #expect(makeShelfCopyName(suggestedName: suggested, sourceName: source) == expected)
+}
+
+@Test func deletesOnlyFoldersTheShelfMade() {
+    #expect(getShelfCopyFolder(path: "/S/Copies/ID/a.pdf", copiesPath: "/S/Copies") == "/S/Copies/ID")
+    #expect(getShelfCopyFolder(path: "/Users/me/Desktop/a.pdf", copiesPath: "/S/Copies") == nil)
+    #expect(getShelfCopyFolder(path: "/S/Copies/a.pdf", copiesPath: "/S/Copies") == nil)
+}
+
+@Test func landsDropsOnAShelfThatStillExists() {
+    let first = Shelf(name: "One")
+    let second = Shelf(name: "Two")
+    #expect(getShelfDropTarget(second.id, in: [first, second]) == second.id)
+    #expect(getShelfDropTarget(UUID(), in: [first, second]) == first.id)
+    #expect(getShelfDropTarget(nil, in: [first, second]) == first.id)
+    #expect(getShelfDropTarget(nil, in: []) == nil)
+}
+
+@Test(
+    arguments: [
+        (2, true, false, ShelfMouseDownAction.open),
+        (1, false, false, .select),
+        (1, true, false, .keepSelection),
+        (1, true, true, .select),
+    ] as [(Int, Bool, Bool, ShelfMouseDownAction)])
+func decidesWhatAPressDoes(clickCount: Int, isSelected: Bool, isModifying: Bool, expected: ShelfMouseDownAction) {
+    #expect(
+        getShelfMouseDownAction(clickCount: clickCount, isSelected: isSelected, isModifying: isModifying) == expected)
+}
+
+@Test func narrowsTheSelectionOnlyAfterAPlainClick() {
+    #expect(shouldNarrowShelfSelection(didDrag: false, clickCount: 1, isModifying: false))
+    #expect(!shouldNarrowShelfSelection(didDrag: true, clickCount: 1, isModifying: false))
+    #expect(!shouldNarrowShelfSelection(didDrag: false, clickCount: 2, isModifying: false))
+    #expect(!shouldNarrowShelfSelection(didDrag: false, clickCount: 1, isModifying: true))
+}
+
+@Test(
+    arguments: [
+        (true, false, true, false, false, false, ShelfDragChange.show),
+        (true, true, false, false, false, false, .show),
+        (true, false, false, false, false, false, .none),
+        (false, true, true, false, false, false, .none),  // opened by hovering, not the drag
+        (false, true, true, true, true, false, .leaveToHover),
+        (false, true, true, true, false, false, .close),
+        (false, true, true, true, false, true, .none),
+    ] as [(Bool, Bool, Bool, Bool, Bool, Bool, ShelfDragChange)])
+func decidesHowTheNotchFollowsADrag(
+    isTargeted: Bool, isExpanded: Bool, opensOnDragHover: Bool, isOpenedByDrag: Bool, didDrop: Bool,
+    isHovering: Bool, expected: ShelfDragChange
+) {
+    #expect(
+        getShelfDragChange(
+            isTargeted: isTargeted, isExpanded: isExpanded, opensOnDragHover: opensOnDragHover,
+            isOpenedByDrag: isOpenedByDrag, didDrop: didDrop, isHovering: isHovering) == expected)
+}

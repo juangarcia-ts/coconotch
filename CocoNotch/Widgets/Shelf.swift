@@ -17,7 +17,6 @@ extension NotchWidget {
 let shelfOpensOnDragHoverKey = "shelf.opensOnDragHover"
 private let copiesFilesKey = "shelf.copiesFiles"
 private let removesAfterDragOutKey = "shelf.removesAfterDragOut"
-private let notchDropTargetID = "notch"
 
 private func readSetting(_ key: String, default defaultValue: Bool) -> Bool {
     UserDefaults.standard.object(forKey: key) as? Bool ?? defaultValue
@@ -33,8 +32,8 @@ final class ShelfStore {
     private(set) var missingIDs: Set<UUID> = []
     var selection: Set<UUID> = []
     @ObservationIgnored var selectionAnchor: UUID?
-    /// What a drag is over: shelves by ID and the notch itself, so the notch opens and the shelf lights up.
-    var dropTargetIDs: Set<String> = []
+    /// What a drag is over, so the notch opens and the shelf lights up.
+    var dropTargets: Set<ShelfDropTarget> = []
     /// Items being dragged out of a shelf; dropped on another shelf, they move there.
     @ObservationIgnored var draggedIDs: Set<UUID> = []
     @ObservationIgnored var didDrop = false
@@ -98,15 +97,20 @@ final class ShelfStore {
 
     /// Adds the drop to the shelf; a drop that missed every shelf, like one on the closed notch, goes to the first.
     func add(_ providers: [NSItemProvider], to shelfID: UUID?) {
-        guard let shelfID = shelfID ?? shelves.first?.id else { return }
         let copiesFiles = readSetting(copiesFilesKey, default: false)
         Task {
             var newItems: [ShelfItem] = []
             for provider in providers {
                 if let item = await loadItem(from: provider, copiesFiles: copiesFiles) { newItems.append(item) }
             }
+            // Checked after loading, since the shelf may have been deleted while a large copy ran.
+            guard let shelfID = getShelfDropTarget(shelfID, in: shelves) else { return }
             updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
         }
+    }
+
+    func isDropTargeted(scope: UUID) -> Bool {
+        dropTargets.contains { $0.scope == scope }
     }
 
     private func loadItem(from provider: NSItemProvider, copiesFiles: Bool) async -> ShelfItem? {
@@ -192,10 +196,8 @@ final class ShelfStore {
     private func save(_ newShelves: [Shelf]) {
         let newItems = newShelves.flatMap(\.items)
         for path in getUnusedShelfCopies(old: items, new: newItems) {
-            // Only folders the shelf made, in case a copy was moved out of it since.
-            let folder = URL(filePath: path).deletingLastPathComponent()
-            if folder.deletingLastPathComponent().standardizedFileURL == copiesDirectory.standardizedFileURL {
-                try? FileManager.default.removeItem(at: folder)
+            if let folder = getShelfCopyFolder(path: path, copiesPath: copiesDirectory.path(percentEncoded: false)) {
+                try? FileManager.default.removeItem(atPath: folder)
             }
         }
         selection.formIntersection(newItems.map(\.id))
@@ -301,11 +303,7 @@ nonisolated private func copyFileRepresentation(
 /// Copies into a folder of its own, so the copy keeps the original's name.
 nonisolated private func copyFile(_ url: URL, into directory: URL, name: String? = nil) -> URL? {
     let folder = directory.appending(path: UUID().uuidString)
-    var fileName = name ?? url.lastPathComponent
-    if (fileName as NSString).pathExtension.isEmpty, !url.pathExtension.isEmpty {
-        fileName += "." + url.pathExtension
-    }
-    let destination = folder.appending(path: fileName)
+    let destination = folder.appending(path: makeShelfCopyName(suggestedName: name, sourceName: url.lastPathComponent))
     do {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: url, to: destination)
@@ -316,13 +314,26 @@ nonisolated private func copyFile(_ url: URL, into directory: URL, name: String?
     }
 }
 
+/// A shelf, or with no shelf the whole notch, that a drag is over, in one notch: each display has its own, and a
+/// drag over one mustn't open the others.
+struct ShelfDropTarget: Hashable {
+    let scope: UUID?
+    let shelfID: UUID?
+}
+
+extension EnvironmentValues {
+    /// Which notch the shelves are in, so their drop targets are told apart from another display's.
+    @Entry var shelfDropScope: UUID?
+}
+
 /// Takes drops on a shelf, or with no shelf, anywhere on the notch, open or closed. Tabs and Home cards being
 /// reordered are left to their own drop.
 struct ShelfDropDelegate: DropDelegate {
+    let scope: UUID?
     var shelfID: UUID?
     var isEnabled = true
     private let store = ShelfStore.shared
-    private var targetID: String { shelfID?.uuidString ?? notchDropTargetID }
+    private var target: ShelfDropTarget { ShelfDropTarget(scope: scope, shelfID: shelfID) }
 
     func validateDrop(info: DropInfo) -> Bool {
         // Text and links are turned away here, so dragging them over the notch doesn't open it.
@@ -333,7 +344,7 @@ struct ShelfDropDelegate: DropDelegate {
     }
 
     func dropEntered(info: DropInfo) {
-        store.dropTargetIDs.insert(targetID)
+        store.dropTargets.insert(target)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -341,15 +352,13 @@ struct ShelfDropDelegate: DropDelegate {
     }
 
     func dropExited(info: DropInfo) {
-        store.dropTargetIDs.remove(targetID)
+        store.dropTargets.remove(target)
     }
 
     func performDrop(info: DropInfo) -> Bool {
         // The notch-wide target also covers the shelves, so a shelf under the pointer wins over the default one.
-        let shelfID =
-            shelfID
-            ?? store.shelves.first { store.dropTargetIDs.contains($0.id.uuidString) }?.id
-        store.dropTargetIDs.remove(targetID)
+        let shelfID = shelfID ?? store.dropTargets.first { $0.scope == scope && $0.shelfID != nil }?.shelfID
+        store.dropTargets.remove(target)
         store.didDrop = true
         if store.draggedIDs.isEmpty {
             store.add(info.itemProviders(for: [.item]), to: shelfID)
@@ -441,11 +450,12 @@ private struct ShelfSection: View {
     var focusedShelfID: FocusState<UUID?>.Binding
     /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
     @State private var confirmation: ShelfConfirmation?
+    @Environment(\.shelfDropScope) private var scope
     private let store = ShelfStore.shared
 
     var body: some View {
         let targets = store.getItems(getShelfSelectedOrAll(shelf.items.map(\.id), selection: store.selection))
-        let isTargeted = store.dropTargetIDs.contains(shelf.id.uuidString)
+        let isTargeted = store.dropTargets.contains(ShelfDropTarget(scope: scope, shelfID: shelf.id))
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 // On one baseline, so the smaller details sit on the name's line rather than centred against it.
@@ -531,7 +541,7 @@ private struct ShelfSection: View {
             // A click between tiles clears the selection, like Finder.
             .onTapGesture { store.selection = [] }
         }
-        .onDrop(of: [.item], delegate: ShelfDropDelegate(shelfID: shelf.id))
+        .onDrop(of: [.item], delegate: ShelfDropDelegate(scope: scope, shelfID: shelf.id))
     }
 }
 
@@ -591,18 +601,22 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
     override func mouseDown(with event: NSEvent) {
         guard let item else { return }
         mouseDownEvent = event
-        if event.clickCount == 2 {
-            store.open(store.getItems(getShelfTargets(clicked: item.id, selection: store.selection)))
-        } else if !store.selection.contains(item.id) || !event.modifierFlags.isDisjoint(with: [.command, .shift]) {
-            // A plain click on a selected item keeps the selection, so the whole selection can be dragged.
-            store.select(item.id, modifiers: event.modifierFlags)
+        let isModifying = !event.modifierFlags.isDisjoint(with: [.command, .shift])
+        switch getShelfMouseDownAction(
+            clickCount: event.clickCount, isSelected: store.selection.contains(item.id), isModifying: isModifying)
+        {
+        case .open: store.open(store.getItems(getShelfTargets(clicked: item.id, selection: store.selection)))
+        case .select: store.select(item.id, modifiers: event.modifierFlags)
+        case .keepSelection: break
         }
     }
 
     override func mouseUp(with event: NSEvent) {
-        // A plain click that didn't drag narrows the selection down to this item.
-        if let item, mouseDownEvent != nil, event.clickCount == 1,
-            event.modifierFlags.isDisjoint(with: [.command, .shift])
+        // A drag clears the press, so it's still set only when the press didn't turn into a drag.
+        if let item,
+            shouldNarrowShelfSelection(
+                didDrag: mouseDownEvent == nil, clickCount: event.clickCount,
+                isModifying: !event.modifierFlags.isDisjoint(with: [.command, .shift]))
         {
             store.select(item.id, modifiers: [])
         }

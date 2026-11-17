@@ -27,6 +27,8 @@ struct NotchView: View {
     @State private var isHovering = false
     /// Whether a drag opened the notch, so it closes again if the drag leaves without dropping.
     @State private var isOpenedByDrag = false
+    /// Tells this notch's shelf drop targets apart from another display's.
+    @State private var shelfDropScope = UUID()
 
     private var enabledWidgets: [NotchWidget] {
         getTabIDs(
@@ -82,9 +84,13 @@ struct NotchView: View {
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
-            delegate: ShelfDropDelegate(isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id })
+            delegate: ShelfDropDelegate(
+                scope: shelfDropScope, isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id })
         )
-        .onChange(of: ShelfStore.shared.dropTargetIDs.isEmpty) { _, isEmpty in handleShelfDrag(isTargeted: !isEmpty) }
+        .onChange(of: ShelfStore.shared.isDropTargeted(scope: shelfDropScope)) { _, isTargeted in
+            handleShelfDrag(isTargeted: isTargeted)
+        }
+        .environment(\.shelfDropScope, shelfDropScope)
         .onHover { isHovering in
             self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
@@ -153,21 +159,32 @@ struct NotchView: View {
         let store = ShelfStore.shared
         if isTargeted {
             store.didDrop = false
-            guard isExpanded || opensOnDragHover else { return }
-            selectedWidgetID = NotchWidget.shelf.id
-            if !isExpanded {
-                isOpenedByDrag = true
-                setExpanded(true)
-            }
+            applyShelfDragChange(isTargeted: true)
             return
         }
         // Moving from the notch onto a shelf leaves no target for a moment, so this waits before deciding.
         Task {
             try? await Task.sleep(for: .milliseconds(200))
-            guard store.dropTargetIDs.isEmpty, isOpenedByDrag else { return }
+            guard !store.isDropTargeted(scope: shelfDropScope) else { return }
+            applyShelfDragChange(isTargeted: false)
             isOpenedByDrag = false
-            // After a drop the pointer is still on the notch, so hovering decides when it closes.
-            if store.didDrop { isHovering = true } else if !isHovering { setExpanded(false) }
+        }
+    }
+
+    private func applyShelfDragChange(isTargeted: Bool) {
+        switch getShelfDragChange(
+            isTargeted: isTargeted, isExpanded: isExpanded, opensOnDragHover: opensOnDragHover,
+            isOpenedByDrag: isOpenedByDrag, didDrop: ShelfStore.shared.didDrop, isHovering: isHovering)
+        {
+        case .show:
+            selectedWidgetID = NotchWidget.shelf.id
+            if !isExpanded {
+                isOpenedByDrag = true
+                setExpanded(true)
+            }
+        case .close: setExpanded(false)
+        case .leaveToHover: isHovering = true
+        case .none: break
         }
     }
 

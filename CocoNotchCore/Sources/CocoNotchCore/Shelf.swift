@@ -152,3 +152,65 @@ public func filterShelves(_ shelves: [Shelf], query: String) -> [Shelf] {
         return shelf.items.isEmpty ? nil : shelf
     }
 }
+
+/// The file name for a copy, from the name the source app suggests: only its last component, so a name like
+/// `../x` can't place the copy outside its folder, keeping the source file's extension when the name has none.
+public func makeShelfCopyName(suggestedName: String?, sourceName: String) -> String {
+    let suggested = suggestedName.map { ($0 as NSString).lastPathComponent } ?? ""
+    var name = ["", ".", "..", "/"].contains(suggested) ? sourceName : suggested
+    let sourceExtension = (sourceName as NSString).pathExtension
+    if (name as NSString).pathExtension.isEmpty, !sourceExtension.isEmpty { name += "." + sourceExtension }
+    return name
+}
+
+/// The folder to delete with a copy: its own folder, only when that sits directly in the shelf's copies folder, in
+/// case the copy was moved out since.
+public func getShelfCopyFolder(path: String, copiesPath: String) -> String? {
+    let folder = (path as NSString).deletingLastPathComponent
+    let isOwned =
+        (folder as NSString).deletingLastPathComponent == (copiesPath as NSString).standardizingPath
+    return isOwned ? folder : nil
+}
+
+/// The shelf a drop lands on: the one asked for if it still exists, since it may be deleted while a drop loads,
+/// otherwise the first.
+public func getShelfDropTarget(_ shelfID: UUID?, in shelves: [Shelf]) -> UUID? {
+    shelves.contains { $0.id == shelfID } ? shelfID : shelves.first?.id
+}
+
+public enum ShelfMouseDownAction: Equatable, Sendable {
+    case open
+    case select
+    /// A plain press on a selected item keeps the selection, so the whole selection can be dragged.
+    case keepSelection
+}
+
+public func getShelfMouseDownAction(clickCount: Int, isSelected: Bool, isModifying: Bool) -> ShelfMouseDownAction {
+    if clickCount == 2 { return .open }
+    return isSelected && !isModifying ? .keepSelection : .select
+}
+
+/// A plain click that didn't turn into a drag narrows the selection down to the clicked item.
+public func shouldNarrowShelfSelection(didDrag: Bool, clickCount: Int, isModifying: Bool) -> Bool {
+    !didDrag && clickCount == 1 && !isModifying
+}
+
+public enum ShelfDragChange: Equatable, Sendable {
+    /// Show the Shelf tab, opening the notch if it's closed.
+    case show
+    case close
+    /// After a drop the pointer is still on the notch, so hovering decides when it closes.
+    case leaveToHover
+    case none
+}
+
+/// What the notch does when a file drag starts or stops being over it.
+public func getShelfDragChange(
+    isTargeted: Bool, isExpanded: Bool, opensOnDragHover: Bool, isOpenedByDrag: Bool, didDrop: Bool,
+    isHovering: Bool
+) -> ShelfDragChange {
+    if isTargeted { return isExpanded || opensOnDragHover ? .show : .none }
+    guard isOpenedByDrag else { return .none }
+    if didDrop { return .leaveToHover }
+    return isHovering ? .none : .close
+}
