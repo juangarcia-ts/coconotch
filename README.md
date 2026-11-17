@@ -14,6 +14,10 @@
 
 ## Why CocoNotch
 
+<p align="center">
+  <img src="docs/demo.gif" alt="CocoNotch open under the notch, switching between its widgets" width="800">
+</p>
+
 - **Built for the workday.** Join your next meeting, run a Pomodoro, find something you copied an hour ago or keep a file at hand, all from the notch you already look at.
 - **Make it yours.** Turn widgets on or off, drag them into the order you want and tune each one in Settings.
 - **Private where it can be.** Ask runs on your Mac with Apple Intelligence, and everything else stays on your Mac unless a widget needs a service, listed under [Privacy](#privacy).
@@ -30,10 +34,6 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 **Check for Updates…** in the menu bar menu installs a newer release from GitHub; CocoNotch also checks on its own unless you turn that off.
 
 ## Widgets
-
-<p align="center">
-  <img src="docs/demo.gif" alt="CocoNotch open under the notch, switching between its widgets" width="800">
-</p>
 
 | Widget | What it does |
 | --- | --- |
