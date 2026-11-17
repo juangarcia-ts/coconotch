@@ -79,6 +79,8 @@ private func readSetting<Value>(_ key: String, default defaultValue: Value) -> V
         isResponding = true
         task = Task {
             await answer(question, canRetry: true)
+            // Stopping or switching chats already settled the state; a cancelled task must not touch the new chat.
+            guard !Task.isCancelled else { return }
             isResponding = false
             saveChat()
         }
@@ -86,10 +88,13 @@ private func readSetting<Value>(_ key: String, default defaultValue: Value) -> V
 
     func stop() {
         task?.cancel()
+        isResponding = false
+        saveChat()
     }
 
     func startNewChat() {
         task?.cancel()
+        isResponding = false
         session = nil
         turns = []
         note = nil
@@ -162,12 +167,12 @@ private func readSetting<Value>(_ key: String, default defaultValue: Value) -> V
     }
 
     private func setLastAnswer(_ answer: String) {
-        guard !turns.isEmpty else { return }
+        guard !Task.isCancelled, !turns.isEmpty else { return }
         turns[turns.count - 1].answer = answer
     }
 
     private func setLastFailure(_ failure: AskFailure) {
-        guard !turns.isEmpty else { return }
+        guard !Task.isCancelled, !turns.isEmpty else { return }
         turns[turns.count - 1].failure = getAskFailureMessage(failure)
     }
 }

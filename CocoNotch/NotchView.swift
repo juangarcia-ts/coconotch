@@ -3,6 +3,8 @@ import SwiftUI
 
 struct NotchView: View {
     let notchSize: CGSize
+    /// The panel showing this view, so it reacts only to its own panel losing key status.
+    let panelID: ObjectIdentifier
     let showSettings: () -> Void
 
     @State private var isExpanded = false
@@ -84,7 +86,9 @@ struct NotchView: View {
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
-            if notification.object is NotchPanel, isExpanded, !isHovering { setExpanded(false) }
+            if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering {
+                setExpanded(false)
+            }
         }
         .onTapGesture {
             if expandsOnClick && !isExpanded { setExpanded(true) }
