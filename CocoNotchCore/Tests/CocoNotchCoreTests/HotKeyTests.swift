@@ -36,3 +36,11 @@ import Testing
     #expect(!shouldOpenNotchForHotKey(widgetID: "ask", isExpanded: true, selectedWidgetID: "ask"))
     #expect(shouldOpenNotchForHotKey(widgetID: "ask", isExpanded: false, selectedWidgetID: "ask"))
 }
+
+@Test func handlesHotKeyOnPointerDisplayOrFirstNotch() {
+    #expect(shouldHandleHotKey(ownDisplay: 0, panelDisplays: [0], pointerDisplay: 1))
+    #expect(shouldHandleHotKey(ownDisplay: 1, panelDisplays: [0, 1], pointerDisplay: 1))
+    #expect(!shouldHandleHotKey(ownDisplay: 0, panelDisplays: [0, 1], pointerDisplay: 1))
+    #expect(shouldHandleHotKey(ownDisplay: 0, panelDisplays: [0, 1], pointerDisplay: 2))
+    #expect(!shouldHandleHotKey(ownDisplay: 1, panelDisplays: [0, 1], pointerDisplay: nil))
+}

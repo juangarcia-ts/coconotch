@@ -63,3 +63,10 @@ public func getHotKeyName(keyCode: UInt16, characters: String?) -> String {
 public func shouldOpenNotchForHotKey(widgetID: String, isExpanded: Bool, selectedWidgetID: String) -> Bool {
     !isExpanded || (!widgetID.isEmpty && widgetID != selectedWidgetID)
 }
+
+/// Which notch answers a hotkey: the one on the pointer's display, or the first one when that display has none, so
+/// a hotkey still works with the pointer on a monitor without a notch. Displays are identified by their index.
+public func shouldHandleHotKey(ownDisplay: Int, panelDisplays: [Int], pointerDisplay: Int?) -> Bool {
+    if let pointerDisplay, panelDisplays.contains(pointerDisplay) { return ownDisplay == pointerDisplay }
+    return ownDisplay == panelDisplays.first
+}

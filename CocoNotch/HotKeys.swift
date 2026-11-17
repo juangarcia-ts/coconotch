@@ -52,11 +52,14 @@ final class HotKeyCenter {
     /// Re-registers only when a shortcut changed, since every settings write lands here.
     private func register() {
         let defaults = UserDefaults.standard
+        // Only the notch's tabs, so a shortcut for a switched-off widget never lands on some other tab.
+        let tabIDs = getTabIDs(
+            enabledIDs: getEnabledWidgetIDs(
+                NotchWidget.getPreferences(stored: defaults.string(forKey: PreferenceKey.widgetPreferences) ?? "")),
+            showsHome: defaults.object(forKey: PreferenceKey.showsHome) as? Bool ?? true)
         let entries =
-            ([("", openNotchHotKeyKey)]
-            + ([NotchWidget.home] + NotchWidget.all).map {
-                ($0.id, getWidgetHotKeyKey(widgetID: $0.id))
-            }).compactMap { action, key in
+            ([("", openNotchHotKeyKey)] + tabIDs.map { ($0, getWidgetHotKeyKey(widgetID: $0)) }).compactMap {
+                action, key in
                 decodeHotKey(defaults.string(forKey: key) ?? defaultHotKeys[key] ?? "").map { (action, $0) }
             }
         let keys = entries.map { "\($0.0)=\(encodeHotKey($0.1))" }

@@ -111,7 +111,7 @@ struct NotchView: View {
             if expandsOnClick && !isExpanded { setExpanded(true) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .hotKeyPressed)) { notification in
-            guard let widgetID = notification.object as? String, isOnPointerScreen() else { return }
+            guard let widgetID = notification.object as? String, isHotKeyTarget() else { return }
             let shouldOpen = shouldOpenNotchForHotKey(
                 widgetID: widgetID, isExpanded: isExpanded, selectedWidgetID: selectedWidget.id)
             if !widgetID.isEmpty { selectedWidgetID = widgetID }
@@ -211,9 +211,15 @@ struct NotchView: View {
     }
 
     /// With a notch on every display, a hotkey opens only the one under the pointer.
-    private func isOnPointerScreen() -> Bool {
-        guard let screen = NSApp.windows.first(where: { ObjectIdentifier($0) == panelID })?.screen else { return false }
-        return NSScreen.screens.count == 1 || NSMouseInRect(NSEvent.mouseLocation, screen.frame, false)
+    private func isHotKeyTarget() -> Bool {
+        let screens = NSScreen.screens
+        let panels = NSApp.windows.compactMap { $0 as? NotchPanel }
+        let ownScreen = panels.first { ObjectIdentifier($0) == panelID }?.screen
+        guard let ownDisplay = ownScreen.flatMap({ screens.firstIndex(of: $0) }) else { return false }
+        return shouldHandleHotKey(
+            ownDisplay: ownDisplay,
+            panelDisplays: panels.compactMap { $0.screen.flatMap { screens.firstIndex(of: $0) } }.sorted(),
+            pointerDisplay: screens.firstIndex { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
     }
 
     private func isTypingInNotch() -> Bool {
