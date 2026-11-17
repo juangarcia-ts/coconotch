@@ -63,6 +63,8 @@ func findsMeetingLink(url: String?, location: String?, notes: String?, expected:
     #expect(formatCountdown(now: now, start: now + 30) == "in 1m")
     #expect(formatCountdown(now: now, start: now + 12 * 60).contains("12"))
     #expect(formatCountdown(now: now, start: now + 65 * 60).contains("1"))
+    #expect(formatStartedAgo(now: now, start: now - 30) == "Starting now")
+    #expect(formatStartedAgo(now: now, start: now - 3 * 60) == "Started 3m ago")
 }
 
 @Test func roundTripsIDSet() {

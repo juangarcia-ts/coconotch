@@ -81,6 +81,8 @@ struct NotchView: View {
         let scale = isExpanded ? getAppliedNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
         let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
+        // Opening the notch would hide a sticky alert's buttons, so hover and click leave it closed.
+        let isStickyAlertShowing = alertKey != nil && alertKey == alertingKey && activities.first?.isAlertSticky == true
 
         ScaledLayout(scale: scale) {
             panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
@@ -107,6 +109,7 @@ struct NotchView: View {
         .environment(\.showSettings, ShowSettingsAction(action: openSettings))
         .onHover { isHovering in
             self.isHovering = isHovering
+            if isHovering, isStickyAlertShowing { return }
             if isHovering { isHeldOpen = false }
             // Opening the notch from an activity shows the widget it came from.
             if isHovering, !isExpanded, let widgetID = getHoverWidgetID(activities.first?.summary) {
@@ -126,7 +129,7 @@ struct NotchView: View {
             }
         }
         .onTapGesture {
-            if expandsOnClick && !isExpanded { setExpanded(true) }
+            if expandsOnClick && !isExpanded && !isStickyAlertShowing { setExpanded(true) }
         }
         // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
         // not come back over it.

@@ -97,10 +97,12 @@ private struct IslandStack: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let row = subviews.first else { return .zero }
         let rowSize = row.sizeThatFits(.unspecified)
-        let alertHeight = subviews.dropFirst().map {
-            $0.sizeThatFits(ProposedViewSize(width: rowSize.width, height: nil)).height
-        }.reduce(0, +)
-        return CGSize(width: rowSize.width, height: rowSize.height + alertHeight)
+        let alertSizes = subviews.dropFirst().map {
+            $0.sizeThatFits(ProposedViewSize(width: rowSize.width, height: nil))
+        }
+        // An alert with a minimum width can still widen the island.
+        let width = max(rowSize.width, alertSizes.map(\.width).max() ?? 0)
+        return CGSize(width: width, height: rowSize.height + alertSizes.map(\.height).reduce(0, +))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

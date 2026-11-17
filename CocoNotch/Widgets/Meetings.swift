@@ -659,6 +659,14 @@ private struct HeadsUpAlert: View {
     let meeting: Meeting
 
     var body: some View {
+        if meeting.start <= .now {
+            StartedMeetingAlert(meeting: meeting)
+        } else {
+            upcoming
+        }
+    }
+
+    private var upcoming: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(meeting.title)
                 .font(.title3.bold())
@@ -670,5 +678,69 @@ private struct HeadsUpAlert: View {
         .padding(.horizontal, 18)
         .padding(.top, 4)
         .padding(.bottom, 16)
+    }
+}
+
+/// The alert once the meeting has started: a red, pulsing card, since it stays open until dismissed.
+private struct StartedMeetingAlert: View {
+    let meeting: Meeting
+    @State private var isPulsing = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image(systemName: "video.fill")
+                    .font(.title)
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Color.red, in: Circle())
+                    .symbolEffect(.pulse)
+                VStack(alignment: .leading, spacing: 2) {
+                    TimelineView(.everyMinute) { context in
+                        Text(formatStartedAgo(now: context.date, start: meeting.start).uppercased())
+                            .font(.callout.weight(.heavy))
+                            .foregroundStyle(.red)
+                    }
+                    Text(meeting.title)
+                        .font(.title.bold())
+                    Text(formatTimeRange(meeting))
+                        .font(.body.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 10) {
+                if let link = meeting.link {
+                    Button {
+                        NSWorkspace.shared.open(link)
+                        MeetingsStore.shared.dismissHeadsUp()
+                    } label: {
+                        Label("Join", systemImage: "video.fill").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+                Button {
+                    MeetingsStore.shared.dismissHeadsUp()
+                } label: {
+                    Label("Dismiss", systemImage: "xmark").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.large)
+        }
+        // Wider than the island's row, which follows the short closed-notch titles.
+        .frame(minWidth: 460, maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.red.opacity(0.18), in: RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(Color.red.opacity(isPulsing ? 1 : 0.3), lineWidth: 2)
+        )
+        .padding(.horizontal, 10)
+        .padding(.top, 4)
+        .padding(.bottom, 12)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever()) { isPulsing = true }
+        }
     }
 }

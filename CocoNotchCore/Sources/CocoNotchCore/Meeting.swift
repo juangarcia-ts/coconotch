@@ -69,6 +69,14 @@ public func formatCountdown(now: Date, start: Date) -> String {
     return "in " + Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
 }
 
+/// How long ago a meeting started, such as "Started 3m ago"; the first minute reads "Starting now".
+public func formatStartedAgo(now: Date, start: Date) -> String {
+    let minutes = Int(now.timeIntervalSince(start) / 60)
+    guard minutes > 0 else { return "Starting now" }
+    return "Started " + Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+        + " ago"
+}
+
 /// Calendar identifiers are stored one per line; they never contain line breaks.
 public func decodeIDSet(_ stored: String) -> Set<String> {
     Set(stored.split(separator: "\n").map(String.init))
