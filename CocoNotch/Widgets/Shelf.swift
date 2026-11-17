@@ -10,8 +10,7 @@ extension NotchWidget {
         title: "Shelf",
         systemImage: "tray",
         makeView: { AnyView(ShelfView()) },
-        makeSettings: { AnyView(ShelfSettings()) },
-        makeSummary: { AnyView(ShelfSummary()) }
+        makeSettings: { AnyView(ShelfSettings()) }
     )
 }
 
@@ -578,31 +577,6 @@ private func makeMenuItem(_ title: String, isEnabled: Bool = true, handler: @esc
     item.representedObject = action
     item.isEnabled = isEnabled
     return item
-}
-
-private struct ShelfSummary: View {
-    private let store = ShelfStore.shared
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if store.items.isEmpty {
-                Text("Empty")
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: -6) {
-                    ForEach(store.items.prefix(4)) { item in
-                        Image(nsImage: store.getIcon(for: item))
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 22, height: 22)
-                    }
-                }
-                Text(formatShelfSummary(store.items))
-                    .lineLimit(1)
-            }
-        }
-        .font(.callout)
-    }
 }
 
 private struct ShelfSettings: View {
