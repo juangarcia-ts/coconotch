@@ -192,7 +192,8 @@ nonisolated private func convertImage(_ input: URL, to url: URL, type: String, o
             [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: options.maxImageSide ?? max(width, height),
+                kCGImageSourceThumbnailMaxPixelSize: getOutputLongestSide(
+                    natural: max(width, height), maxSide: options.maxImageSide),
             ] as CFDictionary)
     else { throw CocoaError(.fileReadCorruptFile) }
     try writeImage(image, to: url, type: type, quality: options.imageQuality)
@@ -213,21 +214,30 @@ nonisolated private func renderPDFPages(
     guard let document = PDFDocument(url: input), document.pageCount > 0 else {
         throw CocoaError(.fileReadCorruptFile)
     }
-    return try (0..<document.pageCount).compactMap { index in
-        guard let page = document.page(at: index) else { return nil }
-        let bounds = page.bounds(for: .mediaBox)
-        // Twice the page's point size, like a Retina screen, unless a smaller size is set.
-        let side = CGFloat(options.maxImageSide ?? Int(max(bounds.width, bounds.height) * 2))
-        guard
-            let image = page.thumbnail(of: NSSize(width: side, height: side), for: .mediaBox)
-                .cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { throw CocoaError(.fileReadCorruptFile) }
-        let url = makeOutputURL(
-            for: input, fileExtension: output.fileExtension, folder: options.folder,
-            pageNumber: document.pageCount == 1 ? nil : index + 1)
-        try writeImage(image, to: url, type: type, quality: options.imageQuality)
-        return url
+    var urls: [URL] = []
+    do {
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            let bounds = page.bounds(for: .mediaBox)
+            // Twice the page's point size, like a Retina screen, unless a smaller size is set.
+            let side = getOutputLongestSide(
+                natural: Int(max(bounds.width, bounds.height) * 2), maxSide: options.maxImageSide)
+            guard
+                let image = page.thumbnail(of: NSSize(width: side, height: side), for: .mediaBox)
+                    .cgImage(forProposedRect: nil, context: nil, hints: nil)
+            else { throw CocoaError(.fileReadCorruptFile) }
+            let url = makeOutputURL(
+                for: input, fileExtension: output.fileExtension, folder: options.folder,
+                pageNumber: document.pageCount == 1 ? nil : index + 1)
+            try writeImage(image, to: url, type: type, quality: options.imageQuality)
+            urls.append(url)
+        }
+    } catch {
+        // The PDF counts as failed, so the pages already written go too rather than being left unlisted.
+        for url in urls { try? FileManager.default.removeItem(at: url) }
+        throw error
     }
+    return urls
 }
 
 /// Puts every image and every PDF page, in order, into one PDF.
@@ -404,9 +414,11 @@ private struct ConvertSettings: View {
             } header: {
                 Text("Images and PDF pages")
             } footer: {
-                Text("Quality applies to JPEG and HEIC. Images are never made bigger than the original.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Quality applies to JPEG and HEIC. Images are never made bigger than the original; PDF pages start at twice their size. Animated images keep their first frame."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Section {
                 Picker("Codec", selection: $videoCodec) {

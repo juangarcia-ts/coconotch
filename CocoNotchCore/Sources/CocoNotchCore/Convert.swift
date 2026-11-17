@@ -187,3 +187,9 @@ public func getBatchProgress(completed: Int, current: Double, total: Int) -> Dou
     guard total > 0 else { return 0 }
     return min(max((Double(completed) + min(max(current, 0), 1)) / Double(total), 0), 1)
 }
+
+/// The longest side to render at: the setting when it's smaller than `natural`, which is never exceeded.
+public func getOutputLongestSide(natural: Int, maxSide: Int?) -> Int {
+    guard let maxSide, maxSide > 0 else { return natural }
+    return min(maxSide, natural)
+}

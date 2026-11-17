@@ -82,3 +82,10 @@ import Testing
     #expect(getBatchProgress(completed: 3, current: 2, total: 3) == 1)
     #expect(getBatchProgress(completed: 0, current: 0, total: 0) == 0)
 }
+
+@Test func shrinksToTheSettingButNeverEnlarges() {
+    #expect(getOutputLongestSide(natural: 1224, maxSide: 4096) == 1224)
+    #expect(getOutputLongestSide(natural: 4000, maxSide: 1024) == 1024)
+    #expect(getOutputLongestSide(natural: 800, maxSide: nil) == 800)
+    #expect(getOutputLongestSide(natural: 800, maxSide: 0) == 800)
+}
