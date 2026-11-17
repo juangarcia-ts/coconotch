@@ -47,11 +47,16 @@ public func getWidgetTopPadding(widgetShortcuts: WidgetShortcutsMode) -> Double 
     widgetShortcuts == .visible ? 20 : 12
 }
 
-/// The digit that picks the widget at `index` with Command: 1–9, then 0 for the tenth, like the number row; nil after that.
-public func getWidgetShortcutDigit(index: Int) -> Character? {
-    switch index {
-    case 0..<9: Character(String(index + 1))
-    case 9: "0"
-    default: nil
-    }
+/// The keys that pick the widget at `index`: ⌘1–⌘9 then ⌘0, like the number row, then ⌥⌘1–⌥⌘0; nil after that.
+public struct WidgetTabShortcut: Equatable, Sendable {
+    public let digit: Character
+    public let usesOption: Bool
+
+    public var label: String { (usesOption ? "⌥⌘" : "⌘") + String(digit) }
+}
+
+public func getWidgetTabShortcut(index: Int) -> WidgetTabShortcut? {
+    guard (0..<20).contains(index) else { return nil }
+    let position = index % 10
+    return WidgetTabShortcut(digit: position == 9 ? "0" : Character(String(position + 1)), usesOption: index >= 10)
 }
