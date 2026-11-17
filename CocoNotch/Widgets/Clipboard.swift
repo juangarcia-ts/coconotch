@@ -351,7 +351,7 @@ private struct ClipboardDetail: View {
                     .scrollIndicators(.never)
                 }
             }
-            .frame(height: 84)
+            .frame(minHeight: 40, maxHeight: .infinity)
             // Lines the preview's first line up with the first row's title.
             .padding(.top, 6)
             Divider()
@@ -388,7 +388,6 @@ private struct ClipboardDetail: View {
                 }
                 .font(.caption)
             }
-            Spacer(minLength: 0)
             Divider()
             HStack(spacing: 12) {
                 Button(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin") {
