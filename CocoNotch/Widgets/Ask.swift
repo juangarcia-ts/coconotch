@@ -186,7 +186,7 @@ private struct AskEmptyState: View {
     }
 }
 
-/// The question field with its send button inside, like Messages.
+/// The question field with its send button inside, like Messages. Return sends; Option-Return adds a line.
 private struct AskComposer: View {
     @Binding var draft: String
     let isResponding: Bool
@@ -196,9 +196,11 @@ private struct AskComposer: View {
 
     var body: some View {
         let canSend = getAskQuestion(draft) != nil
-        HStack(spacing: 8) {
-            TextField("Ask anything…", text: $draft)
+        HStack(alignment: .bottom, spacing: 8) {
+            TextField("Ask anything…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
+                .lineLimit(1...5)
+                .padding(.vertical, 3)
                 .focused($isFocused)
                 .onSubmit(send)
             Button(
@@ -216,9 +218,10 @@ private struct AskComposer: View {
         .padding(.leading, 14)
         .padding(.trailing, 5)
         .padding(.vertical, 5)
-        .background(Color.primary.opacity(0.07), in: Capsule())
+        // A capsule while one line high, a rounded box as lines are added.
+        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
         .overlay(
-            Capsule().strokeBorder(
+            RoundedRectangle(cornerRadius: 16).strokeBorder(
                 isFocused ? AnyShapeStyle(intelligenceGradient) : AnyShapeStyle(Color.primary.opacity(0.12)),
                 lineWidth: 1)
         )
