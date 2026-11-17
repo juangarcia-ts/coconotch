@@ -7,7 +7,7 @@ extension NotchWidget {
     static let clipboard = NotchWidget(
         id: "clipboard",
         title: "Clipboard",
-        systemImage: "clipboard",
+        systemImage: "square.on.square",
         makeView: { AnyView(ClipboardView()) },
         makeSettings: { AnyView(ClipboardSettings()) }
     )
