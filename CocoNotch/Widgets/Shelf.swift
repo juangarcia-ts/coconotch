@@ -361,8 +361,8 @@ struct ShelfDropDelegate: DropDelegate {
             && info.itemProviders(for: [.item]).contains {
                 getShelfDropSource(typeIdentifiers: $0.registeredTypeIdentifiers) != nil
             }
-            // Convert only reads files on disk.
-            && (!isConvert || info.hasItemsConforming(to: [.fileURL]))
+            // Convert only reads files on disk, and takes no more while a batch runs.
+            && (!isConvert || (info.hasItemsConforming(to: [.fileURL]) && !ConvertStore.shared.isRunning))
     }
 
     func dropEntered(info: DropInfo) {
@@ -457,10 +457,12 @@ private struct ShelfView: View {
         .onAppear {
             store.refresh()
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [store] event in
-                let isTyping = (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
+                // The monitor sees keys for every window, like the file picker and Settings.
+                let notch = NSApp.keyWindow as? NotchPanel
                 guard
                     shouldRemoveShelfSelection(
-                        keyCode: event.keyCode, isTyping: isTyping, hasSelection: !store.selection.isEmpty)
+                        keyCode: event.keyCode, isNotchKey: notch != nil,
+                        isTyping: notch?.firstResponder is NSTextView, hasSelection: !store.selection.isEmpty)
                 else { return event }
                 store.remove(store.selection)
                 return nil
@@ -725,7 +727,9 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
             makeMenuItem("Quick Look") { [store] in store.showQuickLook(items) },
             makeMenuItem("Show in Finder") { [store] in store.revealInFinder(items) },
         ]
-        if ConvertStore.isWidgetEnabled, !addConvertFiles(items.map(\.path), to: [], isFinished: false).isEmpty {
+        if ConvertStore.isWidgetEnabled, !ConvertStore.shared.isRunning,
+            !addConvertFiles(items.map(\.path), to: [], isFinished: false).isEmpty
+        {
             menu.items.append(makeMenuItem("Convert…") { ConvertStore.shared.show(items.map(\.url)) })
         }
         menu.items += [

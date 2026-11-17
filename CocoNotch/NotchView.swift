@@ -111,12 +111,12 @@ struct NotchView: View {
             }
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
-            if !isHovering, FilePicker.shared.isOpen || isHeldOpen { return }
+            if !isHovering, FilePicker.shared.openerID == panelID || isHeldOpen { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
             if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering,
-                !FilePicker.shared.isOpen
+                FilePicker.shared.openerID != panelID
             {
                 isHeldOpen = false
                 setExpanded(false)
@@ -127,11 +127,10 @@ struct NotchView: View {
         }
         // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
         // not come back over it.
-        .onChange(of: FilePicker.shared.isOpen) { _, isOpen in
-            guard isExpanded else { return }
-            if isOpen {
+        .onChange(of: FilePicker.shared.openerID) { oldID, newID in
+            if newID == panelID {
                 isHeldOpen = true
-            } else {
+            } else if oldID == panelID, isExpanded {
                 NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
             }
         }
@@ -356,8 +355,10 @@ struct NotchView: View {
                 .clipped()
 
             // While files are dragged, the footer gives its place to a way to convert them instead of shelving them.
-            if isFileDragOver, showsConvertDropStrip, !isConvertOpen,
-                enabledWidgets.contains(where: { $0.id == NotchWidget.convert.id })
+            if shouldShowConvertDropStrip(
+                isFileDragOver: isFileDragOver, isSettingOn: showsConvertDropStrip, isConvertOpen: isConvertOpen,
+                isConvertEnabled: enabledWidgets.contains { $0.id == NotchWidget.convert.id },
+                isConverting: ConvertStore.shared.isRunning)
             {
                 ConvertDropStrip()
                     .padding(.horizontal, 24)

@@ -181,9 +181,10 @@ func decidesHowTheNotchFollowsADrag(
 }
 
 @Test func removesTheSelectionWithDeleteKeys() {
-    #expect(shouldRemoveShelfSelection(keyCode: 51, isTyping: false, hasSelection: true))
-    #expect(shouldRemoveShelfSelection(keyCode: 117, isTyping: false, hasSelection: true))
-    #expect(!shouldRemoveShelfSelection(keyCode: 51, isTyping: true, hasSelection: true))
-    #expect(!shouldRemoveShelfSelection(keyCode: 51, isTyping: false, hasSelection: false))
-    #expect(!shouldRemoveShelfSelection(keyCode: 0, isTyping: false, hasSelection: true))
+    #expect(shouldRemoveShelfSelection(keyCode: 51, isNotchKey: true, isTyping: false, hasSelection: true))
+    #expect(shouldRemoveShelfSelection(keyCode: 117, isNotchKey: true, isTyping: false, hasSelection: true))
+    #expect(!shouldRemoveShelfSelection(keyCode: 51, isNotchKey: false, isTyping: false, hasSelection: true))
+    #expect(!shouldRemoveShelfSelection(keyCode: 51, isNotchKey: true, isTyping: true, hasSelection: true))
+    #expect(!shouldRemoveShelfSelection(keyCode: 51, isNotchKey: true, isTyping: false, hasSelection: false))
+    #expect(!shouldRemoveShelfSelection(keyCode: 0, isNotchKey: true, isTyping: false, hasSelection: true))
 }

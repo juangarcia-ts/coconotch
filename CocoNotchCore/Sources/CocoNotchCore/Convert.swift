@@ -230,3 +230,11 @@ public func formatConvertDetail(byteCounts: [Int], fileExtensions: [String]) -> 
     guard !byteCounts.isEmpty else { return kinds }
     return ByteCountFormatter.string(fromByteCount: Int64(byteCounts.reduce(0, +)), countStyle: .file) + " · " + kinds
 }
+
+/// The strip that sends dragged files to Convert shows during a file drag when Convert is switched on but not open,
+/// and isn't busy with another batch.
+public func shouldShowConvertDropStrip(
+    isFileDragOver: Bool, isSettingOn: Bool, isConvertOpen: Bool, isConvertEnabled: Bool, isConverting: Bool
+) -> Bool {
+    isFileDragOver && isSettingOn && !isConvertOpen && isConvertEnabled && !isConverting
+}

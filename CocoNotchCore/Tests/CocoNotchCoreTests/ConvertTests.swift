@@ -96,3 +96,17 @@ import Testing
     #expect(formatConvertDetail(byteCounts: [], fileExtensions: ["png", "PNG", "pdf"]) == "PNG, PDF")
     #expect(formatConvertDetail(byteCounts: [], fileExtensions: ["a", "b", "c", "d"]) == "A, B, C…")
 }
+
+@Test func showsTheDropStripOnlyWhenConvertCanTakeFiles() {
+    let show = { (drag: Bool, setting: Bool, open: Bool, enabled: Bool, busy: Bool) in
+        shouldShowConvertDropStrip(
+            isFileDragOver: drag, isSettingOn: setting, isConvertOpen: open, isConvertEnabled: enabled,
+            isConverting: busy)
+    }
+    #expect(show(true, true, false, true, false))
+    #expect(!show(false, true, false, true, false))
+    #expect(!show(true, false, false, true, false))
+    #expect(!show(true, true, true, true, false))
+    #expect(!show(true, true, false, false, false))
+    #expect(!show(true, true, false, true, true))
+}
