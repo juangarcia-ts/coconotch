@@ -14,6 +14,7 @@ macOS notch + menu bar widget hub. SwiftUI, Swift 6 strict concurrency, macOS 14
 - Keep views thin. Any branch, parse or calculation goes in `CocoNotchCore` as a plain function, with a Swift Testing test in `CocoNotchCore/Tests`.
 - No force unwraps, `try!` or implicitly unwrapped optionals (the linter enforces this).
 - Reuse what exists before adding a helper; no new dependencies without asking.
+- Keep `README.md` in step with the app: a change that adds, removes or renames a widget, a setting, a shortcut or a permission updates the README in the same PR. Describe only what ships on `main`.
 - `scripts/check.sh` must pass before a task is done. It runs lint, tests and the build, with warnings as errors.
 
 ## Git

@@ -200,24 +200,18 @@ private struct MeetingsView: View {
             case .fullAccess:
                 agenda
             case .notDetermined:
-                VStack(spacing: 10) {
-                    Text("See your next meetings and join them from the notch.")
-                        .foregroundStyle(.secondary)
-                    Button("Allow Calendar Access") {
-                        Task { await store.requestAccess() }
-                    }
+                WidgetPrompt(
+                    systemImage: NotchWidget.meetings.systemImage,
+                    message: "See your next meetings and join them from the notch."
+                ) {
+                    Button("Allow Calendar Access") { Task { await store.requestAccess() } }
                 }
             default:
-                VStack(spacing: 10) {
-                    Text("CocoNotch can't read your calendars.")
-                        .foregroundStyle(.secondary)
-                    Button("Open Privacy Settings") {
-                        if let url = URL(
-                            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")
-                        {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
+                WidgetPrompt(
+                    systemImage: NotchWidget.meetings.systemImage,
+                    message: "CocoNotch can't read your calendars. You can allow it in System Settings."
+                ) {
+                    Button("Open Privacy Settings") { openPrivacySettings("Privacy_Calendars") }
                 }
             }
         }
