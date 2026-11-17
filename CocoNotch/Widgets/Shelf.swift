@@ -558,11 +558,10 @@ private struct ShelfSection: View {
             .padding(.horizontal, 4)
             Group {
                 if shelf.items.isEmpty {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 10) {
                         Text("Drop files here or")
                             .foregroundStyle(.secondary)
-                        Button("Choose Files…", action: chooseFiles)
-                            .buttonStyle(.borderless)
+                        ChooseFilesButton(action: chooseFiles)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)

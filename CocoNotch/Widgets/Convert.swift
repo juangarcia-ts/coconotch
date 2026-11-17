@@ -415,17 +415,9 @@ private struct ConvertEmptyState: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            Button {
+            ChooseFilesButton {
                 Task { ConvertStore.shared.add(await FilePicker.shared.chooseFiles(types: [.image, .pdf, .movie])) }
-            } label: {
-                Label("Choose Files…", systemImage: "folder")
-                    .font(.callout.weight(.medium))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.primary.opacity(0.12), in: Capsule())
-                    .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
             HStack(spacing: 6) {
                 ForEach(["HEIC", "JPEG", "PNG", "PDF", "MP4", "GIF"], id: \.self) { format in
                     Text(format)

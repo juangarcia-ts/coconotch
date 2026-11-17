@@ -27,3 +27,20 @@ final class FilePicker {
         return await panel.begin() == .OK ? panel.urls : []
     }
 }
+
+/// The pill-shaped button widgets use to open the file picker.
+struct ChooseFilesButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("Choose Files…", systemImage: "folder")
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.12), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
