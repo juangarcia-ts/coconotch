@@ -122,11 +122,11 @@ final class SystemStore {
         lastTicks = nil
         cpuUsage = nil
         // A quick second sample, so CPU doesn't read "–" for a whole interval.
-        var delay = 1
+        var delay = 0.25
         while !Task.isCancelled {
             sample()
             try? await Task.sleep(for: .seconds(delay))
-            delay = readSetting(sampleSecondsKey, default: defaultSampleSeconds)
+            delay = Double(readSetting(sampleSecondsKey, default: defaultSampleSeconds))
         }
     }
 
@@ -306,8 +306,13 @@ private struct SystemSummary: View {
     }
 
     private func item(_ metric: Metric) -> some View {
-        Label(metric.shortValue ?? metric.value, systemImage: metric.symbol)
-            .font(.callout.weight(.semibold).monospacedDigit())
+        Label {
+            Text(metric.shortValue ?? metric.value)
+        } icon: {
+            Image(systemName: metric.symbol)
+                .foregroundStyle(.secondary)
+        }
+        .font(.callout.monospacedDigit())
             .lineLimit(1)
             .fixedSize()
             .help(metric.title)
