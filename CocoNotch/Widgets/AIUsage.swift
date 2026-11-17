@@ -23,6 +23,7 @@ private let showsRemainingKey = "aiUsage.showsRemaining"
 private let refreshMinutesKey = "aiUsage.refreshMinutes"
 private let showsHeadsUpKey = "aiUsage.showsHeadsUp"
 private let headsUpThresholdKey = "aiUsage.headsUpThreshold"
+private let showsIdleKey = "aiUsage.showsIdle"
 private let defaultRefreshMinutes = 5
 private let defaultHeadsUpThreshold = 80
 private let headsUpActivityID = "aiUsage.headsUp"
@@ -253,25 +254,31 @@ final class AIUsageStore {
             showsCodex: readDefault(showsCodexKey, default: true)
         )
         let candidates = shown.flatMap { provider in getLimits(for: provider, now: now).map { (provider, $0) } }
-        guard readDefault(showsHeadsUpKey, default: true),
-            let (provider, limit) = getFullestProviderLimit(candidates),
-            limit.percent >= readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold)
-        else {
+        guard let (provider, limit) = getFullestProviderLimit(candidates) else {
             clearHeadsUp()
             return
         }
         let key = makeUsageHeadsUpKey(provider: provider, limit: limit)
-        guard !dismissedHeadsUpKeys.contains(key) else {
+        guard
+            let priority = getUsageActivityPriority(
+                limit,
+                showsHeadsUp: readDefault(showsHeadsUpKey, default: true),
+                threshold: readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold),
+                isDismissed: dismissedHeadsUpKeys.contains(key),
+                showsIdle: readDefault(showsIdleKey, default: true)
+            )
+        else {
             clearHeadsUp()
             return
         }
-        headsUpKey = key
-        headsUpProvider = provider
+        let isHeadsUp = priority > .low
+        headsUpKey = isHeadsUp ? key : nil
+        headsUpProvider = isHeadsUp ? provider : nil
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
                 widgetID: NotchWidget.aiUsage.id,
-                priority: getUsagePriority(limit),
+                priority: priority,
                 sortDate: limit.resetsAt ?? .distantFuture,
                 makeLeading: {
                     AnyView(
@@ -282,7 +289,7 @@ final class AIUsageStore {
                     )
                 },
                 makeTrailing: { AnyView(Text("\(limit.percent)%").monospacedDigit()) },
-                makeAlert: { AnyView(UsageHeadsUpAlert(provider: provider, limit: limit)) }
+                makeAlert: isHeadsUp ? { AnyView(UsageHeadsUpAlert(provider: provider, limit: limit)) } : nil
             )
         )
     }
@@ -531,6 +538,7 @@ private struct AIUsageSettings: View {
     @AppStorage(refreshMinutesKey) private var refreshMinutes = defaultRefreshMinutes
     @AppStorage(showsHeadsUpKey) private var showsHeadsUp = true
     @AppStorage(headsUpThresholdKey) private var headsUpThreshold = defaultHeadsUpThreshold
+    @AppStorage(showsIdleKey) private var showsIdle = true
     private let store = AIUsageStore.shared
 
     var body: some View {
@@ -595,6 +603,7 @@ private struct AIUsageSettings: View {
                     ForEach([50, 75, 80, 90, 95], id: \.self) { Text("\($0)%").tag($0) }
                 }
                 .disabled(!showsHeadsUp)
+                Toggle("Show usage in the closed notch when nothing else is", isOn: $showsIdle)
             }
         }
         .formStyle(.grouped)
@@ -604,6 +613,7 @@ private struct AIUsageSettings: View {
         .onChange(of: storedHiddenKinds) { store.updateHeadsUp() }
         .onChange(of: showsHeadsUp) { store.updateHeadsUp() }
         .onChange(of: headsUpThreshold) { store.updateHeadsUp() }
+        .onChange(of: showsIdle) { store.updateHeadsUp() }
     }
 
     // Stores hidden kinds rather than shown ones, so limits Claude adds later appear by default.

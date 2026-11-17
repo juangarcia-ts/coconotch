@@ -57,9 +57,10 @@ public func rankActivities(
 }
 
 /// Identifies one alert-worthy state of an activity: it changes when the activity appears, its priority rises, or it
-/// moves to a new date, such as a heads-up switching to the next meeting under the same id.
-public func makeAlertKey(_ activity: ActivitySummary) -> String {
-    "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)"
+/// moves to a new date, such as a heads-up switching to the next meeting under the same id. Stickiness is part of it,
+/// so turning stickiness off restarts the alert's fold-back timer.
+public func makeAlertKey(_ activity: ActivitySummary, isSticky: Bool) -> String {
+    "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)-\(isSticky)"
 }
 
 /// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.
@@ -67,8 +68,13 @@ public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> C
     min(idealWidths.max() ?? 0, maxWidth)
 }
 
+/// Whether an activity deserves notice beyond the closed notch: a tab switch on hover, a dot on its tab, a "+N".
+public func isActivityNoteworthy(_ activity: ActivitySummary) -> Bool {
+    activity.priority > .low
+}
+
 /// The tab hovering the closed notch opens: the top activity's widget, unless it is too quiet to switch tabs.
 public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
-    guard let topActivity, topActivity.priority > .low else { return nil }
+    guard let topActivity, isActivityNoteworthy(topActivity) else { return nil }
     return topActivity.widgetID
 }

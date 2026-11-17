@@ -80,7 +80,11 @@ struct NotchView: View {
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? getAppliedNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
-        let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
+        let alertKey = activities.first.flatMap {
+            $0.makeAlert == nil ? nil : makeAlertKey($0.summary, isSticky: $0.isAlertSticky)
+        }
+        // Opening the notch would hide a sticky alert's buttons, so hover and click leave it closed.
+        let isStickyAlertShowing = alertKey != nil && alertKey == alertingKey && activities.first?.isAlertSticky == true
 
         ScaledLayout(scale: scale) {
             panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
@@ -88,7 +92,9 @@ struct NotchView: View {
         }
         .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
         .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
-        .onChange(of: alertKey, initial: true) { _, key in showAlert(key: key) }
+        .onChange(of: alertKey, initial: true) { _, key in
+            showAlert(key: key, isSticky: activities.first?.isAlertSticky == true)
+        }
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
@@ -105,6 +111,7 @@ struct NotchView: View {
         .environment(\.showSettings, ShowSettingsAction(action: openSettings))
         .onHover { isHovering in
             self.isHovering = isHovering
+            if isHovering, isStickyAlertShowing { return }
             if isHovering { isHeldOpen = false }
             // Opening the notch from an activity shows the widget it came from.
             if isHovering, !isExpanded, let widgetID = getHoverWidgetID(activities.first?.summary) {
@@ -124,7 +131,7 @@ struct NotchView: View {
             }
         }
         .onTapGesture {
-            if expandsOnClick && !isExpanded { setExpanded(true) }
+            if expandsOnClick && !isExpanded && !isStickyAlertShowing { setExpanded(true) }
         }
         // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
         // not come back over it.
@@ -170,7 +177,7 @@ struct NotchView: View {
                 ActivityIsland(
                     activity: island,
                     notchSize: notchSize,
-                    otherCount: activities.count - 1,
+                    otherCount: activities.dropFirst().filter { isActivityNoteworthy($0.summary) }.count,
                     isAlerting: isAlerting
                 )
                 .transition(.opacity)
@@ -185,9 +192,9 @@ struct NotchView: View {
     }
 
     /// Shows the new top activity's alert, then folds it back into the island.
-    private func showAlert(key: String?) {
+    private func showAlert(key: String?, isSticky: Bool) {
         alertingKey = key
-        guard let key else { return }
+        guard let key, !isSticky else { return }
         Task {
             try? await Task.sleep(for: .seconds(6))
             if alertingKey == key { alertingKey = nil }
@@ -280,7 +287,9 @@ struct NotchView: View {
                             .frame(width: 40, height: notchSize.height - 6)
                             // Marks widgets with a live activity, since the closed notch shows only one.
                             .overlay(alignment: .topTrailing) {
-                                if activities.contains(where: { $0.widgetID == widget.id }) {
+                                if activities.contains(where: {
+                                    $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
+                                }) {
                                     Circle()
                                         .fill(.orange)
                                         .frame(width: 6, height: 6)

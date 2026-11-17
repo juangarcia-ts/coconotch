@@ -55,8 +55,29 @@ private let sampleForecast = """
             WeatherPlace(name: "Berlin", region: "Land Berlin", country: "Germany", latitude: 52.52, longitude: 13.41)
         ])
     #expect(try parseGeocoding(Data("{\"generationtime_ms\":0.1}".utf8)).isEmpty)
+    let twice = Data(
+        """
+        {"results":[{"name":"Rio Dell","latitude":40.49,"longitude":-124.1,"country":"United States","admin1":"California"},
+        {"name":"Rio Dell","latitude":40.5,"longitude":-124.11,"country":"United States","admin1":"California"}]}
+        """.utf8)
+    #expect(try parseGeocoding(twice).count == 1)
+    let farApart = Data(
+        """
+        {"results":[{"name":"Springfield","latitude":39.8,"longitude":-89.6,"country":"United States","admin1":"Illinois"},
+        {"name":"Springfield","latitude":40.2,"longitude":-88.9,"country":"United States","admin1":"Illinois"}]}
+        """.utf8)
+    #expect(try parseGeocoding(farApart).count == 2)
     #expect(makeGeocodingURL(query: "  ") == nil)
     #expect(makeGeocodingURL(query: "São Paulo")?.host() == "geocoding-api.open-meteo.com")
+}
+
+@Test func notesCitySearch() {
+    let place = WeatherPlace(name: "Rio", latitude: 0, longitude: 0)
+    #expect(getCitySearchNote(query: "rio", searchedQuery: "ri", results: []) == nil)
+    #expect(getCitySearchNote(query: " ", searchedQuery: " ", results: []) == nil)
+    #expect(getCitySearchNote(query: "rio", searchedQuery: "rio", results: [place]) == nil)
+    #expect(getCitySearchNote(query: "zzz", searchedQuery: "zzz", results: []) == "No cities match.")
+    #expect(getCitySearchNote(query: "rio", searchedQuery: "rio", results: nil)?.contains("connection") == true)
 }
 
 @Test func formatsPlaceTitle() {
@@ -66,6 +87,7 @@ private let sampleForecast = """
     #expect(
         formatPlaceTitle(WeatherPlace(name: "Porto", region: "Norte", country: nil, latitude: 0, longitude: 0))
             == "Porto, Norte")
+    #expect(formatPlaceRegion(WeatherPlace(name: "Nowhere", latitude: 0, longitude: 0)) == nil)
 }
 
 @Test(arguments: [

@@ -63,6 +63,8 @@ func findsMeetingLink(url: String?, location: String?, notes: String?, expected:
     #expect(formatCountdown(now: now, start: now + 30) == "in 1m")
     #expect(formatCountdown(now: now, start: now + 12 * 60).contains("12"))
     #expect(formatCountdown(now: now, start: now + 65 * 60).contains("1"))
+    #expect(formatStartedAgo(now: now, start: now - 30) == "Starting now")
+    #expect(formatStartedAgo(now: now, start: now - 3 * 60) == "Started 3m ago")
 }
 
 @Test func roundTripsIDSet() {
@@ -195,6 +197,9 @@ func getsAgendaMeetings(showsPastEvents: Bool, isPickedDay: Bool, expected: [Str
     #expect(pick([meeting("holiday", startsIn: 0, allDay: true), meeting("soon", startsIn: 5)]) == "soon")
     #expect(pick([meeting("soon", startsIn: 5)], dismissed: ["soon"]) == nil)
     #expect(pick([meeting("soon", startsIn: 5)], lead: 0) == nil)
+    let sticky = getHeadsUpMeeting(
+        [meeting("long ago", startsIn: -50)], now: now, leadTime: lead, grace: .infinity, dismissedIDs: [])
+    #expect(sticky?.id == "long ago")
 }
 
 @Test func picksNextMeeting() {
