@@ -36,6 +36,23 @@ public struct WeatherPlace: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// Where a forecast is for.
+public enum WeatherLocation: Equatable, Sendable {
+    case current
+    case place(WeatherPlace)
+}
+
+/// A place picked in the notch just for now wins over the saved choice; nil means a city is chosen but none is saved.
+public func resolveWeatherLocation(
+    mode: WeatherLocationMode, savedPlace: WeatherPlace?, temporary: WeatherLocation?
+) -> WeatherLocation? {
+    if let temporary { return temporary }
+    return switch mode {
+    case .current: .current
+    case .place: savedPlace.map(WeatherLocation.place)
+    }
+}
+
 public struct CurrentWeather: Equatable, Sendable {
     public let temperature: Double
     public let apparentTemperature: Double

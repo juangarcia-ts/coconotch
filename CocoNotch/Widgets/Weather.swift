@@ -59,6 +59,8 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
     private(set) var placeName: String?
     private(set) var problem: WeatherProblem?
     private(set) var isLoading = false
+    /// A place picked in the notch just for now; it lasts until the user goes back or CocoNotch quits.
+    private(set) var temporaryLocation: WeatherLocation?
     private var updatedAt: Date?
     @ObservationIgnored private let locationManager = CLLocationManager()
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -112,12 +114,10 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
             ActivityCenter.shared.remove(id: rainActivityID)
             return
         }
-        switch readEnum(locationModeKey, default: WeatherLocationMode.current) {
-        case .place:
-            guard let place = decodeWeatherPlace(UserDefaults.standard.string(forKey: placeKey) ?? "") else {
-                show(.noPlace)
-                return
-            }
+        switch location {
+        case nil:
+            show(.noPlace)
+        case .place(let place):
             startLoad(WeatherCoordinate(latitude: place.latitude, longitude: place.longitude), placeName: place.name)
         case .current:
             switch locationManager.authorizationStatus {
@@ -130,6 +130,35 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
                 show(.locationDenied)
             }
         }
+    }
+
+    var location: WeatherLocation? {
+        resolveWeatherLocation(
+            mode: readEnum(locationModeKey, default: WeatherLocationMode.current),
+            savedPlace: decodeWeatherPlace(UserDefaults.standard.string(forKey: placeKey) ?? ""),
+            temporary: temporaryLocation)
+    }
+
+    /// Shows the forecast for `location`, saving it as the user's choice when `isSaved`.
+    func pick(_ location: WeatherLocation, isSaved: Bool) {
+        if isSaved {
+            let defaults = UserDefaults.standard
+            switch location {
+            case .current:
+                defaults.set(WeatherLocationMode.current.rawValue, forKey: locationModeKey)
+            case .place(let place):
+                defaults.set(encodeWeatherPlace(place), forKey: placeKey)
+                defaults.set(WeatherLocationMode.place.rawValue, forKey: locationModeKey)
+            }
+        }
+        temporaryLocation = isSaved ? nil : location
+        refresh()
+    }
+
+    /// Drops a place picked just for now, back to the saved one; Settings call this when the saved one changes.
+    func useSavedLocation() {
+        temporaryLocation = nil
+        refresh()
     }
 
     /// Only ever called from a button, so the permission prompt never appears out of nowhere.
@@ -196,7 +225,7 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
         let placemarks = try? await CLGeocoder().reverseGeocodeLocation(
             CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
         // The user may have picked a city while the fix or the geocoding was in flight.
-        guard !Task.isCancelled, readEnum(locationModeKey, default: WeatherLocationMode.current) == .current else {
+        guard !Task.isCancelled, location == .current else {
             return
         }
         startLoad(coordinate, placeName: placemarks?.first?.locality)
@@ -265,12 +294,14 @@ private struct WeatherView: View {
     @AppStorage(hourCountKey) private var hourCount = defaultHourCount
     @AppStorage(showsDailyKey) private var showsDaily = true
     @AppStorage(windSpeedUnitKey) private var windSpeedUnit = defaultWindSpeedUnit
-    @AppStorage(locationModeKey) private var locationMode = WeatherLocationMode.current
+    @State private var isPickingLocation = false
     private let store = WeatherStore.shared
 
     var body: some View {
         Group {
-            if let report = store.report {
+            if isPickingLocation {
+                WeatherLocationPicker { isPickingLocation = false }
+            } else if let report = store.report {
                 TimelineView(.everyMinute) { context in
                     HStack(alignment: .top, spacing: 20) {
                         current(report, now: context.date)
@@ -332,11 +363,27 @@ private struct WeatherView: View {
             }
             .padding(.top, 8)
             if let placeName = store.placeName {
-                Label(placeName, systemImage: locationMode == .current ? "location.fill" : "mappin")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .padding(.top, 6)
+                HStack(spacing: 6) {
+                    Button {
+                        isPickingLocation = true
+                    } label: {
+                        Label(placeName, systemImage: store.location == .current ? "location.fill" : "mappin")
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Change location")
+                    if store.temporaryLocation != nil {
+                        Button("Back to My Saved Location", systemImage: "arrow.uturn.backward") {
+                            store.useSavedLocation()
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .help("Back to your saved location")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.top, 6)
             }
         }
     }
@@ -442,6 +489,71 @@ private struct TemperatureBar: View {
                 }
         }
         .frame(height: 4)
+    }
+}
+
+/// Search for a city, or go back to the current location, for now or for good.
+private struct WeatherLocationPicker: View {
+    let close: () -> Void
+    @State private var query = ""
+    @State private var results: [WeatherPlace] = []
+    @State private var isSaved = false
+    @FocusState private var isSearchFocused: Bool
+    private let store = WeatherStore.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search for a city", text: $query)
+                        .textFieldStyle(.plain)
+                        .focused($isSearchFocused)
+                        .onSubmit { results.first.map { pick(.place($0)) } }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                Button("Cancel", action: close)
+            }
+            Toggle("Save as my weather location", isOn: $isSaved)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    row("My Current Location", systemImage: "location.fill") { pick(.current) }
+                    ForEach(results) { place in
+                        row(formatPlaceTitle(place), systemImage: "mappin") { pick(.place(place)) }
+                    }
+                }
+            }
+            .frame(maxHeight: 150)
+        }
+        .onAppear { isSearchFocused = true }
+        .task(id: query) {
+            // Waits for a pause in typing, so each keystroke doesn't send a search.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            results = await WeatherStore.searchPlaces(query)
+        }
+    }
+
+    private func row(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pick(_ location: WeatherLocation) {
+        store.pick(location, isSaved: isSaved)
+        close()
     }
 }
 
@@ -629,8 +741,8 @@ private struct WeatherSettings: View {
             guard !Task.isCancelled else { return }
             results = await WeatherStore.searchPlaces(query)
         }
-        .onChange(of: locationMode) { store.refresh() }
-        .onChange(of: storedPlace) { store.refresh() }
+        .onChange(of: locationMode) { store.useSavedLocation() }
+        .onChange(of: storedPlace) { store.useSavedLocation() }
         .onChange(of: temperatureUnit) { store.refresh() }
         .onChange(of: windSpeedUnit) { store.refresh() }
         .onChange(of: dayCount) { store.refresh() }

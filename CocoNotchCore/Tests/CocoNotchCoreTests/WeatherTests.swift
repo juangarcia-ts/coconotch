@@ -171,3 +171,13 @@ func picksWeatherSymbol(code: Int, isDay: Bool, expected: String) {
     #expect(getRainHeadsUpHour(hours, now: start + 1800, threshold: 70, window: 3600) != nil)
     #expect(getRainHeadsUpHour(hours, now: start + 3600, threshold: 70, window: 3600) == nil)
 }
+
+@Test func resolvesWeatherLocation() {
+    let lisbon = WeatherPlace(name: "Lisbon", latitude: 38.72, longitude: -9.14)
+    let rio = WeatherPlace(name: "Rio de Janeiro", latitude: -22.91, longitude: -43.17)
+    #expect(resolveWeatherLocation(mode: .current, savedPlace: lisbon, temporary: nil) == .current)
+    #expect(resolveWeatherLocation(mode: .place, savedPlace: lisbon, temporary: nil) == .place(lisbon))
+    #expect(resolveWeatherLocation(mode: .place, savedPlace: nil, temporary: nil) == nil)
+    #expect(resolveWeatherLocation(mode: .current, savedPlace: nil, temporary: .place(rio)) == .place(rio))
+    #expect(resolveWeatherLocation(mode: .place, savedPlace: lisbon, temporary: .current) == .current)
+}
