@@ -54,7 +54,8 @@ public func addClipboardItem(_ item: ClipboardItem, to history: [ClipboardItem],
         item.isPinned = rest[index].isPinned
         rest.remove(at: index)
     }
-    return trimClipboardHistory([item] + rest, limit: limit)
+    // The new copy always stays, even when pinned items already fill the limit.
+    return [item] + trimClipboardHistory(rest, limit: limit - 1)
 }
 
 /// Drops the oldest unpinned items until the history fits the limit; pinned items always stay.

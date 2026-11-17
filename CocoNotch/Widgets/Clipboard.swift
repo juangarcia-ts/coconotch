@@ -7,10 +7,9 @@ extension NotchWidget {
     static let clipboard = NotchWidget(
         id: "clipboard",
         title: "Clipboard",
-        systemImage: "doc.on.clipboard",
+        systemImage: "clipboard",
         makeView: { AnyView(ClipboardView()) },
-        makeSettings: { AnyView(ClipboardSettings()) },
-        makeSummary: { AnyView(ClipboardSummary()) }
+        makeSettings: { AnyView(ClipboardSettings()) }
     )
 }
 
@@ -19,7 +18,6 @@ private let capturesImagesKey = "clipboard.capturesImages"
 private let pastesIntoAppKey = "clipboard.pastesIntoApp"
 private let ignoredBundleIDsKey = "clipboard.ignoredBundleIDs"
 private let defaultHistorySize = 50
-private let summaryCount = 3
 private let accessibilitySettingsURL = URL(
     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
 
@@ -49,6 +47,8 @@ final class ClipboardStore {
     func start() {
         guard pollTask == nil else { return }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // Copies can hold private text, so only this user may read the folder.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
         if let data = try? Data(contentsOf: historyURL) {
             history = (try? JSONDecoder().decode([ClipboardItem].self, from: data)) ?? []
         }
@@ -79,28 +79,18 @@ final class ClipboardStore {
                 add(ClipboardItem(kind: .text, value: text, copiedAt: .now, sourceBundleID: sourceBundleID))
             }
         case .image:
-            if let fileName = saveImage(from: pasteboard) {
-                add(ClipboardItem(kind: .image, value: fileName, copiedAt: .now, sourceBundleID: sourceBundleID))
+            let png = pasteboard.data(forType: .png)
+            let tiff = png == nil ? pasteboard.data(forType: .tiff) : nil
+            let directory = directory
+            Task {
+                let fileName = await Task.detached { saveImage(png: png, tiff: tiff, in: directory) }.value
+                if let fileName {
+                    add(ClipboardItem(kind: .image, value: fileName, copiedAt: .now, sourceBundleID: sourceBundleID))
+                }
             }
         case nil:
             break
         }
-    }
-
-    /// Saves the image as PNG under a hash of its data, so copying the same image again finds the same file.
-    private func saveImage(from pasteboard: NSPasteboard) -> String? {
-        guard
-            let png = pasteboard.data(forType: .png)
-                ?? pasteboard.data(forType: .tiff).flatMap({
-                    NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:])
-                })
-        else { return nil }
-        let fileName = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined() + ".png"
-        let url = directory.appending(path: fileName)
-        if !FileManager.default.fileExists(atPath: url.path) {
-            guard (try? png.write(to: url)) != nil else { return nil }
-        }
-        return fileName
     }
 
     private func add(_ item: ClipboardItem) {
@@ -169,6 +159,19 @@ final class ClipboardStore {
     }
 }
 
+/// Saves the image as PNG under a hash of its data, so copying the same image again finds the same file. Runs off the
+/// main actor, since hashing and converting a large screenshot would stall the notch.
+nonisolated private func saveImage(png: Data?, tiff: Data?, in directory: URL) -> String? {
+    guard let png = png ?? tiff.flatMap({ NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) })
+    else { return nil }
+    let fileName = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined() + ".png"
+    let url = directory.appending(path: fileName)
+    if !FileManager.default.fileExists(atPath: url.path) {
+        guard (try? png.write(to: url)) != nil else { return nil }
+    }
+    return fileName
+}
+
 /// Sends ⌘V to the app the user was in. The notch panel never activates CocoNotch, but a click can make it the key
 /// window, so the other app gets keyboard focus back first.
 private func pasteIntoFrontmostApp() {
@@ -203,7 +206,7 @@ private struct ClipboardView: View {
     var body: some View {
         let items = getVisibleClipboardItems(store.history, query: query, kind: kind)
         let selected = items.first { $0.id == selectedID } ?? items.first
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 TextField("Type to filter entries…", text: $query)
                     .textFieldStyle(.plain)
@@ -220,7 +223,8 @@ private struct ClipboardView: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            .padding(.horizontal, 10)
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
             .padding(.vertical, 6)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
             if pastesIntoApp && !isTrusted {
@@ -238,7 +242,7 @@ private struct ClipboardView: View {
                 HStack(alignment: .top, spacing: 0) {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 1) {
+                            LazyVStack(spacing: 2) {
                                 ForEach(items) { item in
                                     ClipboardRow(item: item, isSelected: item.id == selected.id) {
                                         selectedID = item.id
@@ -246,16 +250,18 @@ private struct ClipboardView: View {
                                     .id(item.id)
                                 }
                             }
-                            .padding(.trailing, 6)
                         }
+                        // The system scroller is heavy in a 270pt list; the arrow keys keep the selection in view.
+                        .scrollIndicators(.never)
                         .onChange(of: selectedID) { proxy.scrollTo(selectedID) }
                     }
-                    .frame(width: 230)
+                    .frame(width: 220)
+                    .padding(.trailing, 12)
                     Divider()
                     ClipboardDetail(item: selected, pastesIntoApp: pastesIntoApp && isTrusted)
-                        .padding(.leading, 12)
+                        .padding(.leading, 16)
                 }
-                .frame(height: 250)
+                .frame(height: 270)
             } else {
                 Text(store.history.isEmpty ? "Copy some text or an image and it shows up here." : "No matches.")
                     .foregroundStyle(.secondary)
@@ -305,7 +311,7 @@ private struct ClipboardRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(Color.primary.opacity(isSelected ? 0.14 : 0), in: RoundedRectangle(cornerRadius: 8))
         .contentShape(RoundedRectangle(cornerRadius: 8))
@@ -329,7 +335,7 @@ private struct ClipboardDetail: View {
 
     var body: some View {
         let image = item.kind == .image ? store.getImage(for: item) : nil
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Group {
                 if let image {
                     Image(nsImage: image.image)
@@ -339,16 +345,22 @@ private struct ClipboardDetail: View {
                 } else {
                     ScrollView {
                         Text(item.value)
-                            .font(.callout)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .scrollIndicators(.never)
                 }
             }
-            .frame(height: 100)
+            .frame(height: 84)
+            // Lines the preview's first line up with the first row's title.
+            .padding(.top, 6)
             Divider()
             TimelineView(.everyMinute) { context in
-                Grid(alignment: .leading, verticalSpacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Information")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
                     ForEach(
                         makeClipboardDetails(
                             item,
@@ -359,25 +371,25 @@ private struct ClipboardDetail: View {
                         ),
                         id: \.label
                     ) { row in
-                        GridRow {
+                        HStack(spacing: 4) {
                             Text(row.label)
                                 .foregroundStyle(.secondary)
-                            HStack(spacing: 4) {
-                                if row.label == "Source", let icon = item.sourceBundleID.flatMap(getAppIcon) {
-                                    Image(nsImage: icon)
-                                        .resizable()
-                                        .frame(width: 14, height: 14)
-                                }
-                                Text(row.value)
-                                    .lineLimit(1)
+                            Spacer(minLength: 12)
+                            if row.label == "Source", let icon = item.sourceBundleID.flatMap(getAppIcon) {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .frame(width: 14, height: 14)
                             }
-                            .gridColumnAlignment(.trailing)
+                            Text(row.value)
+                                .lineLimit(1)
                         }
+                        .padding(.vertical, 4)
                     }
                 }
                 .font(.caption)
             }
             Spacer(minLength: 0)
+            Divider()
             HStack(spacing: 12) {
                 Button(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin") {
                     store.togglePin(item)
@@ -406,48 +418,6 @@ private struct ClipboardDetail: View {
     }
 }
 
-/// The latest copies, for the Home tab; clicking one copies it again.
-private struct ClipboardSummary: View {
-    private let store = ClipboardStore.shared
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ForEach(store.history.prefix(summaryCount)) { item in
-                let image = item.kind == .image ? store.getImage(for: item) : nil
-                Button {
-                    store.copy(item)
-                } label: {
-                    HStack(spacing: 6) {
-                        Group {
-                            if let image {
-                                Image(nsImage: image.image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                            } else {
-                                Image(systemName: "doc.text")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .frame(width: 14, height: 14)
-                        Text(getClipboardItemTitle(item, pixelSize: image?.pixelSize))
-                            .font(.callout)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Copy")
-            }
-            if store.history.isEmpty {
-                Text("Nothing copied yet")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
 private struct ClipboardSettings: View {
     @AppStorage(historySizeKey) private var historySize = defaultHistorySize
     @AppStorage(capturesImagesKey) private var capturesImages = true
@@ -458,7 +428,7 @@ private struct ClipboardSettings: View {
 
     var body: some View {
         Form {
-            Section("History") {
+            Section {
                 Picker("Keep", selection: $historySize) {
                     ForEach([10, 25, 50, 100, 200, 500], id: \.self) { Text("\($0) items").tag($0) }
                 }
@@ -469,6 +439,14 @@ private struct ClipboardSettings: View {
                     } message: {
                         Text("Pinned items are kept.")
                     }
+            } header: {
+                Text("History")
+            } footer: {
+                Text(
+                    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies from password managers are never saved; add other apps you copy secrets from under Ignored apps."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Paste into the current app when I click an item", isOn: $pastesIntoApp)

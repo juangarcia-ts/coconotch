@@ -51,6 +51,11 @@ func choosesWhatToCapture(
     #expect(addClipboardItem(image, to: [text("a")], limit: 10).count == 2)
 }
 
+@Test func keepsANewCopyWhenPinsFillTheLimit() {
+    let history = addClipboardItem(text("new"), to: [text("a", isPinned: true), text("b", isPinned: true)], limit: 2)
+    #expect(history.map(\.value) == ["new", "a", "b"])
+}
+
 @Test func dropsTheOldestUnpinnedItems() {
     let history = [text("new"), text("pinned", isPinned: true), text("mid"), text("old")]
     #expect(trimClipboardHistory(history, limit: 3).map(\.value) == ["new", "pinned", "mid"])
