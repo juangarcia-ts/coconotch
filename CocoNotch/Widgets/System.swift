@@ -10,8 +10,7 @@ extension NotchWidget {
         systemImage: "cpu",
         makeView: { AnyView(SystemView()) },
         makeSettings: { AnyView(SystemSettings()) },
-        makeSummary: { AnyView(SystemSummary()) },
-        makeSummarySettings: { AnyView(SystemSummarySettings()) }
+        makeSummary: { AnyView(SystemSummary()) }
     )
 }
 
@@ -22,7 +21,6 @@ private let showsBatteryKey = "system.showsBattery"
 private let sampleSecondsKey = "system.sampleSeconds"
 private let showsLowBatteryHeadsUpKey = "system.showsLowBatteryHeadsUp"
 private let lowBatteryThresholdKey = "system.lowBatteryThreshold"
-private let summaryShowsBarsKey = "system.summaryShowsBars"
 
 private let defaultSampleSeconds = 3
 private let defaultLowBatteryThreshold = 20
@@ -197,6 +195,8 @@ private struct Metric: Identifiable {
     let value: String
     let fraction: Double?
     let detail: String
+    /// What the Home card shows when it differs from `value`, such as memory as a percent.
+    var shortValue: String? = nil
 }
 
 /// The metrics the user switched on, in a fixed order, from the store's latest sample.
@@ -216,7 +216,8 @@ private func makeMetrics(
             Metric(
                 id: "memory", title: "Memory", symbol: "memorychip",
                 value: store.memoryUsed.map { formatBytes($0, isMemory: true) } ?? "–", fraction: fraction,
-                detail: "of \(formatBytes(store.memoryTotal, isMemory: true))"))
+                detail: "of \(formatBytes(store.memoryTotal, isMemory: true))", shortValue: fraction.map(formatPercent))
+        )
     }
     if showsDisk, let disk = store.disk {
         metrics.append(
@@ -278,53 +279,38 @@ private struct SystemView: View {
     }
 }
 
-/// One line per metric, for the Home tab.
+/// One row of icon and value per metric, for the Home tab; wraps to two rows in a half-width card.
 private struct SystemSummary: View {
     @AppStorage(showsCPUKey) private var showsCPU = true
     @AppStorage(showsMemoryKey) private var showsMemory = true
     @AppStorage(showsDiskKey) private var showsDisk = true
     @AppStorage(showsBatteryKey) private var showsBattery = true
-    @AppStorage(summaryShowsBarsKey) private var showsBars = false
     private let store = SystemStore.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(
-                makeMetrics(
-                    store, showsCPU: showsCPU, showsMemory: showsMemory, showsDisk: showsDisk,
-                    showsBattery: showsBattery)
-            ) { metric in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
-                        Image(systemName: metric.symbol)
-                            .frame(width: 14)
-                            .foregroundStyle(.secondary)
-                        Text(metric.title)
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: 6)
-                        Text(metric.value)
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                    }
-                    .font(.caption)
-                    .lineLimit(1)
-                    if showsBars {
-                        ProgressView(value: metric.fraction ?? 0)
-                            .progressViewStyle(.linear)
-                            .controlSize(.mini)
+        let metrics = makeMetrics(
+            store, showsCPU: showsCPU, showsMemory: showsMemory, showsDisk: showsDisk, showsBattery: showsBattery)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 14) {
+                ForEach(metrics, content: item)
+            }
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 4) {
+                ForEach(makeRows(metrics, columnCount: 2).indices, id: \.self) { index in
+                    GridRow {
+                        ForEach(makeRows(metrics, columnCount: 2)[index], content: item)
                     }
                 }
             }
         }
         .task { await store.sampleWhileVisible() }
     }
-}
 
-private struct SystemSummarySettings: View {
-    @AppStorage(summaryShowsBarsKey) private var showsBars = false
-
-    var body: some View {
-        Toggle("Show usage bars", isOn: $showsBars)
+    private func item(_ metric: Metric) -> some View {
+        Label(metric.shortValue ?? metric.value, systemImage: metric.symbol)
+            .font(.callout.weight(.semibold).monospacedDigit())
+            .lineLimit(1)
+            .fixedSize()
+            .help(metric.title)
     }
 }
 
