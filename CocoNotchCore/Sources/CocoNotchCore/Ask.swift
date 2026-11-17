@@ -70,3 +70,47 @@ public func getAskFailureMessage(_ failure: AskFailure) -> String {
 }
 
 public let askContextResetNote = "The chat got too long, so a new one was started."
+
+public struct AskChatTurn: Codable, Equatable, Sendable {
+    public let question: String
+    public let answer: String
+
+    public init(question: String, answer: String) {
+        self.question = question
+        self.answer = answer
+    }
+}
+
+public struct AskChat: Codable, Equatable, Identifiable, Sendable {
+    public let id: UUID
+    public let date: Date
+    public let turns: [AskChatTurn]
+
+    public init(id: UUID, date: Date, turns: [AskChatTurn]) {
+        self.id = id
+        self.date = date
+        self.turns = turns
+    }
+}
+
+/// Puts the chat first, replacing its older copy, and keeps the newest `limit`. A chat with no turns isn't kept.
+public func saveAskChat(_ chat: AskChat, in history: [AskChat], limit: Int) -> [AskChat] {
+    let others = history.filter { $0.id != chat.id }
+    return Array(((chat.turns.isEmpty ? [] : [chat]) + others).prefix(max(limit, 0)))
+}
+
+/// The chat's first question on one line, cut to fit a menu.
+public func getAskChatTitle(_ chat: AskChat, maxLength: Int = 50) -> String {
+    let question = (chat.turns.first?.question ?? "").split(whereSeparator: \.isNewline).joined(separator: " ")
+    return question.count > maxLength ? question.prefix(maxLength - 1) + "…" : question
+}
+
+/// "Today", "Yesterday" or "Earlier", for grouping chats in the history menu.
+public func getAskChatGroupTitle(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
+    if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+    if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday)
+    {
+        return "Yesterday"
+    }
+    return "Earlier"
+}

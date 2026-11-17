@@ -35,3 +35,38 @@ func trimsQuestion(draft: String, expected: String?) {
 func offersSettingsOnlyWhenTheyHelp(reason: AskUnavailableReason, expected: Bool) {
     #expect(canFixAskInSettings(reason) == expected)
 }
+
+private func makeChat(_ question: String, id: UUID = UUID()) -> AskChat {
+    AskChat(id: id, date: .now, turns: [AskChatTurn(question: question, answer: "a")])
+}
+
+@Test func savesChatFirstWithoutDuplicates() {
+    let id = UUID()
+    let older = [makeChat("one"), makeChat("old", id: id), makeChat("two")]
+    let history = saveAskChat(makeChat("new", id: id), in: older, limit: 10)
+    #expect(history.map { getAskChatTitle($0) } == ["new", "one", "two"])
+}
+
+@Test func keepsNewestChatsUpToLimit() {
+    let history = saveAskChat(makeChat("c"), in: [makeChat("b"), makeChat("a")], limit: 2)
+    #expect(history.map { getAskChatTitle($0) } == ["c", "b"])
+}
+
+@Test func skipsEmptyChats() {
+    let empty = AskChat(id: UUID(), date: .now, turns: [])
+    #expect(saveAskChat(empty, in: [makeChat("a")], limit: 5).count == 1)
+}
+
+@Test func titlesChatOnOneShortLine() {
+    #expect(getAskChatTitle(makeChat("line one\nline two")) == "line one line two")
+    #expect(getAskChatTitle(makeChat("abcdefghij"), maxLength: 5) == "abcd…")
+}
+
+@Test func groupsChatsByDay() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = .gmt
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    #expect(getAskChatGroupTitle(now.addingTimeInterval(-60), now: now, calendar: calendar) == "Today")
+    #expect(getAskChatGroupTitle(now.addingTimeInterval(-86_400), now: now, calendar: calendar) == "Yesterday")
+    #expect(getAskChatGroupTitle(now.addingTimeInterval(-3 * 86_400), now: now, calendar: calendar) == "Earlier")
+}

@@ -20,6 +20,9 @@ extension NotchWidget {
 }
 
 private let answerStyleKey = "ask.answerStyle"
+private let keepsHistoryKey = "ask.keepsHistory"
+private let historySizeKey = "ask.historySize"
+private let defaultHistorySize = 20
 let showsAskOnHomeKey = "home.showsAsk"
 
 private func getAskUnavailableReason() -> AskUnavailableReason? {
@@ -43,6 +46,10 @@ private struct AskTurn: Identifiable {
     var failure: String?
 }
 
+private func readSetting<Value>(_ key: String, default defaultValue: Value) -> Value {
+    UserDefaults.standard.object(forKey: key) as? Value ?? defaultValue
+}
+
 /// Lives for the whole app run, so a half-typed question and the chat survive the notch closing.
 @available(macOS 26, *)
 @Observable private final class AskStore {
@@ -51,8 +58,18 @@ private struct AskTurn: Identifiable {
     private(set) var turns: [AskTurn] = []
     private(set) var note: String?
     private(set) var isResponding = false
+    private(set) var history: [AskChat] = []
+    private var chatID = UUID()
     private var session: LanguageModelSession?
     private var task: Task<Void, Never>?
+    private let directory = URL.applicationSupportDirectory.appending(path: "CocoNotch/Ask")
+    private var historyURL: URL { directory.appending(path: "history.json") }
+
+    init() {
+        if let data = try? Data(contentsOf: historyURL) {
+            history = (try? JSONDecoder().decode([AskChat].self, from: data)) ?? []
+        }
+    }
 
     func send() {
         guard !isResponding, let question = getAskQuestion(draft) else { return }
@@ -63,6 +80,7 @@ private struct AskTurn: Identifiable {
         task = Task {
             await answer(question, canRetry: true)
             isResponding = false
+            saveChat()
         }
     }
 
@@ -75,6 +93,43 @@ private struct AskTurn: Identifiable {
         session = nil
         turns = []
         note = nil
+        chatID = UUID()
+    }
+
+    /// Reopens a saved chat; the session is rebuilt from it, so follow-ups know what was said.
+    func open(_ chat: AskChat) {
+        startNewChat()
+        chatID = chat.id
+        turns = chat.turns.map { AskTurn(question: $0.question, answer: $0.answer) }
+        session = LanguageModelSession(transcript: makeTranscript(chat.turns))
+    }
+
+    func clearHistory() {
+        history = []
+        try? FileManager.default.removeItem(at: historyURL)
+    }
+
+    private func saveChat() {
+        guard readSetting(keepsHistoryKey, default: true) else { return }
+        let answered = turns.filter { $0.failure == nil && !$0.answer.isEmpty }
+        let chat = AskChat(
+            id: chatID, date: .now, turns: answered.map { AskChatTurn(question: $0.question, answer: $0.answer) })
+        history = saveAskChat(chat, in: history, limit: readSetting(historySizeKey, default: defaultHistorySize))
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(history) { try? data.write(to: historyURL) }
+    }
+
+    private func makeTranscript(_ turns: [AskChatTurn]) -> Transcript {
+        let instructions = Transcript.Instructions(
+            segments: [.text(.init(content: makeInstructions()))], toolDefinitions: [])
+        return Transcript(
+            entries: [.instructions(instructions)]
+                + turns.flatMap { turn -> [Transcript.Entry] in
+                    [
+                        .prompt(Transcript.Prompt(segments: [.text(.init(content: turn.question))])),
+                        .response(Transcript.Response(assetIDs: [], segments: [.text(.init(content: turn.answer))])),
+                    ]
+                })
     }
 
     private func answer(_ question: String, canRetry: Bool) async {
@@ -86,7 +141,6 @@ private struct AskTurn: Identifiable {
             }
         } catch LanguageModelSession.GenerationError.exceededContextWindowSize where canRetry {
             self.session = nil
-            turns = turns.suffix(1)
             note = askContextResetNote
             await answer(question, canRetry: false)
         } catch LanguageModelSession.GenerationError.guardrailViolation {
@@ -100,8 +154,11 @@ private struct AskTurn: Identifiable {
     }
 
     private func makeSession() -> LanguageModelSession {
-        let style = UserDefaults.standard.string(forKey: answerStyleKey).flatMap(AskAnswerStyle.init) ?? .brief
-        return LanguageModelSession(instructions: makeAskInstructions(style: style))
+        LanguageModelSession(instructions: makeInstructions())
+    }
+
+    private func makeInstructions() -> String {
+        makeAskInstructions(style: AskAnswerStyle(rawValue: readSetting(answerStyleKey, default: "")) ?? .brief)
     }
 
     private func setLastAnswer(_ answer: String) {
@@ -124,7 +181,10 @@ private struct AskView: View {
     @Bindable private var store = AskStore.shared
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
+            if !store.history.isEmpty || !store.turns.isEmpty {
+                header
+            }
             if store.turns.isEmpty {
                 AskEmptyState()
             } else {
@@ -150,21 +210,63 @@ private struct AskView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollIndicators(.never)
-            .frame(height: 200)
-            .overlay(alignment: .topTrailing) {
+            .frame(height: 180)
+            .onChange(of: store.turns.last?.answer) { proxy.scrollTo("end", anchor: .bottom) }
+        }
+    }
+}
+
+@available(macOS 26, *)
+extension AskView {
+    private var header: some View {
+        HStack(spacing: 6) {
+            Spacer()
+            if !store.history.isEmpty {
+                Menu {
+                    let now = Date.now
+                    let groups = Dictionary(grouping: store.history) { getAskChatGroupTitle($0.date, now: now) }
+                    ForEach(["Today", "Yesterday", "Earlier"], id: \.self) { title in
+                        if let chats = groups[title] {
+                            Section(title) {
+                                ForEach(chats) { chat in
+                                    Button(getAskChatTitle(chat)) { store.open(chat) }
+                                }
+                            }
+                        }
+                    }
+                    Divider()
+                    Button("Clear History", role: .destructive, action: store.clearHistory)
+                } label: {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                        .modifier(AskPill())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Open a past chat")
+            }
+            if !store.turns.isEmpty {
                 Button(action: store.startNewChat) {
                     Label("New Chat", systemImage: "square.and.pencil")
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                        .modifier(AskPill())
                 }
                 .buttonStyle(.plain)
                 .help("Start a new chat")
             }
-            .onChange(of: store.turns.last?.answer) { proxy.scrollTo("end", anchor: .bottom) }
         }
+    }
+}
+
+private struct AskPill: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.primary.opacity(0.07), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+            .contentShape(Capsule())
     }
 }
 
@@ -194,6 +296,8 @@ private struct AskComposer: View {
     let stop: () -> Void
     var showsMark = false
     @FocusState private var isFocused: Bool
+    // One line of the field with its padding, so the mark and button sit level with the last line.
+    private let lineHeight: CGFloat = 22
 
     var body: some View {
         let canSend = getAskQuestion(draft) != nil
@@ -201,7 +305,7 @@ private struct AskComposer: View {
             if showsMark {
                 Image(systemName: "sparkles")
                     .foregroundStyle(intelligenceGradient)
-                    .padding(.bottom, 5)
+                    .frame(height: lineHeight)
             }
             TextField("Ask anything…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -223,6 +327,7 @@ private struct AskComposer: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .font(.system(size: 20))
+            .frame(height: lineHeight)
             .foregroundStyle(isResponding || canSend ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary))
             .disabled(!isResponding && !canSend)
             .help(isResponding ? "Stop answering" : "Send")
@@ -243,8 +348,8 @@ private struct AskComposer: View {
 
 private let appleIntelligenceSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")
 
-/// A field for Home that always starts a new chat: sending opens the Ask tab, where the answer streams in, or the warning when Apple
-/// Intelligence is off, keeping the question for later.
+/// A field for Home that always starts a new chat: sending opens the Ask tab, where the answer streams in, or the
+/// warning when Apple Intelligence is off, keeping the question for later.
 @available(macOS 26, *)
 struct AskShortcut: View {
     @Bindable private var store = AskStore.shared
@@ -322,6 +427,8 @@ private struct AskTurnView: View {
 private struct AskSettings: View {
     @AppStorage(answerStyleKey) private var answerStyle = AskAnswerStyle.brief
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
+    @AppStorage(keepsHistoryKey) private var keepsHistory = true
+    @AppStorage(historySizeKey) private var historySize = defaultHistorySize
 
     var body: some View {
         Form {
@@ -346,6 +453,20 @@ private struct AskSettings: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            }
+            Section("History") {
+                Toggle("Keep past chats", isOn: $keepsHistory)
+                Picker("Chats to keep", selection: $historySize) {
+                    ForEach([10, 20, 50, 100], id: \.self) { Text("\($0)").tag($0) }
+                }
+                .disabled(!keepsHistory)
+                if #available(macOS 26, *) {
+                    Button("Clear History", role: .destructive) { AskStore.shared.clearHistory() }
+                        .disabled(AskStore.shared.history.isEmpty)
+                }
+                Text("Chats are saved on this Mac only. A smaller limit applies from the next saved chat.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
