@@ -20,9 +20,22 @@ private struct HomeView: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
+    @AppStorage(showsMusicKey) private var showsMusic = true
     @State private var dropTargetID: String?
 
     var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if showsMusic {
+                NowPlayingPanel()
+                    .frame(width: 160)
+            }
+            cards
+        }
+        // Lets the music panel stretch to the cards' height.
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var cards: some View {
         let widgets = getHomeSummaryIDs(
             getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)),
             summaryIDs: NotchWidget.summaryIDs,
@@ -104,6 +117,7 @@ private struct SummaryCard: View {
 struct HomeSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(hiddenSummaryIDsKey) private var storedHiddenIDs = ""
+    @AppStorage(showsMusicKey) private var showsMusic = true
 
     var body: some View {
         Form {
@@ -123,6 +137,9 @@ struct HomeSettings: View {
                             .padding(.leading, 24)
                     }
                 }
+            }
+            Section("Music") {
+                Toggle("Show what's playing in Music or Spotify", isOn: $showsMusic)
             }
         }
         .formStyle(.grouped)

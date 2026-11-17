@@ -190,6 +190,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "CocoNotch shows and controls what's playing in Music and Spotify.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "CocoNotch shows your upcoming meetings and their join links in the notch.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "CocoNotch shows a preview of your camera so you can check how you look before a call.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "CocoNotch shows the weather where you are.";
@@ -220,6 +221,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "CocoNotch shows and controls what's playing in Music and Spotify.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "CocoNotch shows your upcoming meetings and their join links in the notch.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "CocoNotch shows a preview of your camera so you can check how you look before a call.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "CocoNotch shows the weather where you are.";
