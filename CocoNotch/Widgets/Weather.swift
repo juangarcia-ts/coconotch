@@ -482,7 +482,7 @@ private struct WeatherProblemView: View {
     }
 }
 
-/// The notch's city search, styled like the Clipboard and Shelf search bars.
+/// The city search in the notch prompt and in Settings, styled like the Clipboard and Shelf search bars.
 private struct CitySearch<Accessory: View>: View {
     let onPick: (WeatherPlace) -> Void
     @ViewBuilder var accessory: Accessory
@@ -501,7 +501,7 @@ private struct CitySearch<Accessory: View>: View {
                         .foregroundStyle(.secondary)
                     TextField("Search for a city", text: $query)
                         .textFieldStyle(.plain)
-                        .onSubmit { selected.map(onPick) }
+                        .onSubmit { selected.map(pick) }
                         .onKeyPress(.downArrow) { select(offset: 1, in: shown, from: selected) }
                         .onKeyPress(.upArrow) { select(offset: -1, in: shown, from: selected) }
                 }
@@ -514,7 +514,7 @@ private struct CitySearch<Accessory: View>: View {
                 ForEach(shown) { place in
                     CityRow(place: place, isSelected: place.id == selected?.id)
                         .onHover { if $0 { selectedID = place.id } }
-                        .onTapGesture { onPick(place) }
+                        .onTapGesture { pick(place) }
                 }
             }
         }
@@ -525,6 +525,11 @@ private struct CitySearch<Accessory: View>: View {
             guard !Task.isCancelled else { return }
             results = await WeatherStore.searchPlaces(query)
         }
+    }
+
+    private func pick(_ place: WeatherPlace) {
+        onPick(place)
+        query = ""
     }
 
     private func select(offset: Int, in places: [WeatherPlace], from selected: WeatherPlace?) -> KeyPress.Result {
@@ -631,8 +636,6 @@ private struct WeatherSettings: View {
     @AppStorage(refreshMinutesKey) private var refreshMinutes = defaultRefreshMinutes
     @AppStorage(showsRainHeadsUpKey) private var showsRainHeadsUp = false
     @AppStorage(rainThresholdKey) private var rainThreshold = defaultRainThreshold
-    @State private var query = ""
-    @State private var results: [WeatherPlace] = []
     private let store = WeatherStore.shared
 
     var body: some View {
@@ -653,14 +656,7 @@ private struct WeatherSettings: View {
                     if let place = decodeWeatherPlace(storedPlace) {
                         LabeledContent("City", value: formatPlaceTitle(place))
                     }
-                    TextField("Search for a city", text: $query)
-                    ForEach(results) { place in
-                        Button(formatPlaceTitle(place)) {
-                            storedPlace = encodeWeatherPlace(place)
-                            query = ""
-                        }
-                        .buttonStyle(.borderless)
-                    }
+                    CitySearch(onPick: { storedPlace = encodeWeatherPlace($0) }) { EmptyView() }
                 }
             }
             Section("Units") {
@@ -707,12 +703,6 @@ private struct WeatherSettings: View {
             }
         }
         .formStyle(.grouped)
-        .task(id: query) {
-            // Waits for a pause in typing, so each keystroke doesn't send a search.
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            results = await WeatherStore.searchPlaces(query)
-        }
         .onChange(of: locationMode) { store.refresh() }
         .onChange(of: storedPlace) { store.refresh() }
         .onChange(of: temperatureUnit) { store.refresh() }
