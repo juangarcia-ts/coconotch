@@ -95,3 +95,40 @@ public func formatBytes(_ bytes: UInt64, isMemory: Bool, locale: Locale = .curre
 public func formatTimeRemaining(minutes: Int) -> String {
     "\(minutes / 60):\(String(format: "%02d", minutes % 60))"
 }
+
+public enum MemoryPressure: Equatable, Sendable {
+    case normal, warning, critical
+}
+
+/// Reads `kern.memorystatus_vm_pressure_level`, the level Activity Monitor colors its pressure graph by.
+public func parseMemoryPressure(level: Int32) -> MemoryPressure? {
+    switch level {
+    case 1: .normal
+    case 2: .warning
+    case 4: .critical
+    default: nil
+    }
+}
+
+public func getMemoryPressureLabel(_ pressure: MemoryPressure) -> String {
+    switch pressure {
+    case .normal: "Normal"
+    case .warning: "Warning"
+    case .critical: "Critical"
+    }
+}
+
+/// How full memory is from the kernel's view, from `kern.memorystatus_level` (the percent it can still hand out).
+public func getMemoryPressureFraction(freePercent: Int32) -> Double {
+    1 - Double(min(max(freePercent, 0), 100)) / 100
+}
+
+/// How many samples cover `spanSeconds`, plus the one at the start.
+public func getHistoryLimit(sampleSeconds: Int, spanSeconds: Int) -> Int {
+    max(spanSeconds / max(sampleSeconds, 1), 1) + 1
+}
+
+/// Adds the newest sample, dropping the oldest past `limit`.
+public func appendHistory(_ history: [Double], _ value: Double, limit: Int) -> [Double] {
+    Array((history + [value]).suffix(limit))
+}

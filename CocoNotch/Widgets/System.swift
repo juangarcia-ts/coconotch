@@ -1,3 +1,4 @@
+import Charts
 import CocoNotchCore
 import Darwin
 import IOKit.ps
@@ -19,12 +20,14 @@ private let showsMemoryKey = "system.showsMemory"
 private let showsDiskKey = "system.showsDisk"
 private let showsBatteryKey = "system.showsBattery"
 private let sampleSecondsKey = "system.sampleSeconds"
+private let showsGraphsKey = "system.showsGraphs"
 private let showsLowBatteryHeadsUpKey = "system.showsLowBatteryHeadsUp"
 private let lowBatteryThresholdKey = "system.lowBatteryThreshold"
 
 private let defaultSampleSeconds = 3
 private let defaultLowBatteryThreshold = 20
 private let lowBatteryActivityID = "system.lowBattery"
+private let graphSpanSeconds = 60
 
 private func readSetting<Value>(_ key: String, default defaultValue: Value) -> Value {
     UserDefaults.standard.object(forKey: key) as? Value ?? defaultValue
@@ -82,6 +85,12 @@ private func readDisk() -> (free: UInt64, total: UInt64)? {
     return (UInt64(clamping: free), UInt64(clamping: total))
 }
 
+private func readSysctl(_ name: String) -> Int32? {
+    var value: Int32 = 0
+    var size = MemoryLayout<Int32>.size
+    return sysctlbyname(name, &value, &size, nil, 0) == 0 ? value : nil
+}
+
 /// nil on a Mac without a battery.
 private func readBattery() -> BatteryStatus? {
     let info = IOPSCopyPowerSourcesInfo().takeRetainedValue()
@@ -98,10 +107,15 @@ final class SystemStore {
 
     private(set) var cpuUsage: Double?
     private(set) var memoryUsed: UInt64?
+    private(set) var memoryPressure: MemoryPressure?
+    private(set) var memoryPressureFraction: Double?
+    private(set) var cpuHistory: [Double] = []
+    private(set) var memoryHistory: [Double] = []
     let memoryTotal = ProcessInfo.processInfo.physicalMemory
     private(set) var disk: (free: UInt64, total: UInt64)?
     private(set) var battery: BatteryStatus?
     @ObservationIgnored private var lastTicks: CPUTicks?
+    @ObservationIgnored private var sampledAt: Date?
     @ObservationIgnored private var batterySource: CFRunLoopSource?
 
     func start() {
@@ -119,10 +133,17 @@ final class SystemStore {
 
     /// Runs while the calling view is visible, sampling on the user's interval.
     func sampleWhileVisible() async {
-        lastTicks = nil
-        cpuUsage = nil
-        // A quick second sample, so CPU doesn't read "–" for a whole interval.
-        var delay = 0.25
+        let sampleSeconds = readSetting(sampleSecondsKey, default: defaultSampleSeconds)
+        // Switching between Home and the tab keeps the graphs; after a longer gap they would join unrelated stretches.
+        var delay = Double(sampleSeconds)
+        if isStale(updatedAt: sampledAt, now: .now, maxAge: Double(sampleSeconds * 2 + 1)) {
+            lastTicks = nil
+            cpuUsage = nil
+            cpuHistory = []
+            memoryHistory = []
+            // A quick second sample, so CPU doesn't read "–" for a whole interval.
+            delay = 0.25
+        }
         while !Task.isCancelled {
             sample()
             try? await Task.sleep(for: .seconds(delay))
@@ -132,12 +153,28 @@ final class SystemStore {
 
     private func sample() {
         if let ticks = readCPUTicks() {
-            if let lastTicks { cpuUsage = getCPUUsage(from: lastTicks, to: ticks) ?? cpuUsage }
+            if let lastTicks, let usage = getCPUUsage(from: lastTicks, to: ticks) {
+                cpuUsage = usage
+                cpuHistory = appendHistory(cpuHistory, usage, limit: historyLimit)
+            }
             lastTicks = ticks
         }
         memoryUsed = readMemoryUsed()
+        memoryPressure = readSysctl("kern.memorystatus_vm_pressure_level").flatMap { parseMemoryPressure(level: $0) }
+        memoryPressureFraction = readSysctl("kern.memorystatus_level").map {
+            getMemoryPressureFraction(freePercent: $0)
+        }
+        if let memoryPressureFraction {
+            memoryHistory = appendHistory(memoryHistory, memoryPressureFraction, limit: historyLimit)
+        }
+        sampledAt = .now
         disk = readDisk()
         battery = readBattery()
+    }
+
+    var historyLimit: Int {
+        getHistoryLimit(
+            sampleSeconds: readSetting(sampleSecondsKey, default: defaultSampleSeconds), spanSeconds: graphSpanSeconds)
     }
 
     private func updateBattery() {
@@ -195,8 +232,20 @@ private struct Metric: Identifiable {
     let value: String
     let fraction: Double?
     let detail: String
-    /// What the Home card shows when it differs from `value`, such as memory as a percent.
+    /// What the Home card shows when it differs from `value`.
     var shortValue: String? = nil
+    /// The last minute, oldest first; empty means the metric has no graph.
+    var history: [Double] = []
+    /// Set when the color carries meaning, such as memory pressure.
+    var tint: Color?
+}
+
+private func getPressureColor(_ pressure: MemoryPressure) -> Color {
+    switch pressure {
+    case .normal: .green
+    case .warning: .yellow
+    case .critical: .red
+    }
 }
 
 /// The metrics the user switched on, in a fixed order, from the store's latest sample.
@@ -208,16 +257,18 @@ private func makeMetrics(
         metrics.append(
             Metric(
                 id: "cpu", title: "CPU", symbol: "cpu", value: store.cpuUsage.map(formatPercent) ?? "–",
-                fraction: store.cpuUsage, detail: "\(ProcessInfo.processInfo.activeProcessorCount) cores"))
+                fraction: store.cpuUsage, detail: "\(ProcessInfo.processInfo.activeProcessorCount) cores",
+                history: store.cpuHistory))
     }
     if showsMemory {
-        let fraction = store.memoryUsed.map { Double($0) / Double(max(store.memoryTotal, 1)) }
+        let used = store.memoryUsed.map { "\(formatBytes($0, isMemory: true)) of " } ?? ""
+        let pressure = store.memoryPressure
         metrics.append(
             Metric(
                 id: "memory", title: "Memory", symbol: "memorychip",
-                value: store.memoryUsed.map { formatBytes($0, isMemory: true) } ?? "–", fraction: fraction,
-                detail: "of \(formatBytes(store.memoryTotal, isMemory: true))", shortValue: fraction.map(formatPercent))
-        )
+                value: pressure.map(getMemoryPressureLabel) ?? "–", fraction: store.memoryPressureFraction,
+                detail: "\(used)\(formatBytes(store.memoryTotal, isMemory: true))", history: store.memoryHistory,
+                tint: pressure.map(getPressureColor)))
     }
     if showsDisk, let disk = store.disk {
         metrics.append(
@@ -240,6 +291,7 @@ private struct SystemView: View {
     @AppStorage(showsMemoryKey) private var showsMemory = true
     @AppStorage(showsDiskKey) private var showsDisk = true
     @AppStorage(showsBatteryKey) private var showsBattery = true
+    @AppStorage(showsGraphsKey) private var showsGraphs = true
     private let store = SystemStore.shared
 
     var body: some View {
@@ -261,8 +313,15 @@ private struct SystemView: View {
                             Text(metric.value)
                                 .font(.title2.weight(.semibold).monospacedDigit())
                                 .lineLimit(1)
-                            ProgressView(value: metric.fraction ?? 0)
-                                .progressViewStyle(.linear)
+                            if showsGraphs, !metric.history.isEmpty {
+                                Sparkline(
+                                    values: metric.history, limit: store.historyLimit, tint: metric.tint ?? .accentColor
+                                )
+                            } else {
+                                ProgressView(value: metric.fraction ?? 0)
+                                    .progressViewStyle(.linear)
+                                    .tint(metric.tint ?? .accentColor)
+                            }
                             Text(metric.detail)
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.tertiary)
@@ -276,6 +335,29 @@ private struct SystemView: View {
             }
         }
         .task { await store.sampleWhileVisible() }
+    }
+}
+
+/// The last minute as a filled line; new samples enter on the right, so a short history starts mid-way.
+private struct Sparkline: View {
+    let values: [Double]
+    let limit: Int
+    let tint: Color
+
+    var body: some View {
+        let offset = max(limit - values.count, 0)
+        Chart(Array(values.enumerated()), id: \.offset) { index, value in
+            AreaMark(x: .value("Time", offset + index), y: .value("Usage", value))
+                .foregroundStyle(tint.opacity(0.25))
+            LineMark(x: .value("Time", offset + index), y: .value("Usage", value))
+                .foregroundStyle(tint)
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
+        }
+        .chartXScale(domain: 0...max(limit - 1, 1))
+        .chartYScale(domain: 0...1)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 28)
     }
 }
 
@@ -310,7 +392,7 @@ private struct SystemSummary: View {
             Text(metric.shortValue ?? metric.value)
         } icon: {
             Image(systemName: metric.symbol)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(metric.tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
         }
         .font(.callout.monospacedDigit())
         .lineLimit(1)
@@ -325,6 +407,7 @@ private struct SystemSettings: View {
     @AppStorage(showsDiskKey) private var showsDisk = true
     @AppStorage(showsBatteryKey) private var showsBattery = true
     @AppStorage(sampleSecondsKey) private var sampleSeconds = defaultSampleSeconds
+    @AppStorage(showsGraphsKey) private var showsGraphs = true
     @AppStorage(showsLowBatteryHeadsUpKey) private var showsLowBatteryHeadsUp = true
     @AppStorage(lowBatteryThresholdKey) private var lowBatteryThreshold = defaultLowBatteryThreshold
     private let store = SystemStore.shared
@@ -336,6 +419,7 @@ private struct SystemSettings: View {
                 Toggle("Memory", isOn: $showsMemory)
                 Toggle("Disk", isOn: $showsDisk)
                 Toggle("Battery", isOn: $showsBattery)
+                Toggle("Graph the last minute of CPU and memory pressure", isOn: $showsGraphs)
             }
             Section {
                 Picker("Update every", selection: $sampleSeconds) {

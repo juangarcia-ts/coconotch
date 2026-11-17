@@ -52,3 +52,20 @@ import Testing
     #expect(formatTimeRemaining(minutes: 65) == "1:05")
     #expect(formatTimeRemaining(minutes: 600) == "10:00")
 }
+
+@Test func readsMemoryPressure() {
+    #expect(parseMemoryPressure(level: 1) == .normal)
+    #expect(parseMemoryPressure(level: 2) == .warning)
+    #expect(parseMemoryPressure(level: 4) == .critical)
+    #expect(parseMemoryPressure(level: 0) == nil)
+    #expect(getMemoryPressureLabel(.warning) == "Warning")
+    #expect(getMemoryPressureFraction(freePercent: 44) == 0.56)
+    #expect(getMemoryPressureFraction(freePercent: 120) == 0)
+}
+
+@Test func keepsAMinuteOfHistory() {
+    #expect(getHistoryLimit(sampleSeconds: 3, spanSeconds: 60) == 21)
+    #expect(getHistoryLimit(sampleSeconds: 0, spanSeconds: 60) == 61)
+    #expect(appendHistory([0.1, 0.2, 0.3], 0.4, limit: 3) == [0.2, 0.3, 0.4])
+    #expect(appendHistory([], 0.5, limit: 3) == [0.5])
+}
