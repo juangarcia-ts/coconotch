@@ -187,6 +187,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C0C0000000000000000000D0 /* Signing.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -219,6 +220,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C0C0000000000000000000D0 /* Signing.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
