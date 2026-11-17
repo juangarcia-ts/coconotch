@@ -33,3 +33,12 @@ public func formatAppVersion(_ version: String?) -> String? {
 public func getWidgetMaxHeight(panelHeight: Double, tabBarHeight: Double, footerHeight: Double) -> Double {
     max(panelHeight - tabBarHeight - footerHeight, 0)
 }
+
+/// The digit that picks the tab at `index` with Command: 1–9, then 0 for the tenth, like the number row; nil after that.
+public func getTabShortcutDigit(index: Int) -> Character? {
+    switch index {
+    case 0..<9: Character(String(index + 1))
+    case 9: "0"
+    default: nil
+    }
+}

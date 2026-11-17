@@ -51,3 +51,11 @@ func countsHomeColumns(cardCount: Int, maxColumns: Int, expected: Int) {
     #expect(getWidgetMaxHeight(panelHeight: 300, tabBarHeight: 40, footerHeight: 26) == 234)
     #expect(getWidgetMaxHeight(panelHeight: 50, tabBarHeight: 40, footerHeight: 26) == 0)
 }
+
+@Test func tabShortcutDigitsFollowTheNumberRow() {
+    #expect(getTabShortcutDigit(index: 0) == "1")
+    #expect(getTabShortcutDigit(index: 8) == "9")
+    #expect(getTabShortcutDigit(index: 9) == "0")
+    #expect(getTabShortcutDigit(index: 10) == nil)
+    #expect(getTabShortcutDigit(index: -1) == nil)
+}

@@ -4,7 +4,7 @@ import SwiftUI
 final class NotchPanel: NSPanel {
     // The most the expanded notch may take at 100% size; NotchView clips taller content. Clicks on the transparent
     // area fall through to the menu bar.
-    static let baseSize = NSSize(width: 640, height: 400)
+    static let baseSize = NSSize(width: 720, height: 400)
 
     private let showSettings: () -> Void
     private var placedScreenFrame: NSRect?

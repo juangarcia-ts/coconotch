@@ -13,7 +13,7 @@ extension NotchWidget {
 
 // Stores hidden summaries rather than shown ones, so widgets added later appear on Home by default.
 private let hiddenSummaryIDsKey = "home.hiddenSummaryIDs"
-// Two keeps every card wide enough for its content in the 600pt panel.
+// Two keeps every card wide enough for its content in the 680pt panel.
 private let maxColumns = 2
 
 private struct HomeView: View {

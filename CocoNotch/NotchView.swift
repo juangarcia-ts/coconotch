@@ -24,6 +24,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
+    @AppStorage(PreferenceKey.showsTabShortcuts) private var showsTabShortcuts = true
     @State private var isHovering = false
     /// Whether a drag opened the notch, so it closes again if the drag leaves without dropping.
     @State private var isOpenedByDrag = false
@@ -139,7 +140,7 @@ struct NotchView: View {
         }
         // Expanded, the height follows the widget's content; with an activity, the closed notch widens to fit it.
         .frame(
-            width: isExpanded ? 600 : (island == nil ? notchSize.width : nil),
+            width: isExpanded ? 680 : (island == nil ? notchSize.width : nil),
             height: isExpanded || isAlerting ? nil : notchSize.height
         )
         .fixedSize(horizontal: island != nil, vertical: isExpanded || isAlerting)
@@ -191,6 +192,8 @@ struct NotchView: View {
     private func setExpanded(_ isExpanded: Bool) {
         // A click into a text field makes the panel key; closing gives the keyboard back to the app the user was in.
         if !isExpanded, NSApp.keyWindow is NotchPanel { NSWorkspace.shared.frontmostApplication?.activate() }
+        // Opening takes the keyboard so tab shortcuts reach the notch instead of the app underneath.
+        if isExpanded { NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey() }
         withAnimation(.spring(duration: 0.35, bounce: 0.2)) { self.isExpanded = isExpanded }
     }
 
@@ -202,7 +205,8 @@ struct NotchView: View {
     private func expandedContent(activities: [NotchActivity]) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
-                ForEach(enabledWidgets) { widget in
+                ForEach(Array(enabledWidgets.enumerated()), id: \.element.id) { index, widget in
+                    let digit = getTabShortcutDigit(index: index)
                     Button {
                         selectedWidgetID = widget.id
                     } label: {
@@ -217,6 +221,14 @@ struct NotchView: View {
                                         .padding(6)
                                 }
                             }
+                            .overlay(alignment: .bottom) {
+                                if showsTabShortcuts, let digit {
+                                    Text(verbatim: "⌘\(digit)")
+                                        .font(.system(size: 8).monospacedDigit())
+                                        .foregroundStyle(.tertiary)
+                                        .offset(y: 9)
+                                }
+                            }
                             .background(
                                 widget.id == selectedWidget.id ? Color.primary.opacity(0.15) : .clear,
                                 in: Capsule()
@@ -224,7 +236,9 @@ struct NotchView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .help(widget.title)
+                    // Works once the notch has keyboard focus, so typing in other apps never switches tabs.
+                    .keyboardShortcut(digit.map { KeyboardShortcut(KeyEquivalent($0), modifiers: .command) })
+                    .help(digit.map { "\(widget.title) (⌘\($0))" } ?? widget.title)
                     .background(
                         Capsule().strokeBorder(
                             Color.primary.opacity(dropTargetID == widget.id ? 0.35 : 0), lineWidth: 1)
@@ -259,7 +273,7 @@ struct NotchView: View {
 
             selectedWidget.makeView()
                 .padding(.horizontal, 24)
-                .padding(.top, 12)
+                .padding(.top, 20)
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
                 // A tall widget is cut here rather than pushing the footer past the panel's edge.

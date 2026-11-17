@@ -90,6 +90,7 @@ private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
+    @AppStorage(PreferenceKey.showsTabShortcuts) private var showsTabShortcuts = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
 
@@ -105,6 +106,7 @@ private struct GeneralSettings: View {
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
             Toggle("Show live activities in the closed notch", isOn: $showsActivities)
+            Toggle("Show tab shortcuts (⌘1, ⌘2, …) under the tab icons", isOn: $showsTabShortcuts)
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.

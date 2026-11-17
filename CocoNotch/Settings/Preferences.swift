@@ -19,6 +19,7 @@ enum PreferenceKey {
     /// A widget ID whose activity always wins the closed notch, or "" to rank them automatically.
     static let preferredActivityWidget = "behavior.preferredActivityWidget"
     static let staysOpenWhileTyping = "behavior.staysOpenWhileTyping"
+    static let showsTabShortcuts = "behavior.showsTabShortcuts"
 }
 
 extension Color.Resolved {
