@@ -28,3 +28,20 @@ func rejectsNothingPlaying(output: String) {
     #expect(pickNowPlaying([paused]) == paused)
     #expect(pickNowPlaying([]) == nil)
 }
+
+@Test func parsesAlbumPositionAndDuration() {
+    let track = parseNowPlaying("playing\tSo What\tMiles Davis\t\tKind of Blue\t12,5\t545\t40", player: "Music")
+    #expect(track?.album == "Kind of Blue")
+    #expect(track?.position == 12.5)
+    #expect(track?.duration == 545)
+    #expect(track?.volume == 40)
+}
+
+@Test func countsPlaybackOnFromTheLastRead() {
+    let readAt = Date(timeIntervalSince1970: 0)
+    let playing = NowPlaying(player: "Music", title: "A", artist: "", position: 10, duration: 12, isPlaying: true)
+    #expect(getPlaybackPosition(playing, readAt: readAt, now: readAt.addingTimeInterval(1.5)) == 11.5)
+    #expect(getPlaybackPosition(playing, readAt: readAt, now: readAt.addingTimeInterval(5)) == 12)
+    let paused = NowPlaying(player: "Music", title: "A", artist: "", position: 10, isPlaying: false)
+    #expect(getPlaybackPosition(paused, readAt: readAt, now: readAt.addingTimeInterval(5)) == 10)
+}
