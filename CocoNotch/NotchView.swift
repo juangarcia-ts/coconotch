@@ -80,7 +80,9 @@ struct NotchView: View {
         // Only the open panel scales; the closed notch has to match the physical one exactly.
         let scale = isExpanded ? getAppliedNotchScale(storedNotchScale) : 1
         let activities = rankedActivities
-        let alertKey = activities.first.flatMap { $0.makeAlert == nil ? nil : makeAlertKey($0.summary) }
+        let alertKey = activities.first.flatMap {
+            $0.makeAlert == nil ? nil : makeAlertKey($0.summary, isSticky: $0.isAlertSticky)
+        }
         // Opening the notch would hide a sticky alert's buttons, so hover and click leave it closed.
         let isStickyAlertShowing = alertKey != nil && alertKey == alertingKey && activities.first?.isAlertSticky == true
 
