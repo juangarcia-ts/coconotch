@@ -293,17 +293,6 @@ private struct ClipboardView: View {
             .padding(.trailing, 6)
             .padding(.vertical, 6)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
-            if pastesIntoApp && !isTrusted {
-                HStack {
-                    Text(
-                        "To paste into the current app, allow CocoNotch in Accessibility. Until then, clicks only copy."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    Button("Open Settings", action: openAccessibilitySettings)
-                        .controlSize(.small)
-                }
-            }
             if let selected {
                 HStack(alignment: .top, spacing: 0) {
                     ScrollViewReader { proxy in
@@ -324,10 +313,11 @@ private struct ClipboardView: View {
                     .frame(width: 220)
                     .padding(.trailing, 12)
                     Divider()
-                    ClipboardDetail(item: selected, pastesIntoApp: pastesIntoApp && isTrusted)
+                    ClipboardDetail(item: selected, pastesIntoApp: pastesIntoApp, isTrusted: isTrusted)
                         .padding(.leading, 16)
                 }
-                .frame(height: 270)
+                // The notch caps a widget at about 290pt, so the search bar and this split must fit in it.
+                .frame(height: 236)
             } else {
                 Text(store.history.isEmpty ? "Copy some text or an image and it shows up here." : "No matches.")
                     .foregroundStyle(.secondary)
@@ -397,11 +387,12 @@ private struct ClipboardRow: View {
 private struct ClipboardDetail: View {
     let item: ClipboardItem
     let pastesIntoApp: Bool
+    let isTrusted: Bool
     private let store = ClipboardStore.shared
 
     var body: some View {
         let image = item.kind == .image ? store.getImage(for: item) : nil
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Group {
                 if let image {
                     Image(nsImage: image.image)
@@ -465,12 +456,19 @@ private struct ClipboardDetail: View {
                 .help(item.isPinned ? "Unpin" : "Pin so it's never dropped")
                 Button("Delete", systemImage: "trash") { store.delete(item) }
                     .help("Delete")
+                if pastesIntoApp && !isTrusted {
+                    Button("Allow Pasting", systemImage: "exclamationmark.triangle", action: openAccessibilitySettings)
+                        .foregroundStyle(.orange)
+                        .help(
+                            "To paste into the current app, allow CocoNotch in Accessibility. Until then, clicks only copy."
+                        )
+                }
                 Spacer()
                 Button {
                     store.copy(item)
                 } label: {
                     HStack(spacing: 6) {
-                        Text(pastesIntoApp ? "Paste to \(getFrontmostAppName())" : "Copy")
+                        Text(pastesIntoApp && isTrusted ? "Paste to \(getFrontmostAppName())" : "Copy")
                         Image(systemName: "return")
                             .font(.caption2.weight(.semibold))
                             .padding(3)
