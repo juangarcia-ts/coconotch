@@ -417,27 +417,33 @@ private struct ShelfView: View {
     var body: some View {
         let shelves = filterShelves(store.shelves, query: query)
         ScrollViewReader { proxy in
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Search shelves and files", text: $query)
-                        .textFieldStyle(.plain)
-                    Button("New Shelf", systemImage: "plus") {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Search shelves and files", text: $query)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                    Button {
                         let id = store.addShelf()
                         query = ""
                         focusedShelfID = id
                         withAnimation { proxy.scrollTo(id) }
+                    } label: {
+                        Label("New Shelf", systemImage: "plus")
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.primary.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                            .contentShape(RoundedRectangle(cornerRadius: 10))
                     }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("New shelf")
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                 ScrollView {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 16) {
                         ForEach(shelves) { shelf in
                             ShelfSection(shelf: shelf, focusedShelfID: $focusedShelfID)
                                 .id(shelf.id)
@@ -449,12 +455,25 @@ private struct ShelfView: View {
                         }
                     }
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
+                    .background(OverlayScroller())
                 }
                 // As tall as the shelves, up to what fits under the search bar in the notch.
                 .frame(height: min(contentHeight, 236))
             }
         }
         .onAppear { store.refresh() }
+    }
+}
+
+/// Switches the enclosing scroll view to thin overlay scrollers, since the always-shown kind is heavy in the notch.
+private struct OverlayScroller: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // The view joins the scroll view only once it's in the window.
+        Task { nsView.enclosingScrollView?.scrollerStyle = .overlay }
     }
 }
 
