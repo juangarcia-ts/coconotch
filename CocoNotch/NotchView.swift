@@ -95,7 +95,9 @@ struct NotchView: View {
         .onHover { isHovering in
             self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
-            if isHovering, !isExpanded, let activity = activities.first { selectedWidgetID = activity.widgetID }
+            if isHovering, !isExpanded, let widgetID = getHoverWidgetID(activities.first?.summary) {
+                selectedWidgetID = widgetID
+            }
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }

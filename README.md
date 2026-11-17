@@ -16,7 +16,7 @@ Open **Settings…** (⌘,) from the menu bar icon:
 
 - **Time Zones**: your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back.
 
-- **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts.
+- **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts. When nothing else is in the closed notch, it shows your next meeting today (you can turn this off).
 
 - **Weather**: current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F.
 
