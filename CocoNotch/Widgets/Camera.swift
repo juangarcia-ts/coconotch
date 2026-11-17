@@ -30,6 +30,7 @@ private func resolveCameraID(pickedID: String, cameras: [AVCaptureDevice]) -> St
 
 /// Owns the capture session. Starting and stopping block, so they run in order on a queue of their own.
 nonisolated private final class CameraSession: @unchecked Sendable {
+    static let shared = CameraSession()
     let previewLayer: AVCaptureVideoPreviewLayer
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "CocoNotch.camera")
@@ -79,7 +80,7 @@ private struct CameraPreview: NSViewRepresentable {
 private struct CameraView: View {
     @AppStorage(pickedIDKey) private var pickedID = ""
     @AppStorage(isMirroredKey) private var isMirrored = true
-    @State private var camera = CameraSession()
+    private let camera = CameraSession.shared
     @State private var status = AVCaptureDevice.authorizationStatus(for: .video)
     @State private var hasCamera = true
 
