@@ -45,11 +45,16 @@ public func canToggleWidget(_ id: String, in preferences: [WidgetPreference]) ->
     return !(enabledIDs == [id])
 }
 
+/// The drop target past the last tab, where a dragged widget moves to the end.
+public let widgetListEndID = "end"
+
 /// Moves a dragged widget onto a target's spot: after it when dragged rightward, before it when dragged leftward,
-/// like reordering a tab bar. Dropping on Home, which isn't in the list and always stays first, moves it to the front.
+/// like reordering a tab bar. Dropping on Home, which isn't in the list and always stays first, moves it to the front;
+/// dropping on `widgetListEndID` moves it to the end.
 public func moveWidget(_ id: String, onto targetID: String, in preferences: [WidgetPreference]) -> [WidgetPreference] {
     guard id != targetID, let from = preferences.firstIndex(where: { $0.id == id }) else { return preferences }
-    let target = preferences.firstIndex { $0.id == targetID } ?? 0
+    let target =
+        targetID == widgetListEndID ? preferences.count - 1 : preferences.firstIndex { $0.id == targetID } ?? 0
     var moved = preferences
     let widget = moved.remove(at: from)
     moved.insert(widget, at: target)

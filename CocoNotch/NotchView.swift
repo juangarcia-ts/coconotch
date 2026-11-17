@@ -172,7 +172,14 @@ struct NotchView: View {
                         delegate: WidgetDropDelegate(targetID: widget.id, dropTargetID: $dropTargetID)
                     )
                 }
-                Spacer()
+                // The empty space after the tabs takes drops too, so a tab can be moved to the end.
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onDrop(
+                        of: [widgetDragType],
+                        delegate: WidgetDropDelegate(targetID: widgetListEndID, dropTargetID: $dropTargetID)
+                    )
                 Button("Settings", systemImage: "gearshape", action: showSettings)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
