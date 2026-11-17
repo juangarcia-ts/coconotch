@@ -19,6 +19,8 @@ Open **Settings…** (⌘,) from the menu bar icon:
 
 - **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts. When nothing else is in the closed notch, it shows your next meeting today (you can turn this off).
 
+- **Timer**: a Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound.
+
 - **Weather**: current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F.
 
 - **AI Usage**: how much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close. Reads the login Claude Code keeps in your Keychain (only after you click Connect) and Codex's local session logs.
