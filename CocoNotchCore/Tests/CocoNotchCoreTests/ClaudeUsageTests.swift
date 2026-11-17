@@ -104,6 +104,23 @@ import Testing
     #expect(getUsagePriority(UsageLimit(kind: "session", percent: 99)) == .normal)
 }
 
+@Test func fallsBackToQuietUsageActivity() {
+    let limit = UsageLimit(kind: "session", percent: 85)
+    #expect(
+        getUsageActivityPriority(limit, showsHeadsUp: true, threshold: 80, isDismissed: false, showsIdle: true)
+            == .normal)
+    #expect(
+        getUsageActivityPriority(limit, showsHeadsUp: true, threshold: 90, isDismissed: false, showsIdle: true) == .low)
+    #expect(
+        getUsageActivityPriority(limit, showsHeadsUp: true, threshold: 80, isDismissed: true, showsIdle: true) == .low)
+    #expect(
+        getUsageActivityPriority(limit, showsHeadsUp: false, threshold: 80, isDismissed: false, showsIdle: true)
+            == .low)
+    #expect(
+        getUsageActivityPriority(limit, showsHeadsUp: true, threshold: 90, isDismissed: false, showsIdle: false)
+            == nil)
+}
+
 @Test func mapsUsageStatusCodes() {
     #expect(getClaudeUsageProblem(statusCode: 200) == nil)
     #expect(getClaudeUsageProblem(statusCode: 401) == .loginExpired)
