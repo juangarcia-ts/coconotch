@@ -85,8 +85,11 @@ struct NotchView: View {
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
+            // Off while Convert is open, so a drag meant for it doesn't switch to the Shelf or land there.
             delegate: ShelfDropDelegate(
-                scope: shelfDropScope, isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id })
+                scope: shelfDropScope,
+                isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id }
+                    && !(isExpanded && selectedWidget.id == NotchWidget.convert.id))
         )
         .onChange(of: ShelfStore.shared.isDropTargeted(scope: shelfDropScope)) { _, isTargeted in
             handleShelfDrag(isTargeted: isTargeted)
