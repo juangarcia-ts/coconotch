@@ -10,15 +10,19 @@ public struct WidgetPreference: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// Reads the saved widget order, keeping only widgets that still exist and adding new ones, enabled, at the end.
+/// Reads the saved widget order, keeping only widgets that still exist and adding new ones, enabled, right after the
+/// widget they follow in the default order, so a widget meant to stay last (like Camera) does.
 /// At least one widget always comes back enabled, even from hand-edited data, so the notch never opens empty.
 public func decodeWidgetPreferences(_ stored: String, availableIDs: [String]) -> [WidgetPreference] {
     let saved = (try? JSONDecoder().decode([WidgetPreference].self, from: Data(stored.utf8))) ?? []
     let available = Set(availableIDs)
     var seenIDs: Set<String> = []
     let kept = saved.filter { available.contains($0.id) && seenIDs.insert($0.id).inserted }
-    let added = availableIDs.filter { !seenIDs.contains($0) }.map { WidgetPreference(id: $0) }
-    var preferences = kept + added
+    var preferences = kept
+    for (index, id) in availableIDs.enumerated() where !seenIDs.contains(id) {
+        let previousIndex = index == 0 ? nil : preferences.firstIndex { $0.id == availableIDs[index - 1] }
+        preferences.insert(WidgetPreference(id: id), at: previousIndex.map { $0 + 1 } ?? 0)
+    }
     if !preferences.isEmpty && !preferences.contains(where: \.isEnabled) {
         preferences[0].isEnabled = true
     }
