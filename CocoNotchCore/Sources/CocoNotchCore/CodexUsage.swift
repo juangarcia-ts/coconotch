@@ -125,6 +125,19 @@ public func getFullestProviderLimit(
     candidates.max { $0.limit.percent < $1.limit.percent }
 }
 
+/// The limit the quiet closed-notch activity shows: the next to reset, such as the 5-hour session, or the fullest.
+public func getIdleProviderLimit(
+    _ candidates: [(provider: AIProvider, limit: UsageLimit)], showsFullest: Bool
+) -> (provider: AIProvider, limit: UsageLimit)? {
+    if !showsFullest,
+        let soonest = candidates.compactMap({ candidate in candidate.limit.resetsAt.map { (candidate, $0) } })
+            .min(by: { $0.1 < $1.1 })
+    {
+        return soonest.0
+    }
+    return getFullestProviderLimit(candidates)
+}
+
 /// Identifies one heads-up state, so dismissing it hides that state only. A new key, and so the heads-up again, comes
 /// with the limit's next reset, or once it is used up and turns urgent.
 public func makeUsageHeadsUpKey(provider: AIProvider, limit: UsageLimit) -> String {

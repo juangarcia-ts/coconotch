@@ -98,3 +98,15 @@ private let sampleLog = """
     #expect(pruneDismissedHeadsUpKeys([claude, expired, noReset], now: now) == [claude, noReset])
     #expect(pruneDismissedHeadsUpKeys([claude], now: now + 3600).isEmpty)
 }
+
+@Test func picksIdleLimitByNextReset() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let candidates: [(provider: AIProvider, limit: UsageLimit)] = [
+        (.claude, UsageLimit(kind: "session", percent: 12, resetsAt: now + 3600)),
+        (.claude, UsageLimit(kind: "weekly_all", percent: 38, resetsAt: now + 3 * 86_400)),
+        (.codex, UsageLimit(kind: "codex_primary", percent: 0)),
+    ]
+    #expect(getIdleProviderLimit(candidates, showsFullest: false)?.limit.kind == "session")
+    #expect(getIdleProviderLimit(candidates, showsFullest: true)?.limit.kind == "weekly_all")
+    #expect(getIdleProviderLimit([candidates[2]], showsFullest: false)?.limit.kind == "codex_primary")
+}

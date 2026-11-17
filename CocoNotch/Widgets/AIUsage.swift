@@ -25,6 +25,7 @@ private let showsHeadsUpKey = "aiUsage.showsHeadsUp"
 private let headsUpThresholdKey = "aiUsage.headsUpThreshold"
 private let showsIdleKey = "aiUsage.showsIdle"
 private let showsNotchResetKey = "aiUsage.showsNotchReset"
+private let idleShowsFullestKey = "aiUsage.idleShowsFullest"
 private let defaultRefreshMinutes = 5
 private let defaultHeadsUpThreshold = 80
 private let headsUpActivityID = "aiUsage.headsUp"
@@ -275,6 +276,16 @@ final class AIUsageStore {
         let isHeadsUp = priority > .low
         headsUpKey = isHeadsUp ? key : nil
         headsUpProvider = isHeadsUp ? provider : nil
+        let display =
+            isHeadsUp
+            ? (provider: provider, limit: limit)
+            : getIdleProviderLimit(candidates, showsFullest: readDefault(idleShowsFullestKey, default: false))
+                ?? (provider: provider, limit: limit)
+        postActivity(display.provider, display.limit, priority: priority, isHeadsUp: isHeadsUp)
+    }
+
+    private func postActivity(_ provider: AIProvider, _ limit: UsageLimit, priority: ActivityPriority, isHeadsUp: Bool)
+    {
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -562,6 +573,7 @@ private struct AIUsageSettings: View {
     @AppStorage(headsUpThresholdKey) private var headsUpThreshold = defaultHeadsUpThreshold
     @AppStorage(showsIdleKey) private var showsIdle = true
     @AppStorage(showsNotchResetKey) private var showsNotchReset = true
+    @AppStorage(idleShowsFullestKey) private var idleShowsFullest = false
     private let store = AIUsageStore.shared
 
     var body: some View {
@@ -627,6 +639,11 @@ private struct AIUsageSettings: View {
                 }
                 .disabled(!showsHeadsUp)
                 Toggle("Show usage in the closed notch when nothing else is", isOn: $showsIdle)
+                Picker("Then show", selection: $idleShowsFullest) {
+                    Text("The next limit to reset").tag(false)
+                    Text("The fullest limit").tag(true)
+                }
+                .disabled(!showsIdle)
                 Toggle("Show when the limit resets in the closed notch", isOn: $showsNotchReset)
             }
         }
@@ -639,6 +656,7 @@ private struct AIUsageSettings: View {
         .onChange(of: headsUpThreshold) { store.updateHeadsUp() }
         .onChange(of: showsIdle) { store.updateHeadsUp() }
         .onChange(of: showsNotchReset) { store.updateHeadsUp() }
+        .onChange(of: idleShowsFullest) { store.updateHeadsUp() }
     }
 
     // Stores hidden kinds rather than shown ones, so limits Claude adds later appear by default.
