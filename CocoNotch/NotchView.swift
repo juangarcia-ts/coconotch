@@ -82,11 +82,9 @@ struct NotchView: View {
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
-            delegate: ShelfDropDelegate(isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id }) {
-                isTargeted, didDrop in
-                handleShelfDrag(isTargeted: isTargeted, didDrop: didDrop)
-            }
+            delegate: ShelfDropDelegate(isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id })
         )
+        .onChange(of: ShelfStore.shared.dropTargetIDs.isEmpty) { _, isEmpty in handleShelfDrag(isTargeted: !isEmpty) }
         .onHover { isHovering in
             self.isHovering = isHovering
             // Opening the notch from an activity shows the widget it came from.
@@ -151,18 +149,25 @@ struct NotchView: View {
         }
     }
 
-    private func handleShelfDrag(isTargeted: Bool, didDrop: Bool) {
+    private func handleShelfDrag(isTargeted: Bool) {
+        let store = ShelfStore.shared
         if isTargeted {
+            store.didDrop = false
             guard isExpanded || opensOnDragHover else { return }
             selectedWidgetID = NotchWidget.shelf.id
             if !isExpanded {
                 isOpenedByDrag = true
                 setExpanded(true)
             }
-        } else if isOpenedByDrag {
+            return
+        }
+        // Moving from the notch onto a shelf leaves no target for a moment, so this waits before deciding.
+        Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            guard store.dropTargetIDs.isEmpty, isOpenedByDrag else { return }
             isOpenedByDrag = false
             // After a drop the pointer is still on the notch, so hovering decides when it closes.
-            if didDrop { isHovering = true } else if !isHovering { setExpanded(false) }
+            if store.didDrop { isHovering = true } else if !isHovering { setExpanded(false) }
         }
     }
 

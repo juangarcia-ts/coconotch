@@ -112,3 +112,46 @@ public func getShelfSelectedOrAll(_ ids: [UUID], selection: Set<UUID>) -> [UUID]
     let selected = ids.filter(selection.contains)
     return selected.isEmpty ? ids : selected
 }
+
+/// A named list of items; the notch holds as many as the user makes.
+public struct Shelf: Codable, Equatable, Identifiable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var items: [ShelfItem]
+
+    public init(id: UUID = UUID(), name: String, items: [ShelfItem] = []) {
+        self.id = id
+        self.name = name
+        self.items = items
+    }
+}
+
+/// "Shelf", then "Shelf 2", "Shelf 3"… skipping names already taken.
+public func makeShelfName(existing: [Shelf]) -> String {
+    let names = Set(existing.map(\.name))
+    return (1...).lazy.map { $0 == 1 ? "Shelf" : "Shelf \($0)" }.first { !names.contains($0) } ?? "Shelf"
+}
+
+/// Moves the items to the end of the target shelf; one the target already holds is dropped as a duplicate.
+public func moveShelfItems(_ ids: Set<UUID>, to shelfID: UUID, in shelves: [Shelf]) -> [Shelf] {
+    let moved = shelves.flatMap(\.items).filter { ids.contains($0.id) }
+    return shelves.map { shelf in
+        var shelf = shelf
+        shelf.items.removeAll { ids.contains($0.id) }
+        if shelf.id == shelfID { shelf.items = addShelfItems(moved, to: shelf.items) }
+        return shelf
+    }
+}
+
+/// The shelves and items a search shows: a shelf whose name matches shows everything in it; otherwise only the items
+/// whose name matches, and shelves left with none are hidden.
+public func filterShelves(_ shelves: [Shelf], query: String) -> [Shelf] {
+    let query = query.trimmingCharacters(in: .whitespaces)
+    guard !query.isEmpty else { return shelves }
+    return shelves.compactMap { shelf in
+        if shelf.name.localizedStandardContains(query) { return shelf }
+        var shelf = shelf
+        shelf.items = shelf.items.filter { getShelfItemTitle($0).localizedStandardContains(query) }
+        return shelf.items.isEmpty ? nil : shelf
+    }
+}

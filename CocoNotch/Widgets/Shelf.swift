@@ -17,37 +17,51 @@ extension NotchWidget {
 let shelfOpensOnDragHoverKey = "shelf.opensOnDragHover"
 private let copiesFilesKey = "shelf.copiesFiles"
 private let removesAfterDragOutKey = "shelf.removesAfterDragOut"
+private let defaultShelfKey = "shelf.defaultShelfID"
+private let notchDropTargetID = "notch"
 
 private func readSetting(_ key: String, default defaultValue: Bool) -> Bool {
     UserDefaults.standard.object(forKey: key) as? Bool ?? defaultValue
 }
 
-/// Holds the shelf for the whole app, so a drop on the closed notch lands even before the widget is shown.
+/// Holds the shelves for the whole app, so a drop on the closed notch lands even before the widget is shown.
 @Observable
 final class ShelfStore {
     static let shared = ShelfStore()
 
-    private(set) var items: [ShelfItem] = []
+    private(set) var shelves: [Shelf] = []
     /// Files whose bookmark can't be resolved right now, for example on an unplugged drive.
     private(set) var missingIDs: Set<UUID> = []
     var selection: Set<UUID> = []
     @ObservationIgnored var selectionAnchor: UUID?
-    /// Whether a drag is over the notch, so the shelf can show where it will land.
-    var isDropTargeted = false
+    /// What a drag is over: shelves by ID and the notch itself, so the notch opens and the shelf lights up.
+    var dropTargetIDs: Set<String> = []
+    /// Items being dragged out of a shelf; dropped on another shelf, they move there.
+    @ObservationIgnored var draggedIDs: Set<UUID> = []
+    @ObservationIgnored var didDrop = false
     @ObservationIgnored private let thumbnails = NSCache<NSString, NSImage>()
     @ObservationIgnored private let preview = ShelfPreview()
     private let writeQueue = DispatchQueue(label: "CocoNotch.shelf.write", qos: .utility)
     private let directory = URL.applicationSupportDirectory.appending(path: "CocoNotch/Shelf")
-    private var itemsURL: URL { directory.appending(path: "items.json") }
+    private var shelvesURL: URL { directory.appending(path: "shelves.json") }
     private var copiesDirectory: URL { directory.appending(path: "Copies") }
+
+    var items: [ShelfItem] { shelves.flatMap(\.items) }
+
+    /// Where drops on the closed notch go: the shelf picked in Settings, or the first one.
+    var defaultShelfID: UUID? {
+        let stored = UserDefaults.standard.string(forKey: defaultShelfKey).flatMap(UUID.init(uuidString:))
+        return shelves.first { $0.id == stored }?.id ?? shelves.first?.id
+    }
 
     func start() {
         try? FileManager.default.createDirectory(at: copiesDirectory, withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: itemsURL),
-            let decoded = try? JSONDecoder().decode([ShelfItem].self, from: data)
+        if let data = try? Data(contentsOf: shelvesURL),
+            let decoded = try? JSONDecoder().decode([Shelf].self, from: data)
         {
-            items = decoded
+            shelves = decoded
         }
+        if shelves.isEmpty { save([Shelf(name: makeShelfName(existing: []))]) }
         refresh()
     }
 
@@ -55,47 +69,51 @@ final class ShelfStore {
     func refresh() {
         var missing = Set<UUID>()
         var isChanged = false
-        var updated: [ShelfItem] = []
-        for var item in items {
-            guard item.kind == .file else {
-                updated.append(item)
-                continue
+        let updated = shelves.map { shelf in
+            var shelf = shelf
+            shelf.items = shelf.items.compactMap { item in
+                guard item.kind == .file else { return item }
+                var item = item
+                var isStale = false
+                let url = item.bookmark.flatMap {
+                    try? URL(
+                        resolvingBookmarkData: $0, options: [.withoutUI, .withoutMounting], relativeTo: nil,
+                        bookmarkDataIsStale: &isStale)
+                }
+                switch getShelfFileStatus(
+                    savedPath: item.value, resolvedPath: url?.path(percentEncoded: false), isStale: isStale)
+                {
+                case .available:
+                    return item
+                case .refresh(let path):
+                    item.value = path
+                    item.bookmark = (try? url?.bookmarkData()) ?? item.bookmark
+                    isChanged = true
+                    return item
+                case .trashed:
+                    isChanged = true
+                    return nil
+                case .missing:
+                    missing.insert(item.id)
+                    return item
+                }
             }
-            var isStale = false
-            let url = item.bookmark.flatMap {
-                try? URL(
-                    resolvingBookmarkData: $0, options: [.withoutUI, .withoutMounting], relativeTo: nil,
-                    bookmarkDataIsStale: &isStale)
-            }
-            switch getShelfFileStatus(
-                savedPath: item.value, resolvedPath: url?.path(percentEncoded: false), isStale: isStale)
-            {
-            case .available:
-                updated.append(item)
-            case .refresh(let path):
-                item.value = path
-                item.bookmark = (try? url?.bookmarkData()) ?? item.bookmark
-                updated.append(item)
-                isChanged = true
-            case .trashed:
-                isChanged = true
-            case .missing:
-                missing.insert(item.id)
-                updated.append(item)
-            }
+            return shelf
         }
         missingIDs = missing
         if isChanged { save(updated) }
     }
 
-    func add(_ providers: [NSItemProvider]) {
+    /// Adds the drop to the shelf, or to the default shelf when none is given.
+    func add(_ providers: [NSItemProvider], to shelfID: UUID?) {
+        guard let shelfID = shelfID ?? defaultShelfID else { return }
         let copiesFiles = readSetting(copiesFilesKey, default: false)
         Task {
             var newItems: [ShelfItem] = []
             for provider in providers {
                 if let item = await loadItem(from: provider, copiesFiles: copiesFiles) { newItems.append(item) }
             }
-            save(addShelfItems(newItems, to: items))
+            updateShelf(shelfID) { $0.items = addShelfItems(newItems, to: $0.items) }
         }
     }
 
@@ -152,15 +170,48 @@ final class ShelfStore {
 
     func remove(_ ids: Set<UUID>) {
         selection.subtract(ids)
-        save(items.filter { !ids.contains($0.id) })
+        save(
+            shelves.map { shelf in
+                var shelf = shelf
+                shelf.items.removeAll { ids.contains($0.id) }
+                return shelf
+            })
     }
 
-    func clear() {
-        selection = []
-        save([])
+    func clear(_ shelfID: UUID) {
+        updateShelf(shelfID) { $0.items = [] }
     }
 
-    private func save(_ newItems: [ShelfItem]) {
+    func addShelf() -> UUID {
+        let shelf = Shelf(name: makeShelfName(existing: shelves))
+        save(shelves + [shelf])
+        return shelf.id
+    }
+
+    func rename(_ shelfID: UUID, to name: String) {
+        updateShelf(shelfID) { $0.name = name }
+    }
+
+    func deleteShelf(_ shelfID: UUID) {
+        guard shelves.count > 1 else { return }
+        save(shelves.filter { $0.id != shelfID })
+    }
+
+    func move(_ ids: Set<UUID>, to shelfID: UUID) {
+        save(moveShelfItems(ids, to: shelfID, in: shelves))
+    }
+
+    private func updateShelf(_ shelfID: UUID, _ change: (inout Shelf) -> Void) {
+        save(
+            shelves.map { shelf in
+                var shelf = shelf
+                if shelf.id == shelfID { change(&shelf) }
+                return shelf
+            })
+    }
+
+    private func save(_ newShelves: [Shelf]) {
+        let newItems = newShelves.flatMap(\.items)
         for path in getUnusedShelfCopies(old: items, new: newItems) {
             // Only folders the shelf made, in case a copy was moved out of it since.
             let folder = URL(filePath: path).deletingLastPathComponent()
@@ -168,13 +219,14 @@ final class ShelfStore {
                 try? FileManager.default.removeItem(at: folder)
             }
         }
-        items = newItems
-        let itemsURL = itemsURL
+        selection.formIntersection(newItems.map(\.id))
+        shelves = newShelves
+        let shelvesURL = shelvesURL
         writeQueue.async {
             do {
-                try JSONEncoder().encode(newItems).write(to: itemsURL, options: .atomic)
+                try JSONEncoder().encode(newShelves).write(to: shelvesURL, options: .atomic)
             } catch {
-                print("CocoNotch couldn't save the shelf: \(error)")
+                print("CocoNotch couldn't save the shelves: \(error)")
             }
         }
     }
@@ -314,87 +366,181 @@ nonisolated private func copyFile(_ url: URL, into directory: URL, name: String?
     }
 }
 
-/// Takes drops anywhere on the notch, open or closed. Tabs and Home cards being reordered are left to their own drop.
+/// Takes drops on a shelf, or with no shelf, anywhere on the notch, open or closed. Tabs and Home cards being
+/// reordered are left to their own drop.
 struct ShelfDropDelegate: DropDelegate {
-    let isEnabled: Bool
-    let onTargetChange: (_ isTargeted: Bool, _ didDrop: Bool) -> Void
+    var shelfID: UUID?
+    var isEnabled = true
+    private let store = ShelfStore.shared
+    private var targetID: String { shelfID?.uuidString ?? notchDropTargetID }
 
     func validateDrop(info: DropInfo) -> Bool {
         isEnabled && !info.hasItemsConforming(to: [widgetDragType])
     }
 
     func dropEntered(info: DropInfo) {
-        ShelfStore.shared.isDropTargeted = true
-        onTargetChange(true, false)
+        store.dropTargetIDs.insert(targetID)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .copy)
+        DropProposal(operation: store.draggedIDs.isEmpty ? .copy : .move)
     }
 
     func dropExited(info: DropInfo) {
-        ShelfStore.shared.isDropTargeted = false
-        onTargetChange(false, false)
+        store.dropTargetIDs.remove(targetID)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        ShelfStore.shared.isDropTargeted = false
-        ShelfStore.shared.add(info.itemProviders(for: [.item]))
-        onTargetChange(false, true)
+        // The notch-wide target also covers the shelves, so a shelf under the pointer wins over the default one.
+        let shelfID =
+            shelfID
+            ?? store.shelves.first { store.dropTargetIDs.contains($0.id.uuidString) }?.id
+        store.dropTargetIDs.remove(targetID)
+        store.didDrop = true
+        if store.draggedIDs.isEmpty {
+            store.add(info.itemProviders(for: [.item]), to: shelfID)
+            return true
+        }
+        guard let shelfID else { return false }
+        store.move(store.draggedIDs, to: shelfID)
+        store.draggedIDs = []
         return true
     }
 }
 
 private struct ShelfView: View {
-    @State private var isConfirmingClear = false
+    @State private var query = ""
+    @State private var contentHeight: CGFloat = 0
+    @FocusState private var focusedShelfID: UUID?
     private let store = ShelfStore.shared
 
     var body: some View {
-        let ids = getShelfSelectedOrAll(store.items.map(\.id), selection: store.selection)
-        let targets = store.getItems(ids)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text(formatShelfSummary(store.items))
-                    .foregroundStyle(.secondary)
-                if !store.selection.isEmpty {
-                    Text("\(store.selection.count) selected")
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                if !store.items.isEmpty {
-                    Button("Quick Look", systemImage: "eye") { store.showQuickLook(targets) }
-                        .help("Quick Look")
-                    Button("AirDrop", systemImage: "airplayaudio") { store.sendWithAirDrop(targets) }
-                        .help("Send with AirDrop")
-                    ShareLink(items: targets.compactMap(store.getURL)) {
-                        Image(systemName: "square.and.arrow.up")
+        let shelves = filterShelves(store.shelves, query: query)
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search shelves and files", text: $query)
+                        .textFieldStyle(.plain)
+                    Button("New Shelf", systemImage: "plus") {
+                        let id = store.addShelf()
+                        query = ""
+                        focusedShelfID = id
+                        withAnimation { proxy.scrollTo(id) }
                     }
-                    .help("Share")
-                    Button("Clear Shelf", systemImage: "xmark.circle") { isConfirmingClear = true }
-                        .help("Clear the shelf")
-                        .confirmationDialog("Clear the shelf?", isPresented: $isConfirmingClear) {
-                            Button("Clear Shelf", role: .destructive) { store.clear() }
-                        } message: {
-                            Text("Original files stay where they are; copies the shelf saved are deleted.")
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help("New shelf")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(shelves) { shelf in
+                            ShelfSection(shelf: shelf, focusedShelfID: $focusedShelfID)
+                                .id(shelf.id)
                         }
+                        if shelves.isEmpty {
+                            Text("No shelf or file matches.")
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 24)
+                        }
+                    }
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
+                }
+                // As tall as the shelves, up to what fits under the search bar in the notch.
+                .frame(height: min(contentHeight, 236))
+            }
+        }
+        .onAppear { store.refresh() }
+    }
+}
+
+private enum ShelfConfirmation {
+    case clear
+    case delete
+}
+
+private struct ShelfSection: View {
+    let shelf: Shelf
+    var focusedShelfID: FocusState<UUID?>.Binding
+    /// Asked inline, since an alert opens outside the notch and leaving the notch closes it.
+    @State private var confirmation: ShelfConfirmation?
+    private let store = ShelfStore.shared
+
+    var body: some View {
+        let targets = store.getItems(getShelfSelectedOrAll(shelf.items.map(\.id), selection: store.selection))
+        let isTargeted = store.dropTargetIDs.contains(shelf.id.uuidString)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                TextField("Untitled", text: Binding(get: { shelf.name }, set: { store.rename(shelf.id, to: $0) }))
+                    .textFieldStyle(.plain)
+                    .font(.headline)
+                    .focused(focusedShelfID, equals: shelf.id)
+                    .fixedSize()
+                if store.defaultShelfID == shelf.id {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .help("Drops on the closed notch land here")
+                }
+                Text(formatShelfSummary(shelf.items))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let confirmation {
+                    Text(confirmation == .clear ? "Clear this shelf?" : "Delete this shelf?")
+                        .foregroundStyle(.secondary)
+                    Button("Cancel") { self.confirmation = nil }
+                    Button(confirmation == .clear ? "Clear" : "Delete") {
+                        if confirmation == .clear { store.clear(shelf.id) } else { store.deleteShelf(shelf.id) }
+                        self.confirmation = nil
+                    }
+                    .foregroundStyle(.red)
+                } else {
+                    if !shelf.items.isEmpty {
+                        Button("Quick Look", systemImage: "eye") { store.showQuickLook(targets) }
+                            .help("Quick Look")
+                        Button("AirDrop", systemImage: "airplayaudio") { store.sendWithAirDrop(targets) }
+                            .help("Send with AirDrop")
+                        ShareLink(items: targets.compactMap(store.getURL)) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .help("Share")
+                    }
+                    Menu("More", systemImage: "ellipsis.circle") {
+                        Button("Rename") { focusedShelfID.wrappedValue = shelf.id }
+                        Button("Use for Drops on the Closed Notch") {
+                            UserDefaults.standard.set(shelf.id.uuidString, forKey: defaultShelfKey)
+                        }
+                        .disabled(store.defaultShelfID == shelf.id)
+                        Divider()
+                        Button("Clear Shelf") { confirmation = .clear }
+                            .disabled(shelf.items.isEmpty)
+                        Button("Delete Shelf") { confirmation = .delete }
+                            .disabled(store.shelves.count == 1)
+                    }
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("More")
                 }
             }
             .font(.callout)
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
+            .padding(.horizontal, 4)
             Group {
-                if store.items.isEmpty {
-                    VStack(spacing: 6) {
-                        Image(systemName: "tray.and.arrow.down")
-                            .font(.title2)
-                        Text("Drop files, links or text on the notch to keep them here.")
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if shelf.items.isEmpty {
+                    Text("Drop files, links or text here.")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
                 } else {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 6) {
-                            ForEach(store.items) { item in
+                            ForEach(shelf.items) { item in
                                 ShelfTile(
                                     item: item, isSelected: store.selection.contains(item.id),
                                     isMissing: store.missingIDs.contains(item.id))
@@ -403,20 +549,20 @@ private struct ShelfView: View {
                         .padding(6)
                     }
                     .scrollIndicators(.never)
+                    .frame(height: 110)
                 }
             }
-            .frame(height: 110)
             .background {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.primary.opacity(store.isDropTargeted ? 0.1 : 0.04))
+                    .fill(Color.primary.opacity(isTargeted ? 0.1 : 0.04))
                     .strokeBorder(
-                        Color.primary.opacity(store.isDropTargeted ? 0.4 : 0.12),
-                        style: StrokeStyle(lineWidth: 1, dash: store.items.isEmpty ? [5] : []))
+                        Color.primary.opacity(isTargeted ? 0.4 : 0.12),
+                        style: StrokeStyle(lineWidth: 1, dash: shelf.items.isEmpty ? [5] : []))
             }
             // A click between tiles clears the selection, like Finder.
             .onTapGesture { store.selection = [] }
         }
-        .onAppear { store.refresh() }
+        .onDrop(of: [.item], delegate: ShelfDropDelegate(shelfID: shelf.id))
     }
 }
 
@@ -469,7 +615,6 @@ private struct ShelfDragSource: NSViewRepresentable {
 private final class ShelfDragSourceView: NSView, NSDraggingSource {
     var item: ShelfItem?
     private var mouseDownEvent: NSEvent?
-    private var draggedIDs: Set<UUID> = []
     private let store = ShelfStore.shared
 
     // The notch panel is rarely key, so the first click has to count.
@@ -503,8 +648,8 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
                 event.locationInWindow.y - mouseDownEvent.locationInWindow.y) > 3
         else { return }
         self.mouseDownEvent = nil
-        draggedIDs = getShelfTargets(clicked: item.id, selection: store.selection)
-        let items = store.getItems(draggedIDs)
+        store.draggedIDs = getShelfTargets(clicked: item.id, selection: store.selection)
+        let items = store.getItems(store.draggedIDs)
         let draggingItems = zip(items, store.getPasteboardWriters(items)).enumerated().map { index, pair in
             let draggingItem = NSDraggingItem(pasteboardWriter: pair.1)
             // Fanned out a little, so a multi-item drag shows it carries several.
@@ -547,13 +692,14 @@ private final class ShelfDragSourceView: NSView, NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext)
         -> NSDragOperation
     {
-        // Always a copy, so the original never moves; and never back onto the notch, where it would be added again.
-        context == .outsideApplication ? .copy : []
+        // Out of CocoNotch it's always a copy, so the original never moves; inside, it moves to another shelf.
+        context == .outsideApplication ? .copy : .move
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if !operation.isEmpty, readSetting(removesAfterDragOutKey, default: false) { store.remove(draggedIDs) }
-        draggedIDs = []
+        // A move to another shelf already cleared the dragged items, so only drags out are removed.
+        if !operation.isEmpty, readSetting(removesAfterDragOutKey, default: false) { store.remove(store.draggedIDs) }
+        store.draggedIDs = []
     }
 }
 
@@ -583,30 +729,32 @@ private struct ShelfSettings: View {
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @AppStorage(copiesFilesKey) private var copiesFiles = false
     @AppStorage(removesAfterDragOutKey) private var removesAfterDragOut = false
-    @State private var isConfirmingClear = false
+    @AppStorage(defaultShelfKey) private var storedDefaultShelfID = ""
     private let store = ShelfStore.shared
 
     var body: some View {
         Form {
             Section {
                 Toggle("Open the notch when a drag is over it", isOn: $opensOnDragHover)
+                Picker(
+                    "Drops on the closed notch go to",
+                    selection: Binding(
+                        get: { store.defaultShelfID?.uuidString ?? "" }, set: { storedDefaultShelfID = $0 })
+                ) {
+                    ForEach(store.shelves) { shelf in
+                        Text(shelf.name.isEmpty ? "Untitled" : shelf.name).tag(shelf.id.uuidString)
+                    }
+                }
             } header: {
                 Text("Dropping")
             } footer: {
-                Text("Drops land on the shelf whether the notch is open or closed.")
+                Text("With the notch open, drop on a shelf to put it there. Drag items between shelves to move them.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Keep a copy of dropped files", isOn: $copiesFiles)
                 Toggle("Remove items after dragging them out", isOn: $removesAfterDragOut)
-                Button("Clear Shelf…", role: .destructive) { isConfirmingClear = true }
-                    .disabled(store.items.isEmpty)
-                    .confirmationDialog("Clear the shelf?", isPresented: $isConfirmingClear) {
-                        Button("Clear Shelf", role: .destructive) { store.clear() }
-                    } message: {
-                        Text("Original files stay where they are; copies the shelf saved are deleted.")
-                    }
             } header: {
                 Text("Items")
             } footer: {

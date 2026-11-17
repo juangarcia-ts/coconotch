@@ -84,3 +84,31 @@ func titlesItems(kind: ShelfItem.Kind, value: String, expected: String) {
     #expect(getShelfSelectedOrAll(ids, selection: []) == ids)
     #expect(getShelfSelectedOrAll(ids, selection: [ids[2], ids[0]]) == [ids[0], ids[2]])
 }
+
+@Test func namesNewShelves() {
+    #expect(makeShelfName(existing: []) == "Shelf")
+    #expect(makeShelfName(existing: [Shelf(name: "Shelf"), Shelf(name: "Shelf 3")]) == "Shelf 2")
+    #expect(makeShelfName(existing: [Shelf(name: "Work")]) == "Shelf")
+}
+
+@Test func movesItemsBetweenShelves() {
+    let a = file("/a")
+    let b = file("/b")
+    let duplicate = file("/b")
+    let source = Shelf(name: "One", items: [a, b])
+    let target = Shelf(name: "Two", items: [duplicate])
+    let moved = moveShelfItems([a.id, b.id], to: target.id, in: [source, target])
+    #expect(moved[0].items.isEmpty)
+    #expect(moved[1].items.map(\.value) == ["/b", "/a"])
+}
+
+@Test func searchesShelvesAndItems() {
+    let work = Shelf(name: "Work", items: [file("/x/Report.pdf"), file("/x/photo.png")])
+    let trip = Shelf(name: "Trip", items: [file("/x/tickets.pdf"), file("/x/map.png")])
+    #expect(filterShelves([work, trip], query: " ") == [work, trip])
+    #expect(filterShelves([work, trip], query: "work").map(\.items.count) == [2])
+    let pdfs = filterShelves([work, trip], query: ".pdf")
+    #expect(pdfs.map(\.name) == ["Work", "Trip"])
+    #expect(pdfs.flatMap(\.items).map(getShelfItemTitle) == ["Report.pdf", "tickets.pdf"])
+    #expect(filterShelves([work, trip], query: "nothing").isEmpty)
+}
