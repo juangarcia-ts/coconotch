@@ -84,13 +84,22 @@ final class TimerStore {
     private(set) var laps: [TimeInterval] = []
     private var finishTasks: [TimerMode: Task<Void, Never>] = [:]
     private var doneTask: Task<Void, Never>?
+    private var plannedKey = ""
 
     /// Durations and the notch toggle can change mid-run, so settings writes re-plan the finish and the activities.
     func start() {
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
-            MainActor.assumeIsolated { self?.update() }
+            MainActor.assumeIsolated {
+                guard let self, self.getPlanKey() != self.plannedKey else { return }
+                self.update()
+            }
         }
+    }
+
+    /// The settings a plan depends on, so writes to unrelated defaults don't re-plan.
+    private func getPlanKey() -> String {
+        "\(TimerMode.allCases.map(getDuration)) \(readSetting(showsActivityKey, default: true))"
     }
 
     func getDuration(_ mode: TimerMode) -> TimeInterval {
@@ -145,11 +154,15 @@ final class TimerStore {
         laps.append(stopwatch.getElapsed(at: .now))
     }
 
+    private func advancePhase(isFinished: Bool) {
+        (phase, focusCount) = advancePomodoro(
+            phase: phase, focusCount: focusCount, isFinished: isFinished,
+            longBreakEvery: readSetting(longBreakEveryKey, default: defaultLongBreakEvery))
+    }
+
     /// Moves on to the next phase without counting the current one as done.
     func skipPhase() {
-        phase = getNextPomodoroPhase(
-            after: phase, completedFocusCount: focusCount + 1,
-            longBreakEvery: readSetting(longBreakEveryKey, default: defaultLongBreakEvery))
+        advancePhase(isFinished: false)
         let wasRunning = pomodoro.isRunning
         pomodoro = RunClock()
         if wasRunning { pomodoro.start(at: .now) }
@@ -160,10 +173,7 @@ final class TimerStore {
         let message: String
         if mode == .pomodoro {
             let finished = phase
-            if finished == .focus { focusCount += 1 }
-            phase = getNextPomodoroPhase(
-                after: finished, completedFocusCount: focusCount,
-                longBreakEvery: readSetting(longBreakEveryKey, default: defaultLongBreakEvery))
+            advancePhase(isFinished: true)
             pomodoro = RunClock()
             if readSetting(autoStartsNextKey, default: false) { pomodoro.start(at: .now) }
             message = "\(getTitle(finished)) done · \(getTitle(phase)) next"
@@ -201,6 +211,7 @@ final class TimerStore {
 
     /// Re-plans each countdown's finish and re-posts every clock's activity.
     private func update() {
+        plannedKey = getPlanKey()
         let showsActivity = readSetting(showsActivityKey, default: true)
         for mode in TimerMode.allCases {
             let clock = getClock(mode)

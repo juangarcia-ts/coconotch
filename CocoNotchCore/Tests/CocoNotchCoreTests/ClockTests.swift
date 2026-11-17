@@ -38,11 +38,23 @@ private let now = Date(timeIntervalSince1970: 10_000)
     #expect(formatCountdown(0) == "0:00")
 }
 
-@Test func everyFourthFocusEarnsALongBreak() {
-    #expect(getNextPomodoroPhase(after: .focus, completedFocusCount: 3, longBreakEvery: 4) == .shortBreak)
-    #expect(getNextPomodoroPhase(after: .focus, completedFocusCount: 4, longBreakEvery: 4) == .longBreak)
-    #expect(getNextPomodoroPhase(after: .longBreak, completedFocusCount: 4, longBreakEvery: 4) == .focus)
-    #expect(getNextPomodoroPhase(after: .focus, completedFocusCount: 4, longBreakEvery: 0) == .shortBreak)
+@Test func everyFourthFinishedFocusEarnsALongBreak() {
+    let third = advancePomodoro(phase: .focus, focusCount: 2, isFinished: true, longBreakEvery: 4)
+    #expect(third.phase == .shortBreak && third.focusCount == 3)
+    let fourth = advancePomodoro(phase: .focus, focusCount: 3, isFinished: true, longBreakEvery: 4)
+    #expect(fourth.phase == .longBreak && fourth.focusCount == 4)
+    let back = advancePomodoro(phase: .longBreak, focusCount: 4, isFinished: true, longBreakEvery: 4)
+    #expect(back.phase == .focus && back.focusCount == 4)
+    #expect(advancePomodoro(phase: .focus, focusCount: 3, isFinished: true, longBreakEvery: 0).phase == .shortBreak)
+}
+
+@Test func skippedFocusIsNotCounted() {
+    let skipped = advancePomodoro(phase: .focus, focusCount: 3, isFinished: false, longBreakEvery: 4)
+    #expect(skipped.phase == .shortBreak && skipped.focusCount == 3)
+    let afterLongBreak = advancePomodoro(phase: .focus, focusCount: 4, isFinished: false, longBreakEvery: 4)
+    #expect(afterLongBreak.phase == .shortBreak)
+    let skippedBreak = advancePomodoro(phase: .shortBreak, focusCount: 3, isFinished: false, longBreakEvery: 4)
+    #expect(skippedBreak.phase == .focus && skippedBreak.focusCount == 3)
 }
 
 @Test func splitsLaps() {

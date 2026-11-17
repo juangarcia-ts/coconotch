@@ -53,13 +53,15 @@ public enum PomodoroPhase: String, Sendable {
     case focus, shortBreak, longBreak
 }
 
-/// What follows a finished phase. `completedFocusCount` includes a focus that just finished; every
-/// `longBreakEvery`th focus earns the long break.
-public func getNextPomodoroPhase(
-    after phase: PomodoroPhase, completedFocusCount: Int, longBreakEvery: Int
-) -> PomodoroPhase {
-    guard phase == .focus else { return .focus }
-    return longBreakEvery > 0 && completedFocusCount % longBreakEvery == 0 ? .longBreak : .shortBreak
+/// The phase after the current one and the new focus count. Only a finished focus counts, and every
+/// `longBreakEvery`th earns the long break; a skipped focus leads to a short break.
+public func advancePomodoro(
+    phase: PomodoroPhase, focusCount: Int, isFinished: Bool, longBreakEvery: Int
+) -> (phase: PomodoroPhase, focusCount: Int) {
+    guard phase == .focus else { return (.focus, focusCount) }
+    guard isFinished else { return (.shortBreak, focusCount) }
+    let count = focusCount + 1
+    return (longBreakEvery > 0 && count % longBreakEvery == 0 ? .longBreak : .shortBreak, count)
 }
 
 /// Each lap's own time, from the stopwatch readings taken when Lap was pressed.
