@@ -10,10 +10,11 @@ on:
 
 jobs:
   claude:
+    # The action also checks write access; this keeps a stranger's @claude from even starting a job.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && github.event.comment.author_association == 'OWNER') ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.comment.author_association == 'OWNER') ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.review.author_association == 'OWNER')
     runs-on: ubuntu-latest
     permissions:
       contents: write

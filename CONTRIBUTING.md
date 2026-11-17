@@ -59,6 +59,10 @@ Keep views thin: any branch, parse or calculation goes in `CocoNotchCore` as a p
 ## Pull requests
 
 - Use [Conventional Commits](https://www.conventionalcommits.org) for the PR title, for example `feat: add clipboard widget` or `fix: keep the notch on the main display`. PRs are squash-merged, so the title becomes the commit on `main`, and CI checks it.
-- Claude reviews every pull request against the rules in `CLAUDE.md` and ends with a verdict. Address its findings or reply explaining why not.
+- CodeRabbit reviews every pull request. Address its findings or reply explaining why not.
+
+## Releasing
+
+Push a `vX.Y.Z` tag on `main`. The Release workflow signs CocoNotch with the Developer ID certificate, notarizes it, publishes the zip and the Sparkle appcast as a GitHub Release, and updates the cask in [homebrew-tap](https://github.com/juangarcia-ts/homebrew-tap). It needs these repository secrets: `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `SPARKLE_PRIVATE_KEY` and `TAP_TOKEN`.
 
 By contributing, you agree that your work is licensed under [GPL-3.0](LICENSE).

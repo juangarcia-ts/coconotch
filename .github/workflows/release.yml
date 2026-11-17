@@ -40,6 +40,12 @@ jobs:
             CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
             OTHER_CODE_SIGN_FLAGS=--timestamp CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             MARKETING_VERSION="${VERSION#v}" CURRENT_PROJECT_VERSION="${VERSION#v}"
+          # Xcode re-signs Sparkle.framework but leaves its helpers ad-hoc, which notarization rejects. Inside out.
+          app=build/Build/Products/Release/CocoNotch.app
+          fw="$app/Contents/Frameworks/Sparkle.framework"
+          for code in "$fw"/Versions/B/XPCServices/*.xpc "$fw/Versions/B/Autoupdate" "$fw/Versions/B/Updater.app" "$fw" "$app"; do
+            codesign -f -s "Developer ID Application" -o runtime --timestamp --preserve-metadata=entitlements "$code"
+          done
 
       - name: Notarize
         env:
@@ -67,3 +73,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml --generate-notes
+
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          sha=$(shasum -a 256 "dist/CocoNotch-${VERSION#v}.zip" | cut -d' ' -f1)
+          git clone "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY_OWNER/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          cat > tap/Casks/coconotch.rb <<EOF
+          cask "coconotch" do
+            version "${VERSION#v}"
+            sha256 "$sha"
+
+            url "https://github.com/$GITHUB_REPOSITORY/releases/download/v#{version}/CocoNotch-#{version}.zip"
+            name "CocoNotch"
+            desc "Notch and menu bar widget hub"
+            homepage "https://github.com/$GITHUB_REPOSITORY"
+
+            auto_updates true
+            depends_on macos: ">= :sequoia"
+
+            app "CocoNotch.app"
+
+            zap trash: [
+              "~/Library/Application Support/CocoNotch",
+              "~/Library/Preferences/io.github.juangarcia-ts.CocoNotch.plist",
+            ]
+          end
+          EOF
+          cd tap
+          git add Casks/coconotch.rb
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "coconotch ${VERSION#v}"
+          git push

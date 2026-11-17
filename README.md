@@ -11,6 +11,14 @@ Open **Settings…** (⌘,) from the menu bar icon or the footer of the open not
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 
+## Install
+
+```sh
+brew install --cask juangarcia-ts/tap/coconotch
+```
+
+Or download `CocoNotch-<version>.zip` from the [latest release](https://github.com/juangarcia-ts/coconotch/releases/latest), unzip it and move CocoNotch to Applications. Requires macOS 15+.
+
 ## Widgets
 
 - **Home**: always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field.
