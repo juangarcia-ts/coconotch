@@ -7,7 +7,7 @@ Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0, 
 Open **Settings…** (⌘,) from the menu bar icon:
 
 - **General**: open on hover or click, which displays show the notch, live activities and launch at login.
-- **Shortcuts**: a system-wide shortcut to open or close the notch (⌘⇧N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
+- **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 

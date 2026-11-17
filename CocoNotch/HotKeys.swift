@@ -8,7 +8,7 @@ let openNotchHotKeyKey = "shortcuts.openNotch"
 /// Shortcuts that are on until the user records another or clears them; a cleared one is stored as "".
 private let defaultHotKeys = [
     openNotchHotKeyKey: encodeHotKey(
-        HotKey(keyCode: UInt32(kVK_ANSI_N), modifiers: HotKey.command | HotKey.shift, key: "N"))
+        HotKey(keyCode: UInt32(kVK_ANSI_N), modifiers: HotKey.command | HotKey.option, key: "N"))
 ]
 
 func getWidgetHotKeyKey(widgetID: String) -> String {
