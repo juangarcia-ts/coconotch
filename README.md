@@ -1,15 +1,23 @@
-# CocoNotch
+<p align="center">
+  <img src="docs/banner.jpg" alt="CocoNotch: a pixel-art coconut in sunglasses next to the open notch and its widgets, over a beach" width="900">
+</p>
 
-A modular widget hub for the MacBook notch and menu bar, focused on the workday.
+<p align="center">
+  Your MacBook notch, turned into a hub for the workday: meetings, music, timers, clipboard history, a file shelf and more, one hover away.
+</p>
 
-Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0, then ⌥⌘1…⌥⌘0, switch between them once the notch has focus. Shortcuts you record in Settings open the notch, or a single widget, from any app. The closed notch shows live activities, like a meeting about to start or the song that's playing.
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple&logoColor=white" alt="macOS 15+">
+  <a href="https://github.com/juangarcia-ts/coconotch/releases/latest"><img src="https://img.shields.io/github/v/release/juangarcia-ts/coconotch" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
+</p>
 
-Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
+## Why CocoNotch
 
-- **General**: open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
-- **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
-- **Appearance**: solid or blurred background, its color and opacity, and the notch size.
-- **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
+- **Built for the workday.** Join your next meeting, run a Pomodoro, find something you copied an hour ago or keep a file at hand, all from the notch you already look at.
+- **Make it yours.** Turn widgets on or off, drag them into the order you want and tune each one in Settings.
+- **Private where it can be.** Ask runs on your Mac with Apple Intelligence, and everything else stays on your Mac unless a widget needs a service, listed under [Privacy](#privacy).
+- **Free and open source,** under [GPL-3.0](LICENSE).
 
 ## Install
 
@@ -19,35 +27,38 @@ brew install --cask juangarcia-ts/tap/coconotch
 
 Or download `CocoNotch-<version>.zip` from the [latest release](https://github.com/juangarcia-ts/coconotch/releases/latest), unzip it and move CocoNotch to Applications. Requires macOS 15+.
 
+**Check for Updates…** in the menu bar menu installs a newer release from GitHub; CocoNotch also checks on its own unless you turn that off.
+
 ## Widgets
 
-- **Home**: always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field.
+| Widget | What it does |
+| --- | --- |
+| **Home** | Always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field. |
+| **Time Zones** | Your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back. |
+| **Meetings** | Your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off). |
+| **Timer** | A Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound. |
+| **Weather** | Current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F. |
+| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and your fullest limit there whenever nothing else is showing. |
+| **Music** | What's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch. |
+| **System** | CPU, memory, disk and battery, with graphs of the last minute and a low battery heads-up. |
+| **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
+| **Shelf** | Drop files on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share. |
+| **Convert** | Drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF. |
+| **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
+| **Camera** | A mirrored preview from any camera, to check how you look before a call. |
 
-- **Time Zones**: your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back.
+## Usage
 
-- **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off).
+Hover (or click) the notch to expand it. Each widget is a tab, and ⌘1…⌘0, then ⌥⌘1…⌥⌘0, switch between them once the notch has focus. Shortcuts you record in Settings open the notch, or a single widget, from any app.
 
-- **Timer**: a Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound.
+The closed notch shows live activities, like a meeting about to start or the song that's playing.
 
-- **Weather**: current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F.
+Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
 
-- **AI Usage**: how much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and your fullest limit there whenever nothing else is showing. Reads the login Claude Code keeps in your Keychain (only after you click Connect) and Codex's local session logs.
-
-- **Music**: what's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch.
-
-- **System**: CPU, memory, disk and battery, with graphs of the last minute and a low battery heads-up.
-
-- **Clipboard**: a searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in.
-
-- **Shelf**: drop files, links or text on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share.
-
-- **Convert**: drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF.
-
-- **Ask**: quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them.
-
-- **Camera**: a mirrored preview from any camera, to check how you look before a call.
-
-**Check for Updates…** in the same menu installs a newer release from GitHub; CocoNotch also checks on its own unless you turn that off.
+- **General**: open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
+- **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
+- **Appearance**: solid or blurred background, its color and opacity, and the notch size.
+- **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 
 ## Permissions
 
@@ -59,7 +70,14 @@ macOS asks for each one the first time a widget needs it:
 - **Accessibility** for Clipboard, only if you turn on pasting into the current app.
 - **Camera** for Camera.
 
-Ask needs macOS 26 with Apple Intelligence turned on.
+## Privacy
+
+CocoNotch has no account and no analytics. It only goes online for:
+
+- **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
+- **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
+- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Connect. Codex limits come from its local session logs.
+- **Updates**: checking for and installing new releases from GitHub.
 
 ## Build
 
