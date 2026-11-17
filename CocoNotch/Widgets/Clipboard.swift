@@ -417,9 +417,10 @@ private struct ClipboardDetail: View {
                     .scrollIndicators(.never)
                 }
             }
-            .frame(minHeight: 40, maxHeight: .infinity)
+            .frame(minHeight: 30, maxHeight: .infinity)
             // Lines the preview's first line up with the first row's title.
             .padding(.top, 6)
+            .layoutPriority(-1)
             Divider()
             TimelineView(.everyMinute) { context in
                 VStack(alignment: .leading, spacing: 0) {
@@ -449,10 +450,12 @@ private struct ClipboardDetail: View {
                             Text(row.value)
                                 .lineLimit(1)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 3)
                     }
                 }
                 .font(.caption)
+                // The details and the actions always get their full height; the preview takes what is left.
+                .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
             HStack(spacing: 12) {
@@ -479,6 +482,7 @@ private struct ClipboardDetail: View {
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
