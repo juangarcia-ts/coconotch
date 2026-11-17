@@ -170,7 +170,7 @@ struct NotchView: View {
                 ActivityIsland(
                     activity: island,
                     notchSize: notchSize,
-                    otherCount: activities.count - 1,
+                    otherCount: activities.dropFirst().filter { isActivityNoteworthy($0.summary) }.count,
                     isAlerting: isAlerting
                 )
                 .transition(.opacity)
@@ -280,7 +280,9 @@ struct NotchView: View {
                             .frame(width: 40, height: notchSize.height - 6)
                             // Marks widgets with a live activity, since the closed notch shows only one.
                             .overlay(alignment: .topTrailing) {
-                                if activities.contains(where: { $0.widgetID == widget.id }) {
+                                if activities.contains(where: {
+                                    $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
+                                }) {
                                     Circle()
                                         .fill(.orange)
                                         .frame(width: 6, height: 6)

@@ -78,3 +78,8 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
     #expect(getHoverWidgetID(makeActivity("next", widget: "meetings", priority: .low)) == nil)
     #expect(getHoverWidgetID(nil) == nil)
 }
+
+@Test func treatsLowPriorityActivitiesAsNotNoteworthy() {
+    #expect(isActivityNoteworthy(makeActivity("music", widget: "music", priority: .background)))
+    #expect(!isActivityNoteworthy(makeActivity("usage", widget: "aiUsage", priority: .low)))
+}
