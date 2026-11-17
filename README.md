@@ -1,4 +1,6 @@
-<h1 align="center">CocoNotch</h1>
+<p align="center">
+  <img src="docs/banner.jpg" alt="CocoNotch: a pixel-art coconut in sunglasses next to the open notch and its widgets, over a beach" width="900">
+</p>
 
 <p align="center">
   Your MacBook notch, turned into a hub for the workday: meetings, music, timers, clipboard history, a file shelf and more, one hover away.
@@ -8,10 +10,6 @@
   <img src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple&logoColor=white" alt="macOS 15+">
   <a href="https://github.com/juangarcia-ts/coconotch/releases/latest"><img src="https://img.shields.io/github/v/release/juangarcia-ts/coconotch" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
-</p>
-
-<p align="center">
-  <img src="docs/demo.gif" alt="CocoNotch open under the notch, switching between its widgets" width="800">
 </p>
 
 ## Why CocoNotch
@@ -33,6 +31,10 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 
 ## Widgets
 
+<p align="center">
+  <img src="docs/demo.gif" alt="CocoNotch open under the notch, switching between its widgets" width="800">
+</p>
+
 | Widget | What it does |
 | --- | --- |
 | **Home** | Always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field. |
@@ -44,7 +46,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | **Music** | What's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch. |
 | **System** | CPU, memory, disk and battery, with graphs of the last minute and a low battery heads-up. |
 | **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
-| **Shelf** | Drop files, links or text on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share. |
+| **Shelf** | Drop files on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share. |
 | **Convert** | Drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF. |
 | **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
 | **Camera** | A mirrored preview from any camera, to check how you look before a call. |
@@ -76,8 +78,8 @@ macOS asks for each one the first time a widget needs it:
 
 CocoNotch has no account and no analytics. It only goes online for:
 
-- **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com).
-- **Music**: synced lyrics from [LRCLIB](https://lrclib.net).
+- **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
+- **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
 - **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Connect. Codex limits come from its local session logs.
 - **Updates**: checking for and installing new releases from GitHub.
 
