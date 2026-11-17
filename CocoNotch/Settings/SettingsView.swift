@@ -226,6 +226,11 @@ private struct WidgetsSettings: View {
                         HStack {
                             DragHandle()
                             Label(widget.title, systemImage: widget.systemImage)
+                            if !widget.isAvailable() {
+                                Text("Unavailable on this Mac")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
                             Toggle("Show \(widget.title)", isOn: $preference.isEnabled)
                                 .labelsHidden()

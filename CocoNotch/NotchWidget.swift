@@ -12,10 +12,14 @@ struct NotchWidget: Identifiable {
     var makeSummary: (() -> AnyView)? = nil
     /// Settings for the summary, shown under its switch in Settings → Home.
     var makeSummarySettings: (() -> AnyView)? = nil
+    /// False hides the widget from the notch, e.g. when this Mac can't run what it needs; its Settings tab stays.
+    var isAvailable: () -> Bool = { true }
 
     // The default order; users can reorder and switch widgets off in Settings → Widgets. Home is always first, so
     // it isn't in this list.
-    static let all: [NotchWidget] = [.timezones, .meetings, .weather, .aiUsage, .music, .system, .clipboard, .camera]
+    static let all: [NotchWidget] = [
+        .timezones, .meetings, .weather, .aiUsage, .music, .system, .clipboard, .ask, .camera,
+    ]
 
     static var summaryIDs: Set<String> {
         Set(all.filter { $0.makeSummary != nil }.map(\.id))
