@@ -89,3 +89,10 @@ import Testing
     #expect(getOutputLongestSide(natural: 800, maxSide: nil) == 800)
     #expect(getOutputLongestSide(natural: 800, maxSide: 0) == 800)
 }
+
+@Test func describesTheWaitingFiles() {
+    #expect(formatConvertDetail(byteCounts: [], fileExtensions: ["heic"]) == "HEIC")
+    #expect(formatConvertDetail(byteCounts: [1_000_000], fileExtensions: ["heic"]).hasSuffix(" · HEIC"))
+    #expect(formatConvertDetail(byteCounts: [], fileExtensions: ["png", "PNG", "pdf"]) == "PNG, PDF")
+    #expect(formatConvertDetail(byteCounts: [], fileExtensions: ["a", "b", "c", "d"]) == "A, B, C…")
+}

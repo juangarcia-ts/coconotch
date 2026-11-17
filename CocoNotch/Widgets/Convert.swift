@@ -2,6 +2,7 @@ import AVFoundation
 import CocoNotchCore
 import ImageIO
 import PDFKit
+import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -9,7 +10,7 @@ extension NotchWidget {
     static let convert = NotchWidget(
         id: "convert",
         title: "Convert",
-        systemImage: "arrow.triangle.2.circlepath",
+        systemImage: "arrow.left.arrow.right",
         makeView: { AnyView(ConvertView()) },
         makeSettings: { AnyView(ConvertSettings()) }
     )
@@ -24,6 +25,7 @@ private let gifMaxDurationKey = "convert.gifMaxDuration"
 private let gifMaxSideKey = "convert.gifMaxSide"
 private let outputFolderKey = "convert.outputFolder"
 private let revealsOutputKey = "convert.revealsOutput"
+let convertShowsDropStripKey = "convert.showsDropStrip"
 
 private func readSetting<Value>(_ key: String, default defaultValue: Value) -> Value {
     UserDefaults.standard.object(forKey: key) as? Value ?? defaultValue
@@ -60,7 +62,7 @@ nonisolated private struct ConvertOptions: Sendable {
 
 /// Holds the batch for the whole app, so a conversion keeps going and its result stays when the notch closes.
 @Observable
-private final class ConvertStore {
+final class ConvertStore {
     static let shared = ConvertStore()
 
     private(set) var paths: [String] = []
@@ -69,6 +71,8 @@ private final class ConvertStore {
     private(set) var currentProgress = 0.0
     private(set) var isRunning = false
     private(set) var result: String?
+    /// The waiting files' size and formats, like "4.2 MB · HEIC".
+    private(set) var detail = ""
     private(set) var outputURLs: [URL] = []
     @ObservationIgnored private let writableImageTypes = Set(
         CGImageDestinationCopyTypeIdentifiers() as? [String] ?? [])
@@ -87,13 +91,43 @@ private final class ConvertStore {
         guard !isRunning else { return }
         paths = addConvertFiles(
             urls.map { $0.path(percentEncoded: false) }, to: paths, isFinished: result != nil)
+        detail = formatConvertDetail(
+            byteCounts: paths.compactMap { (try? FileManager.default.attributesOfItem(atPath: $0))?[.size] as? Int },
+            fileExtensions: paths.map { ($0 as NSString).pathExtension })
         result = nil
         outputURLs = []
+    }
+
+    static var isWidgetEnabled: Bool {
+        let preferences = NotchWidget.getPreferences(
+            stored: UserDefaults.standard.string(forKey: PreferenceKey.widgetPreferences) ?? "")
+        return getEnabledWidgetIDs(preferences).contains(NotchWidget.convert.id)
+    }
+
+    /// Adds the files and switches the notch to Convert, so their formats can be picked.
+    func show(_ urls: [URL]) {
+        add(urls)
+        UserDefaults.standard.set(NotchWidget.convert.id, forKey: PreferenceKey.selectedWidget)
+    }
+
+    /// Adds the files from a drop on the notch and switches to Convert.
+    func add(_ providers: [NSItemProvider]) {
+        Task {
+            var urls: [URL] = []
+            for provider in providers {
+                let url = await withCheckedContinuation { continuation in
+                    loadURL(from: provider) { continuation.resume(returning: $0) }
+                }
+                if let url { urls.append(url) }
+            }
+            show(urls)
+        }
     }
 
     func clear() {
         guard !isRunning else { return }
         paths = []
+        detail = ""
         result = nil
         outputURLs = []
     }
@@ -311,78 +345,265 @@ nonisolated private func makeGIF(
     guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
 }
 
+/// Takes the footer's place while files are dragged over the notch, so they can be converted instead of shelved.
+struct ConvertDropStrip: View {
+    @Environment(\.shelfDropScope) private var scope
+
+    var body: some View {
+        let isTargeted = ShelfStore.shared.dropTargets.contains(
+            ShelfDropTarget(scope: scope, shelfID: nil, isConvert: true))
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 11, weight: .bold))
+                .frame(width: 22, height: 22)
+                .background(Color.primary.opacity(isTargeted ? 0.22 : 0.1), in: Circle())
+            Text(isTargeted ? "Release to convert" : "Drop here to convert instead")
+                .font(.callout.weight(.semibold))
+            Spacer()
+            Text("Images, PDFs and videos")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 34)
+        .background {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.primary.opacity(isTargeted ? 0.12 : 0.05))
+                .strokeBorder(
+                    Color.primary.opacity(isTargeted ? 0.45 : 0.16),
+                    style: StrokeStyle(lineWidth: 1, dash: isTargeted ? [] : [5, 4]))
+        }
+        .contentShape(Rectangle())
+        .animation(.easeOut(duration: 0.15), value: isTargeted)
+        .onDrop(of: [.item], delegate: ShelfDropDelegate(scope: scope, isConvert: true))
+    }
+}
+
 private struct ConvertView: View {
-    @State private var isTargeted = false
+    @Environment(\.shelfDropScope) private var scope
     private let store = ConvertStore.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if store.paths.isEmpty {
-                Text("Drop images, videos or PDFs here")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 96)
-            } else {
-                HStack(spacing: 8) {
-                    Text(
-                        store.paths.count == 1
-                            ? (store.paths[0] as NSString).lastPathComponent : "\(store.paths.count) files"
-                    )
+        // While Convert is open the whole notch takes drops, so this follows the notch's own target.
+        let isTargeted = scope.map { ShelfStore.shared.isDropTargeted(scope: $0) } ?? false
+        if store.paths.isEmpty {
+            ConvertEmptyState(isTargeted: isTargeted)
+        } else {
+            HStack(alignment: .top, spacing: 18) {
+                ConvertFileCard(isTargeted: isTargeted)
+                    .frame(width: 176)
+                ConvertOutputPicker()
+            }
+        }
+    }
+}
+
+private struct ConvertEmptyState: View {
+    let isTargeted: Bool
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 20, weight: .semibold))
+                .frame(width: 46, height: 46)
+                .background(Color.primary.opacity(isTargeted ? 0.18 : 0.08), in: Circle())
+                .scaleEffect(isTargeted ? 1.12 : 1)
+            VStack(spacing: 4) {
+                Text(isTargeted ? "Release to convert" : "Convert files")
                     .font(.headline)
+                Text("Drop images, PDFs or videos here to save them in another format.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Button {
+                Task { ConvertStore.shared.add(await FilePicker.shared.chooseFiles(types: [.image, .pdf, .movie])) }
+            } label: {
+                Label("Choose Files…", systemImage: "folder")
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.12), in: Capsule())
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            HStack(spacing: 6) {
+                ForEach(["HEIC", "JPEG", "PNG", "PDF", "MP4", "GIF"], id: \.self) { format in
+                    Text(format)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.07), in: Capsule())
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 220)
+        .background {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.primary.opacity(isTargeted ? 0.1 : 0.035))
+                .strokeBorder(
+                    Color.primary.opacity(isTargeted ? 0.45 : 0.14), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+        }
+        .animation(.spring(duration: 0.35, bounce: 0.3), value: isTargeted)
+    }
+}
+
+/// The waiting files: a preview of the first, stacked when there are more, with their name, size and formats.
+private struct ConvertFileCard: View {
+    let isTargeted: Bool
+    @State private var thumbnail: NSImage?
+    private let store = ConvertStore.shared
+
+    var body: some View {
+        let firstPath = store.paths.first ?? ""
+        VStack(spacing: 10) {
+            ZStack {
+                // Cards fanned behind the preview say there's more than one file.
+                ForEach(Array(store.paths.prefix(3).indices.dropFirst().reversed()), id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.primary.opacity(0.1))
+                        .frame(width: 84, height: 96)
+                        .rotationEffect(.degrees(Double(index) * 6))
+                        .offset(x: CGFloat(index) * 6)
+                }
+                Image(nsImage: thumbnail ?? NSWorkspace.shared.icon(forFile: firstPath))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 128, maxHeight: 104)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+            }
+            .frame(height: 112)
+            VStack(spacing: 2) {
+                Text(store.paths.count == 1 ? (firstPath as NSString).lastPathComponent : "\(store.paths.count) files")
+                    .font(.callout.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(store.paths.joined(separator: "\n"))
-                    Spacer()
-                    Button("Clear", systemImage: "xmark.circle") { store.clear() }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .disabled(store.isRunning)
-                        .help("Clear")
-                }
-                let outputs = store.outputs
-                if outputs.isEmpty {
-                    Text("Videos can't be converted together with images or PDFs.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    HStack(spacing: 6) {
-                        Text("Convert to")
-                            .foregroundStyle(.secondary)
-                        ForEach(outputs, id: \.self) { output in
-                            Button(output.title) { store.convert(to: output) }
-                                .help(output == .pdf ? "Combine everything into one PDF" : "")
+                Text(store.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.primary.opacity(isTargeted ? 0.12 : 0.05))
+                .strokeBorder(Color.primary.opacity(isTargeted ? 0.4 : 0.08))
+        }
+        .overlay(alignment: .topTrailing) {
+            Button("Clear", systemImage: "xmark") { store.clear() }
+                .labelStyle(.iconOnly)
+                .font(.caption.weight(.bold))
+                .buttonStyle(.borderless)
+                .padding(8)
+                .disabled(store.isRunning)
+                .help("Clear")
+        }
+        .help(store.paths.joined(separator: "\n"))
+        .task(id: firstPath) {
+            thumbnail = nil
+            let request = QLThumbnailGenerator.Request(
+                fileAt: URL(filePath: firstPath), size: CGSize(width: 128, height: 104), scale: 2,
+                representationTypes: .thumbnail)
+            thumbnail = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
+        }
+    }
+}
+
+private struct ConvertOutputPicker: View {
+    private let store = ConvertStore.shared
+
+    var body: some View {
+        let outputs = store.outputs
+        VStack(alignment: .leading, spacing: 10) {
+            Text("CONVERT TO")
+                .font(.caption.weight(.semibold))
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
+            if outputs.isEmpty {
+                Text("Videos can't be converted together with images or PDFs. Clear and drop them separately.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
+                    ForEach(outputs, id: \.self) { output in
+                        Button {
+                            store.convert(to: output)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Image(systemName: output.symbolName)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .frame(height: 16)
+                                Text(output.title)
+                                    .font(.callout.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(output.detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
                         }
+                        .buttonStyle(ConvertTileStyle())
                     }
-                    .disabled(store.isRunning)
                 }
-                if store.isRunning {
+                .disabled(store.isRunning)
+            }
+            if store.isRunning {
+                HStack(spacing: 10) {
                     ProgressView(value: store.progress)
-                } else if let result = store.result {
-                    HStack(spacing: 8) {
-                        Text(result)
-                            .foregroundStyle(.secondary)
-                        if !store.outputURLs.isEmpty {
-                            Button("Show in Finder") { store.revealInFinder() }
-                                .buttonStyle(.borderless)
-                        }
+                    Text("\(min(store.completed + 1, store.paths.count)) of \(store.paths.count)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            } else if let result = store.result {
+                HStack(spacing: 8) {
+                    Image(
+                        systemName: store.outputURLs.isEmpty ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(store.outputURLs.isEmpty ? .orange : .green)
+                    Text(result)
+                        .font(.callout)
+                    Spacer()
+                    if !store.outputURLs.isEmpty {
+                        Button("Show in Finder") { store.revealInFinder() }
+                            .buttonStyle(.borderless)
+                            .font(.callout.weight(.medium))
                     }
                 }
             }
         }
-        .font(.callout)
-        .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.primary.opacity(isTargeted ? 0.1 : 0.04))
-                .strokeBorder(
-                    Color.primary.opacity(isTargeted ? 0.4 : 0.12),
-                    style: StrokeStyle(lineWidth: 1, dash: store.paths.isEmpty ? [5] : []))
-        }
-        .dropDestination(for: URL.self) { urls, _ in
-            store.add(urls)
-            return true
-        } isTargeted: {
-            isTargeted = $0
-        }
+    }
+}
+
+private struct ConvertTileStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ConvertTile(configuration: configuration)
+    }
+}
+
+private struct ConvertTile: View {
+    let configuration: ButtonStyleConfiguration
+    @State private var isHovered = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let fill = configuration.isPressed ? 0.18 : isHovered ? 0.12 : 0.06
+        configuration.label
+            .background(Color.primary.opacity(fill), in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.primary.opacity(isHovered ? 0.22 : 0.08))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .opacity(isEnabled ? 1 : 0.45)
+            .onHover { isHovered = $0 && isEnabled }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
     }
 }
 
@@ -396,9 +617,21 @@ private struct ConvertSettings: View {
     @AppStorage(gifMaxSideKey) private var gifMaxSide = 480
     @AppStorage(outputFolderKey) private var outputFolder = ""
     @AppStorage(revealsOutputKey) private var revealsOutput = false
+    @AppStorage(convertShowsDropStripKey) private var showsDropStrip = true
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Offer to convert while dragging files over the notch", isOn: $showsDropStrip)
+            } header: {
+                Text("Dropping")
+            } footer: {
+                Text(
+                    "A strip under the Shelf takes files to Convert instead. With Convert open, a drop anywhere on the notch converts."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             Section {
                 Slider(value: $imageQuality, in: 0.1...1) {
                     Text("Quality")

@@ -28,6 +28,12 @@ struct NotchView: View {
     @State private var isHovering = false
     /// Whether a drag opened the notch, so it closes again if the drag leaves without dropping.
     @State private var isOpenedByDrag = false
+    /// Whether files are being dragged over the notch, held a moment past each gap between its drop targets.
+    @State private var isFileDragOver = false
+    /// Set once a file picker opens, so the notch is still there to show what was picked: it closes only after the
+    /// pointer comes back and leaves, or on a click elsewhere.
+    @State private var isHeldOpen = false
+    @AppStorage(convertShowsDropStripKey) private var showsConvertDropStrip = true
     /// Tells this notch's shelf drop targets apart from another display's.
     @State private var shelfDropScope = UUID()
 
@@ -85,11 +91,11 @@ struct NotchView: View {
         .contentShape(Rectangle())
         .onDrop(
             of: [.item],
-            // Off while Convert is open, so a drag meant for it doesn't switch to the Shelf or land there.
+            // While Convert is open, a drop anywhere on the notch goes to it.
             delegate: ShelfDropDelegate(
                 scope: shelfDropScope,
-                isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id }
-                    && !(isExpanded && selectedWidget.id == NotchWidget.convert.id))
+                isEnabled: enabledWidgets.contains { $0.id == NotchWidget.shelf.id } || isConvertOpen,
+                isConvert: isConvertOpen)
         )
         .onChange(of: ShelfStore.shared.isDropTargeted(scope: shelfDropScope)) { _, isTargeted in
             handleShelfDrag(isTargeted: isTargeted)
@@ -98,21 +104,36 @@ struct NotchView: View {
         .environment(\.showSettings, ShowSettingsAction(action: openSettings))
         .onHover { isHovering in
             self.isHovering = isHovering
+            if isHovering { isHeldOpen = false }
             // Opening the notch from an activity shows the widget it came from.
             if isHovering, !isExpanded, let widgetID = getHoverWidgetID(activities.first?.summary) {
                 selectedWidgetID = widgetID
             }
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
+            if !isHovering, FilePicker.shared.isOpen || isHeldOpen { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
-            if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering {
+            if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering,
+                !FilePicker.shared.isOpen
+            {
+                isHeldOpen = false
                 setExpanded(false)
             }
         }
         .onTapGesture {
             if expandsOnClick && !isExpanded { setExpanded(true) }
+        }
+        // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
+        // not come back over it.
+        .onChange(of: FilePicker.shared.isOpen) { _, isOpen in
+            guard isExpanded else { return }
+            if isOpen {
+                isHeldOpen = true
+            } else {
+                NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .hotKeyPressed)) { notification in
             guard let widgetID = notification.object as? String, isHotKeyTarget() else { return }
@@ -171,9 +192,14 @@ struct NotchView: View {
         }
     }
 
+    private var isConvertOpen: Bool {
+        isExpanded && selectedWidget.id == NotchWidget.convert.id
+    }
+
     private func handleShelfDrag(isTargeted: Bool) {
         let store = ShelfStore.shared
         if isTargeted {
+            isFileDragOver = true
             store.didDrop = false
             applyShelfDragChange(isTargeted: true)
             return
@@ -182,6 +208,7 @@ struct NotchView: View {
         Task {
             try? await Task.sleep(for: .milliseconds(200))
             guard !store.isDropTargeted(scope: shelfDropScope) else { return }
+            isFileDragOver = false
             applyShelfDragChange(isTargeted: false)
             isOpenedByDrag = false
         }
@@ -193,7 +220,7 @@ struct NotchView: View {
             isOpenedByDrag: isOpenedByDrag, didDrop: ShelfStore.shared.didDrop, isHovering: isHovering)
         {
         case .show:
-            selectedWidgetID = NotchWidget.shelf.id
+            if !isConvertOpen { selectedWidgetID = NotchWidget.shelf.id }
             if !isExpanded {
                 isOpenedByDrag = true
                 setExpanded(true)
@@ -328,8 +355,17 @@ struct NotchView: View {
                 )
                 .clipped()
 
-            NotchFooter()
-                .padding(.horizontal, 24)
+            // While files are dragged, the footer gives its place to a way to convert them instead of shelving them.
+            if isFileDragOver, showsConvertDropStrip, !isConvertOpen,
+                enabledWidgets.contains(where: { $0.id == NotchWidget.convert.id })
+            {
+                ConvertDropStrip()
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 10)
+            } else {
+                NotchFooter()
+                    .padding(.horizontal, 24)
+            }
         }
         .foregroundStyle(.primary)
         // Content taller than the panel would be cut off by the window edge, so clip it at the panel's height instead.

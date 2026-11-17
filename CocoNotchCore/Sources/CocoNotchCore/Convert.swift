@@ -58,6 +58,34 @@ public enum ConvertOutput: String, CaseIterable, Sendable {
         }
     }
 
+    /// A short line under the format's name, saying when to pick it.
+    public var detail: String {
+        switch self {
+        case .heic: "Smallest photos"
+        case .jpeg: "Opens everywhere"
+        case .png: "Lossless, keeps transparency"
+        case .tiff: "Lossless, for print"
+        case .gif: "Simple web image"
+        case .bmp: "Uncompressed"
+        case .pdf: "Everything in one PDF"
+        case .mp4: "Plays everywhere"
+        case .mov: "QuickTime movie"
+        case .m4a: "Just the sound"
+        case .animatedGIF: "Looping, no sound"
+        }
+    }
+
+    /// The SF Symbol on the format's tile.
+    public var symbolName: String {
+        switch self {
+        case .heic, .jpeg, .png, .tiff, .gif, .bmp: "photo"
+        case .pdf: "doc.richtext"
+        case .mp4, .mov: "film"
+        case .m4a: "waveform"
+        case .animatedGIF: "photo.stack"
+        }
+    }
+
     /// The Uniform Type Identifier ImageIO writes for an image output; nil for the others.
     public var imageTypeIdentifier: String? {
         switch self {
@@ -192,4 +220,13 @@ public func getBatchProgress(completed: Int, current: Double, total: Int) -> Dou
 public func getOutputLongestSide(natural: Int, maxSide: Int?) -> Int {
     guard let maxSide, maxSide > 0 else { return natural }
     return min(maxSide, natural)
+}
+
+/// "4.2 MB · HEIC" for the files waiting to convert: their total size, when known, and their formats.
+public func formatConvertDetail(byteCounts: [Int], fileExtensions: [String]) -> String {
+    var formats: [String] = []
+    for format in fileExtensions.map({ $0.uppercased() }) where !formats.contains(format) { formats.append(format) }
+    let kinds = formats.count > 3 ? formats.prefix(3).joined(separator: ", ") + "…" : formats.joined(separator: ", ")
+    guard !byteCounts.isEmpty else { return kinds }
+    return ByteCountFormatter.string(fromByteCount: Int64(byteCounts.reduce(0, +)), countStyle: .file) + " · " + kinds
 }

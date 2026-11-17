@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 
 final class NotchPanel: NSPanel {
+    /// Above the menu bar, so the notch covers it.
+    static let windowLevel: NSWindow.Level = .mainMenu + 3
+
     // The most the expanded notch may take at 100% size; NotchView clips taller content. Clicks on the transparent
     // area fall through to the menu bar.
     static let baseSize = NSSize(width: 720, height: 400)
@@ -23,7 +26,7 @@ final class NotchPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = false
         isMovable = false
-        level = .mainMenu + 3
+        level = Self.windowLevel
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
     }
 
