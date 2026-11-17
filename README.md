@@ -10,6 +10,8 @@ Hover (or click) the notch to expand it; each widget is a tab. Open **Settingsâ€
 
 - **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar.
 
+- **Shelf**: drop files, links or text on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share.
+
 Planned: Claude Code usage, now playing, clipboard history.
 
 ## Build

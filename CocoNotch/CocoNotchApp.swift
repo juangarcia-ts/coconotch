@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MusicStore.shared.start()
         SystemStore.shared.start()
         ClipboardStore.shared.start()
+        ShelfStore.shared.start()
         placePanels()
         NotificationCenter.default.addObserver(
             self,
