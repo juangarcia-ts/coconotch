@@ -160,9 +160,13 @@ private struct IslandProgress: View {
             let duration = MusicStore.shared.nowPlaying?.duration ?? 0
             let elapsed = formatTrackTime(MusicStore.shared.getPosition(at: context.date))
             // Radio streams have no length, so only the elapsed time shows.
-            Text(duration > 0 ? "\(elapsed) / \(formatTrackTime(duration))" : elapsed)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(duration > 0 ? "\(elapsed) / \(formatTrackTime(duration))" : elapsed)
+                    .monospacedDigit()
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative, isActive: MusicStore.shared.nowPlaying?.isPlaying == true)
+            }
+            .foregroundStyle(.secondary)
         }
     }
 }
