@@ -266,6 +266,7 @@ private struct WeatherView: View {
     @AppStorage(showsDailyKey) private var showsDaily = true
     @AppStorage(windSpeedUnitKey) private var windSpeedUnit = defaultWindSpeedUnit
     @AppStorage(locationModeKey) private var locationMode = WeatherLocationMode.current
+    @Environment(\.showSettings) private var showSettings
     private let store = WeatherStore.shared
 
     var body: some View {
@@ -333,7 +334,7 @@ private struct WeatherView: View {
             .padding(.top, 8)
             if let placeName = store.placeName {
                 Button {
-                    openSettings(on: .widget(NotchWidget.weather.id))
+                    showSettings(.widget(NotchWidget.weather.id))
                 } label: {
                     Label(placeName, systemImage: locationMode == .current ? "location.fill" : "mappin")
                         .lineLimit(1)
