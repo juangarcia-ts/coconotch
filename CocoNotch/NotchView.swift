@@ -29,7 +29,6 @@ struct NotchView: View {
             showsHome: showsHome
         )
         .compactMap { NotchWidget.find(id: $0) }
-        .filter { $0.isAvailable() }
     }
 
     /// Activities from enabled widgets, winner first.

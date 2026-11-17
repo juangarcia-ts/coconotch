@@ -8,10 +8,14 @@ extension NotchWidget {
         title: "Ask",
         systemImage: "sparkles",
         makeView: {
-            if #available(macOS 26, *) { AnyView(AskView()) } else { AnyView(EmptyView()) }
+            // The check runs each time the tab opens, so turning Apple Intelligence on shows the chat right away.
+            if #available(macOS 26, *), getAskUnavailableReason() == nil {
+                AnyView(AskView())
+            } else {
+                AnyView(AskUnavailableView())
+            }
         },
-        makeSettings: { AnyView(AskSettings()) },
-        isAvailable: { getAskUnavailableReason() == nil }
+        makeSettings: { AnyView(AskSettings()) }
     )
 }
 
@@ -159,6 +163,15 @@ private struct AskView: View {
     }
 }
 
+private struct AskUnavailableView: View {
+    var body: some View {
+        Label(getAskUnavailableMessage(getAskUnavailableReason() ?? .unknown), systemImage: "exclamationmark.triangle")
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+    }
+}
+
 private struct AskTurnView: View {
     let turn: AskTurn
 
@@ -187,9 +200,6 @@ private struct AskSettings: View {
             if let reason = getAskUnavailableReason() {
                 Section("Unavailable") {
                     Text(getAskUnavailableMessage(reason))
-                    Text("The Ask tab stays hidden from the notch until Apple Intelligence is ready.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
             Section {
