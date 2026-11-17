@@ -454,21 +454,113 @@ private struct TemperatureBar: View {
 
 private struct WeatherProblemView: View {
     let problem: WeatherProblem
+    @AppStorage(locationModeKey) private var locationMode = WeatherLocationMode.current
+    @AppStorage(placeKey) private var storedPlace = ""
     private let store = WeatherStore.shared
 
     var body: some View {
         WidgetPrompt(systemImage: NotchWidget.weather.systemImage, message: getWeatherProblemMessage(problem)) {
             switch problem {
             case .locationNotAsked:
-                Button("Use My Location", systemImage: "location.fill") { store.requestLocationAccess() }
+                CitySearch(onPick: pick) {
+                    Button("Use My Location", systemImage: "location.fill") { store.requestLocationAccess() }
+                }
             case .locationDenied:
                 Button("Open Privacy Settings") { openPrivacySettings("Privacy_LocationServices") }
             case .locationFailed, .network:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             case .noPlace:
-                EmptyView()
+                CitySearch(onPick: pick) { EmptyView() }
             }
         }
+    }
+
+    private func pick(_ place: WeatherPlace) {
+        storedPlace = encodeWeatherPlace(place)
+        locationMode = .place
+        store.refresh()
+    }
+}
+
+/// The notch's city search, styled like the Clipboard and Shelf search bars.
+private struct CitySearch<Accessory: View>: View {
+    let onPick: (WeatherPlace) -> Void
+    @ViewBuilder var accessory: Accessory
+    @State private var query = ""
+    @State private var results: [WeatherPlace] = []
+    @State private var selectedID: WeatherPlace.ID?
+
+    var body: some View {
+        // The notch caps a widget at about 290pt, so four matches is all that fits under the prompt.
+        let shown = Array(results.prefix(4))
+        let selected = shown.first { $0.id == selectedID } ?? shown.first
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search for a city", text: $query)
+                        .textFieldStyle(.plain)
+                        .onSubmit { selected.map(onPick) }
+                        .onKeyPress(.downArrow) { select(offset: 1, in: shown, from: selected) }
+                        .onKeyPress(.upArrow) { select(offset: -1, in: shown, from: selected) }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                accessory
+            }
+            VStack(spacing: 2) {
+                ForEach(shown) { place in
+                    CityRow(place: place, isSelected: place.id == selected?.id)
+                        .onHover { if $0 { selectedID = place.id } }
+                        .onTapGesture { onPick(place) }
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: shown)
+        .task(id: query) {
+            // Waits for a pause in typing, so each keystroke doesn't send a search.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            results = await WeatherStore.searchPlaces(query)
+        }
+    }
+
+    private func select(offset: Int, in places: [WeatherPlace], from selected: WeatherPlace?) -> KeyPress.Result {
+        guard let index = places.firstIndex(where: { $0.id == selected?.id }) else { return .ignored }
+        selectedID = places[max(0, min(places.count - 1, index + offset))].id
+        return .handled
+    }
+}
+
+private struct CityRow: View {
+    let place: WeatherPlace
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "mappin.and.ellipse")
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+            Text(place.name)
+                .lineLimit(1)
+                .layoutPriority(1)
+            if let region = formatPlaceRegion(place) {
+                Text(region)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "return")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .opacity(isSelected ? 1 : 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.primary.opacity(isSelected ? 0.14 : 0), in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

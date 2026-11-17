@@ -55,6 +55,12 @@ private let sampleForecast = """
             WeatherPlace(name: "Berlin", region: "Land Berlin", country: "Germany", latitude: 52.52, longitude: 13.41)
         ])
     #expect(try parseGeocoding(Data("{\"generationtime_ms\":0.1}".utf8)).isEmpty)
+    let twice = Data(
+        """
+        {"results":[{"name":"Rio Dell","latitude":40.49,"longitude":-124.1,"country":"United States","admin1":"California"},
+        {"name":"Rio Dell","latitude":40.5,"longitude":-124.11,"country":"United States","admin1":"California"}]}
+        """.utf8)
+    #expect(try parseGeocoding(twice).count == 1)
     #expect(makeGeocodingURL(query: "  ") == nil)
     #expect(makeGeocodingURL(query: "São Paulo")?.host() == "geocoding-api.open-meteo.com")
 }
@@ -66,6 +72,7 @@ private let sampleForecast = """
     #expect(
         formatPlaceTitle(WeatherPlace(name: "Porto", region: "Norte", country: nil, latitude: 0, longitude: 0))
             == "Porto, Norte")
+    #expect(formatPlaceRegion(WeatherPlace(name: "Nowhere", latitude: 0, longitude: 0)) == nil)
 }
 
 @Test(arguments: [
