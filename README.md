@@ -31,7 +31,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 
 - **Weather**: current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F.
 
-- **AI Usage**: how much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and your fullest limit there whenever nothing else is showing. Reads the login Claude Code keeps in your Keychain (only after you click Connect) and Codex's local session logs.
+- **AI Usage**: how much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and your fullest limit there, with when it resets, whenever nothing else is showing. Reads the login Claude Code keeps in your Keychain (only after you click Connect) and Codex's local session logs.
 
 - **Music**: what's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch.
 

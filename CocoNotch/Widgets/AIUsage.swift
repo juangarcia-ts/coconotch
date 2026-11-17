@@ -24,6 +24,7 @@ private let refreshMinutesKey = "aiUsage.refreshMinutes"
 private let showsHeadsUpKey = "aiUsage.showsHeadsUp"
 private let headsUpThresholdKey = "aiUsage.headsUpThreshold"
 private let showsIdleKey = "aiUsage.showsIdle"
+private let showsNotchResetKey = "aiUsage.showsNotchReset"
 private let defaultRefreshMinutes = 5
 private let defaultHeadsUpThreshold = 80
 private let headsUpActivityID = "aiUsage.headsUp"
@@ -288,7 +289,11 @@ final class AIUsageStore {
                         }
                     )
                 },
-                makeTrailing: { AnyView(Text("\(limit.percent)%").monospacedDigit()) },
+                makeTrailing: {
+                    AnyView(
+                        UsageNotchTrailing(limit: limit, showsReset: readDefault(showsNotchResetKey, default: true))
+                    )
+                },
                 makeAlert: isHeadsUp ? { AnyView(UsageHeadsUpAlert(provider: provider, limit: limit)) } : nil
             )
         )
@@ -473,6 +478,23 @@ private struct UsageProblemView: View {
     }
 }
 
+/// The percent in the closed notch, then when the limit resets, ticking each minute.
+private struct UsageNotchTrailing: View {
+    let limit: UsageLimit
+    let showsReset: Bool
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            Text(
+                ["\(limit.percent)%", showsReset ? formatShortResetTime(limit.resetsAt, now: context.date) : nil]
+                    .compactMap { $0 }
+                    .joined(separator: " · ")
+            )
+            .monospacedDigit()
+        }
+    }
+}
+
 /// Drops down under the heads-up when it first appears, saying which limit and when it resets.
 private struct UsageHeadsUpAlert: View {
     let provider: AIProvider
@@ -539,6 +561,7 @@ private struct AIUsageSettings: View {
     @AppStorage(showsHeadsUpKey) private var showsHeadsUp = true
     @AppStorage(headsUpThresholdKey) private var headsUpThreshold = defaultHeadsUpThreshold
     @AppStorage(showsIdleKey) private var showsIdle = true
+    @AppStorage(showsNotchResetKey) private var showsNotchReset = true
     private let store = AIUsageStore.shared
 
     var body: some View {
@@ -604,6 +627,7 @@ private struct AIUsageSettings: View {
                 }
                 .disabled(!showsHeadsUp)
                 Toggle("Show usage in the closed notch when nothing else is", isOn: $showsIdle)
+                Toggle("Show when the limit resets in the closed notch", isOn: $showsNotchReset)
             }
         }
         .formStyle(.grouped)
@@ -614,6 +638,7 @@ private struct AIUsageSettings: View {
         .onChange(of: showsHeadsUp) { store.updateHeadsUp() }
         .onChange(of: headsUpThreshold) { store.updateHeadsUp() }
         .onChange(of: showsIdle) { store.updateHeadsUp() }
+        .onChange(of: showsNotchReset) { store.updateHeadsUp() }
     }
 
     // Stores hidden kinds rather than shown ones, so limits Claude adds later appear by default.

@@ -79,6 +79,15 @@ import Testing
     #expect(getUsageBarFraction(150, showsRemaining: false) == 1)
 }
 
+@Test func formatsShortResetTime() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    #expect(formatShortResetTime(nil, now: now) == nil)
+    #expect(formatShortResetTime(now - 5, now: now) == nil)
+    #expect(formatShortResetTime(now + 8100, now: now)?.hasPrefix("2") == true)
+    let later = now + 3 * 86_400
+    #expect(formatShortResetTime(later, now: now) == later.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+}
+
 @Test func formatsResetTime() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(formatResetTime(nil, now: now) == nil)
