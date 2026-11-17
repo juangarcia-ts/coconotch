@@ -33,3 +33,25 @@ public func formatAppVersion(_ version: String?) -> String? {
 public func getWidgetMaxHeight(panelHeight: Double, tabBarHeight: Double, footerHeight: Double) -> Double {
     max(panelHeight - tabBarHeight - footerHeight, 0)
 }
+
+public enum WidgetShortcutsMode: String, CaseIterable, Sendable {
+    /// ⌘-number switches widgets and each widget icon shows its shortcut.
+    case visible
+    case hidden
+    /// No shortcuts, so opening the notch leaves the keyboard with the app the user is in.
+    case disabled
+}
+
+/// The space above the widget content, with extra room for the shortcut hints under the widget icons.
+public func getWidgetTopPadding(widgetShortcuts: WidgetShortcutsMode) -> Double {
+    widgetShortcuts == .visible ? 20 : 12
+}
+
+/// The digit that picks the widget at `index` with Command: 1–9, then 0 for the tenth, like the number row; nil after that.
+public func getWidgetShortcutDigit(index: Int) -> Character? {
+    switch index {
+    case 0..<9: Character(String(index + 1))
+    case 9: "0"
+    default: nil
+    }
+}
