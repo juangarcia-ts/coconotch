@@ -2,11 +2,12 @@
 
 A modular widget hub for the MacBook notch and menu bar, focused on the workday.
 
-Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0 switch between them once the notch has focus. The closed notch shows live activities, like a meeting about to start or the song that's playing.
+Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0, then ⌥⌘1…⌥⌘0, switch between them once the notch has focus. Shortcuts you record in Settings open the notch, or a single widget, from any app. The closed notch shows live activities, like a meeting about to start or the song that's playing.
 
 Open **Settings…** (⌘,) from the menu bar icon:
 
-- **General**: open on hover or click, which displays show the notch, live activities, the ⌘1… tab shortcuts (visible, hidden or off) and launch at login.
+- **General**: open on hover or click, which displays show the notch, live activities and launch at login.
+- **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 

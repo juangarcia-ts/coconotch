@@ -5,6 +5,7 @@ import SwiftUI
 private enum SettingsPage: Hashable {
     case general
     case appearance
+    case shortcuts
     case widgets
     case widget(String)
 }
@@ -32,6 +33,8 @@ struct SettingsView: View {
                     .tag(SettingsPage.general)
                 Label("Appearance", systemImage: "paintpalette")
                     .tag(SettingsPage.appearance)
+                Label("Shortcuts", systemImage: "keyboard")
+                    .tag(SettingsPage.shortcuts)
                 DisclosureGroup(isExpanded: $isWidgetsExpanded) {
                     ForEach(widgetsWithSettings) { widget in
                         Label {
@@ -70,6 +73,8 @@ struct SettingsView: View {
             GeneralSettings()
         case .appearance:
             AppearanceSettings()
+        case .shortcuts:
+            ShortcutsSettings()
         case .widgets:
             WidgetsSettings()
         case .widget(let id):
@@ -81,6 +86,7 @@ struct SettingsView: View {
         switch page {
         case .general: "General"
         case .appearance: "Appearance"
+        case .shortcuts: "Shortcuts"
         case .widgets: "Widgets"
         case .widget(let id): NotchWidget.find(id: id)?.title ?? ""
         }
@@ -91,7 +97,6 @@ private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
-    @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
 
@@ -107,11 +112,6 @@ private struct GeneralSettings: View {
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
             Toggle("Show live activities in the closed notch", isOn: $showsActivities)
-            Picker("Widget shortcuts (⌘1, ⌘2, …)", selection: $widgetShortcuts) {
-                Text("Visible").tag(WidgetShortcutsMode.visible)
-                Text("Hidden").tag(WidgetShortcutsMode.hidden)
-                Text("Disabled").tag(WidgetShortcutsMode.disabled)
-            }
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.
@@ -277,5 +277,60 @@ private struct HidesWindowTitle: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+private struct ShortcutsSettings: View {
+    @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
+    @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
+    @AppStorage(PreferenceKey.showsHome) private var showsHome = true
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Open or close the notch") {
+                    HotKeyRecorder(storageKey: openNotchHotKeyKey)
+                }
+            } footer: {
+                Text("Works in any app. A shortcut another app already uses won't work here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Widget tabs in the open notch") {
+                Picker("⌘1…⌘0, then ⌥⌘1…⌥⌘0", selection: $widgetShortcuts) {
+                    Text("Visible").tag(WidgetShortcutsMode.visible)
+                    Text("Hidden").tag(WidgetShortcutsMode.hidden)
+                    Text("Disabled").tag(WidgetShortcutsMode.disabled)
+                }
+            }
+            Section {
+                // The same tabs HotKeyCenter registers, so a switched-off widget can't get a shortcut that never fires.
+                ForEach(
+                    getTabIDs(
+                        enabledIDs: getEnabledWidgetIDs(NotchWidget.getPreferences(stored: storedWidgetPreferences)),
+                        showsHome: showsHome
+                    ).compactMap { NotchWidget.find(id: $0) }
+                ) { widget in
+                    LabeledContent {
+                        HotKeyRecorder(storageKey: getWidgetHotKeyKey(widgetID: widget.id))
+                    } label: {
+                        Label {
+                            Text(widget.title)
+                        } icon: {
+                            WidgetIcon(widget: widget)
+                        }
+                    }
+                }
+            } header: {
+                Text("Open a widget from any app")
+            } footer: {
+                Text(
+                    "Switched-off widgets aren't listed. A shortcut you recorded comes back when you switch its widget on."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
