@@ -242,18 +242,36 @@ private struct GeocodingResponse: Decodable {
     let results: [Result]?
 }
 
+/// Open-Meteo lists some towns twice, a few hundred metres apart, so a same-titled place that close is kept once.
 public func parseGeocoding(_ data: Data) throws -> [WeatherPlace] {
-    try JSONDecoder().decode(GeocodingResponse.self, from: data).results?.map {
+    let places = try JSONDecoder().decode(GeocodingResponse.self, from: data).results?.map {
         WeatherPlace(
             name: $0.name, region: $0.admin1, country: $0.country, latitude: $0.latitude, longitude: $0.longitude)
-    } ?? []
+    }
+    return (places ?? []).reduce(into: []) { kept, place in
+        let isRepeat = kept.contains {
+            formatPlaceTitle($0) == formatPlaceTitle(place)
+                && abs($0.latitude - place.latitude) < 0.1 && abs($0.longitude - place.longitude) < 0.1
+        }
+        if !isRepeat { kept.append(place) }
+    }
+}
+
+/// What to say under the city search when it has no matches to show; nil while a search is still pending.
+public func getCitySearchNote(query: String, searchedQuery: String, results: [WeatherPlace]?) -> String? {
+    guard query == searchedQuery, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+    guard let results else { return "Cities couldn't be searched. Check your connection." }
+    return results.isEmpty ? "No cities match." : nil
 }
 
 /// "Lisbon, Lisbon, Portugal" reads oddly, so a region equal to the name is left out.
+public func formatPlaceRegion(_ place: WeatherPlace) -> String? {
+    let parts = [place.region == place.name ? nil : place.region, place.country].compactMap { $0 }
+    return parts.isEmpty ? nil : parts.joined(separator: ", ")
+}
+
 public func formatPlaceTitle(_ place: WeatherPlace) -> String {
-    [place.name, place.region == place.name ? nil : place.region, place.country]
-        .compactMap { $0 }
-        .joined(separator: ", ")
+    [place.name, formatPlaceRegion(place)].compactMap { $0 }.joined(separator: ", ")
 }
 
 /// An SF Symbol for a WMO weather code, as Open-Meteo reports it.
@@ -368,10 +386,10 @@ public enum WeatherProblem: Equatable, Sendable {
 
 public func getWeatherProblemMessage(_ problem: WeatherProblem) -> String {
     switch problem {
-    case .noPlace: "Choose a city in Settings → Weather."
-    case .locationNotAsked: "See the weather where you are, or choose a city in Settings → Weather."
-    case .locationDenied: "CocoNotch can't use your location. Allow it in System Settings, or choose a city."
-    case .locationFailed: "Your location couldn't be found. Try again, or choose a city in Settings → Weather."
+    case .noPlace: "Search for a city to see its weather."
+    case .locationNotAsked: "See the weather where you are, or search for a city."
+    case .locationDenied: "CocoNotch can't use your location. Allow it, or search for a city."
+    case .locationFailed: "Your location couldn't be found. Try again, or search for a city."
     case .network: "The forecast couldn't be loaded. Check your connection and try again."
     }
 }

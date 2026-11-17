@@ -334,8 +334,8 @@ private struct ClipboardView: View {
     }
 
     private func select(offset: Int, in items: [ClipboardItem], from selected: ClipboardItem?) -> KeyPress.Result {
-        guard let index = items.firstIndex(where: { $0.id == selected?.id }) else { return .ignored }
-        selectedID = items[max(0, min(items.count - 1, index + offset))].id
+        guard let id = getMovedSelection(in: items.map(\.id), from: selected?.id, by: offset) else { return .ignored }
+        selectedID = id
         return .handled
     }
 }
