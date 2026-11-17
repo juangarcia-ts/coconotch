@@ -66,6 +66,15 @@ final class MusicStore {
                 Task { @MainActor in await self?.refresh() }
             }
         }
+        // A player that quits doesn't always announce it stopped, which would leave its song in the closed notch.
+        let playerIDs = Set(players.map(\.bundleID))
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard let id = app?.bundleIdentifier, playerIDs.contains(id) else { return }
+            Task { @MainActor in await self?.refresh() }
+        }
         Task { await refresh() }
     }
 
