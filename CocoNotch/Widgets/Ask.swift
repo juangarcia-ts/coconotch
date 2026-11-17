@@ -186,7 +186,7 @@ private struct AskEmptyState: View {
     }
 }
 
-/// The question field with its send button inside, like Messages. Return sends; Option-Return adds a line.
+/// The question field with its send button inside, like Messages. Return sends; Shift- or Option-Return adds a line.
 private struct AskComposer: View {
     @Binding var draft: String
     let isResponding: Bool
@@ -208,6 +208,12 @@ private struct AskComposer: View {
                 .lineLimit(1...5)
                 .padding(.vertical, 3)
                 .focused($isFocused)
+                // Option-Return already adds a line; Shift-Return does the same thing at the cursor.
+                .onKeyPress(.return, phases: .down) { press in
+                    guard press.modifiers.contains(.shift) else { return .ignored }
+                    NSApp.sendAction(#selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)), to: nil, from: nil)
+                    return .handled
+                }
                 .onSubmit(send)
             Button(
                 isResponding ? "Stop" : "Send", systemImage: isResponding ? "stop.circle.fill" : "arrow.up.circle.fill"
