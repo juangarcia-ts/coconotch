@@ -6,7 +6,7 @@ Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0, 
 
 Open **Settings…** (⌘,) from the menu bar icon:
 
-- **General**: open on hover or click, which displays show the notch, live activities and launch at login.
+- **General**: open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
 - **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
@@ -34,6 +34,8 @@ Open **Settings…** (⌘,) from the menu bar icon:
 - **Ask**: quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them.
 
 - **Camera**: a mirrored preview from any camera, to check how you look before a call.
+
+**Check for Updates…** in the same menu installs a newer release from GitHub; CocoNotch also checks on its own unless you turn that off.
 
 ## Permissions
 

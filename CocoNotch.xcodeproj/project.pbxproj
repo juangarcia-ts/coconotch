@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C0C0000000000000000000C2 /* CocoNotchCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0C0000000000000000000C1 /* CocoNotchCore */; };
+		C0C0000000000000000000C4 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C0C0000000000000000000C3 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C0C0000000000000000000C2 /* CocoNotchCore in Frameworks */,
+				C0C0000000000000000000C4 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,6 +75,7 @@
 			name = CocoNotch;
 			packageProductDependencies = (
 				C0C0000000000000000000C1 /* CocoNotchCore */,
+				C0C0000000000000000000C3 /* Sparkle */,
 			);
 			productName = CocoNotch;
 			productReference = C0C0000000000000000000A2 /* CocoNotch.app */;
@@ -104,6 +107,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C0C0000000000000000000C0 /* XCLocalSwiftPackageReference "CocoNotchCore" */,
+				C0C0000000000000000000C5 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C0C0000000000000000000A6 /* Products */;
@@ -188,6 +192,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "CocoNotch shows and controls what's playing in Music and Spotify.";
@@ -219,6 +224,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "CocoNotch shows and controls what's playing in Music and Spotify.";
@@ -271,10 +277,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		C0C0000000000000000000C5 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		C0C0000000000000000000C1 /* CocoNotchCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CocoNotchCore;
+		};
+		C0C0000000000000000000C3 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0C0000000000000000000C5 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

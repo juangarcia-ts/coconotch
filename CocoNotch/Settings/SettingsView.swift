@@ -1,5 +1,6 @@
 import CocoNotchCore
 import ServiceManagement
+import Sparkle
 import SwiftUI
 
 enum SettingsPage: Hashable {
@@ -34,6 +35,7 @@ struct SettingsView: View {
 
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @Bindable var navigation: SettingsNavigation
+    let updater: SPUUpdater
     @State private var isWidgetsExpanded = true
 
     /// Home first, then every widget with settings in the user's order, switched on or not.
@@ -89,7 +91,7 @@ struct SettingsView: View {
     @ViewBuilder private var detail: some View {
         switch navigation.page {
         case .general:
-            GeneralSettings()
+            GeneralSettings(updater: updater)
         case .appearance:
             AppearanceSettings()
         case .shortcuts:
@@ -113,11 +115,13 @@ struct SettingsView: View {
 }
 
 private struct GeneralSettings: View {
+    let updater: SPUUpdater
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
+    @State private var checksForUpdates = false
 
     var body: some View {
         Form {
@@ -150,10 +154,16 @@ private struct GeneralSettings: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
+            // Sparkle owns this value, so mirror it rather than writing its defaults key behind its back.
+            Toggle("Automatically check for updates", isOn: $checksForUpdates)
+                .onChange(of: checksForUpdates) { updater.automaticallyChecksForUpdates = checksForUpdates }
         }
         .formStyle(.grouped)
         // The user may approve or remove CocoNotch in System Settings while this window stays open.
-        .onAppear { launchAtLoginStatus = SMAppService.mainApp.status }
+        .onAppear {
+            launchAtLoginStatus = SMAppService.mainApp.status
+            checksForUpdates = updater.automaticallyChecksForUpdates
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLoginStatus = SMAppService.mainApp.status
         }
