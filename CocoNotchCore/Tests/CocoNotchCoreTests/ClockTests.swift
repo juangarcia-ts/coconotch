@@ -36,6 +36,9 @@ private let now = Date(timeIntervalSince1970: 10_000)
     #expect(formatClock(seconds: 3845) == "1:04:05")
     #expect(formatCountdown(1499.2) == "25:00")
     #expect(formatCountdown(0) == "0:00")
+    #expect(formatTenths(0.3) == "0:00.3")
+    #expect(formatTenths(65.34) == "1:05.3")
+    #expect(formatTenths(59.97) == "1:00.0")
 }
 
 @Test func everyFourthFinishedFocusEarnsALongBreak() {
@@ -60,4 +63,27 @@ private let now = Date(timeIntervalSince1970: 10_000)
 @Test func splitsLaps() {
     #expect(getLapSplits([10, 25, 27]) == [10, 15, 2])
     #expect(getLapSplits([]) == [])
+}
+
+@Test func parsesTypedDurations() {
+    #expect(parseDuration("25") == 1500)
+    #expect(parseDuration(" 1:30 ") == 90)
+    #expect(parseDuration("1:00:00") == 3600)
+    #expect(parseDuration("1h30m") == 5400)
+    #expect(parseDuration("90s") == 90)
+    #expect(parseDuration("2H") == 7200)
+}
+
+@Test func rejectsBadDurations() {
+    #expect(parseDuration("") == nil)
+    #expect(parseDuration("0") == nil)
+    #expect(parseDuration("-5") == nil)
+    #expect(parseDuration("1:-30") == nil)
+    #expect(parseDuration("1::30") == nil)
+    #expect(parseDuration("1:2:3:4") == nil)
+    #expect(parseDuration("5x") == nil)
+    #expect(parseDuration("m") == nil)
+    #expect(parseDuration("1h30") == nil)
+    #expect(parseDuration("25h") == nil)
+    #expect(parseDuration("9999999999") == nil)
 }

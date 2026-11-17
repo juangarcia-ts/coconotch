@@ -340,14 +340,6 @@ struct NotchView: View {
                         of: [widgetDragType],
                         delegate: WidgetDropDelegate(targetID: widgetListEndID, dropTargetID: $dropTargetID)
                     )
-                Button("Settings", systemImage: "gearshape") {
-                    openSettings(.general)
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .frame(width: 40, height: notchSize.height - 6)
-                .contentShape(Capsule())
-                .help("Settings")
             }
             .frame(height: notchSize.height)
             .padding(.horizontal, 24)

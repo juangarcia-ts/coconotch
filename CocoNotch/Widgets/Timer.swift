@@ -33,7 +33,7 @@ enum TimerMode: String, CaseIterable {
 }
 
 private let modeKey = "timer.mode"
-private let timerMinutesKey = "timer.timerMinutes"
+private let timerSecondsKey = "timer.timerSeconds"
 private let focusMinutesKey = "timer.focusMinutes"
 private let shortBreakMinutesKey = "timer.shortBreakMinutes"
 private let longBreakMinutesKey = "timer.longBreakMinutes"
@@ -42,7 +42,7 @@ private let autoStartsNextKey = "timer.autoStartsNext"
 private let playsSoundKey = "timer.playsSound"
 private let soundNameKey = "timer.soundName"
 private let showsActivityKey = "timer.showsActivity"
-private let defaultTimerMinutes = 10
+private let defaultTimerSeconds = 600
 private let defaultFocusMinutes = 25
 private let defaultShortBreakMinutes = 5
 private let defaultLongBreakMinutes = 15
@@ -103,18 +103,18 @@ final class TimerStore {
     }
 
     func getDuration(_ mode: TimerMode) -> TimeInterval {
-        let minutes =
-            switch mode {
-            case .pomodoro:
+        switch mode {
+        case .pomodoro:
+            let minutes =
                 switch phase {
                 case .focus: readSetting(focusMinutesKey, default: defaultFocusMinutes)
                 case .shortBreak: readSetting(shortBreakMinutesKey, default: defaultShortBreakMinutes)
                 case .longBreak: readSetting(longBreakMinutesKey, default: defaultLongBreakMinutes)
                 }
-            case .timer: readSetting(timerMinutesKey, default: defaultTimerMinutes)
-            case .stopwatch: 0
-            }
-        return TimeInterval(minutes * 60)
+            return TimeInterval(minutes * 60)
+        case .timer: return TimeInterval(readSetting(timerSecondsKey, default: defaultTimerSeconds))
+        case .stopwatch: return 0
+        }
     }
 
     func getClock(_ mode: TimerMode) -> RunClock {
@@ -275,109 +275,225 @@ private struct ClockText: View {
 
 private struct TimerView: View {
     @AppStorage(modeKey) private var mode = TimerMode.pomodoro
-    @AppStorage(timerMinutesKey) private var timerMinutes = defaultTimerMinutes
+    @AppStorage(timerSecondsKey) private var timerSeconds = defaultTimerSeconds
     @AppStorage(longBreakEveryKey) private var longBreakEvery = defaultLongBreakEvery
     private let store = TimerStore.shared
 
     var body: some View {
         let clock = store.getClock(mode)
-        let duration = store.getDuration(mode)
-        VStack(spacing: 12) {
-            Picker("Mode", selection: $mode) {
-                ForEach(TimerMode.allCases, id: \.self) { mode in
-                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 4) {
+                ForEach(TimerMode.allCases, id: \.self) { item in
+                    Chip(title: item.title, systemImage: item.systemImage, isSelected: item == mode) { mode = item }
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 320)
+            HStack(alignment: .top, spacing: 8) {
+                clockTile(clock: clock, duration: store.getDuration(mode))
+                if mode == .stopwatch, !store.laps.isEmpty {
+                    // Sized by the clock tile; the list scrolls inside it rather than growing the notch.
+                    Color.clear
+                        .frame(width: 220)
+                        .frame(maxHeight: .infinity)
+                        .overlay { LapList(laps: store.laps) }
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            // Lets the lap tile stretch to the clock tile's height, like the System tiles.
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 10)
+    }
 
-            caption(clock: clock)
-
-            ClockText(clock: clock, duration: mode == .stopwatch ? nil : duration)
-                .font(.system(size: 44, weight: .semibold, design: .rounded))
-
+    private func clockTile(clock: RunClock, duration: TimeInterval) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                mode == .pomodoro ? getTitle(store.phase) : mode.title,
+                systemImage: clock.isRunning || mode == .stopwatch ? mode.systemImage : "pause.fill"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            HStack(alignment: .center) {
+                Group {
+                    if mode == .timer, !clock.isRunning, clock.banked == 0 {
+                        DurationField(seconds: $timerSeconds) { store.toggle(.timer) }
+                    } else {
+                        ClockText(clock: clock, duration: mode == .stopwatch ? nil : duration)
+                    }
+                }
+                .font(.system(size: 44, weight: .semibold))
+                Spacer()
+                controls(clock: clock)
+            }
             if mode != .stopwatch {
                 TimelineView(.periodic(from: clock.startedAt ?? .now, by: 1)) { context in
                     ProgressView(value: min(1, clock.getElapsed(at: context.date) / max(1, duration)))
-                        .frame(maxWidth: 240)
+                        .progressViewStyle(.linear)
                 }
             }
-
-            controls(clock: clock)
+            detail(clock: clock, duration: duration)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(minHeight: 22)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
     }
 
     @ViewBuilder
-    private func caption(clock: RunClock) -> some View {
+    private func detail(clock: RunClock, duration: TimeInterval) -> some View {
+        let finish = getFinishDate(clock, duration: duration).map {
+            "Ends at \($0.formatted(date: .omitted, time: .shortened))"
+        }
         switch mode {
         case .pomodoro:
             HStack(spacing: 6) {
-                Text(getTitle(store.phase))
                 if longBreakEvery > 0 {
-                    // One dot per focus in the current round up to the long break.
+                    // One dot per finished focus in this round; a skipped one doesn't fill a dot.
                     let done = store.focusCount % longBreakEvery
-                    ForEach(0..<longBreakEvery, id: \.self) { index in
-                        Image(systemName: index < done ? "circle.fill" : "circle")
-                            .font(.system(size: 6))
+                    HStack(spacing: 3) {
+                        ForEach(0..<longBreakEvery, id: \.self) { index in
+                            Image(systemName: index < done ? "circle.fill" : "circle")
+                                .font(.system(size: 6))
+                        }
+                    }
+                    Text("\(done) of \(longBreakEvery) before the long break")
+                } else {
+                    Text("\(store.focusCount) focus sessions finished")
+                }
+                Spacer()
+                if let finish { Text(finish) }
+            }
+        case .timer where !clock.isRunning && clock.banked == 0:
+            HStack(spacing: 2) {
+                ForEach(timerPresets, id: \.self) { minutes in
+                    Chip(title: "\(minutes)m", font: .caption.weight(.medium), isSelected: minutes * 60 == timerSeconds)
+                    {
+                        timerSeconds = minutes * 60
                     }
                 }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        case .timer where !clock.isRunning && clock.banked == 0:
-            HStack(spacing: 6) {
-                ForEach(timerPresets, id: \.self) { minutes in
-                    Button("\(minutes)m") { timerMinutes = minutes }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(minutes == timerMinutes ? .accentColor : nil)
-                }
-                Stepper("Minutes", value: $timerMinutes, in: 1...720)
-                    .labelsHidden()
-                    .controlSize(.small)
+                Spacer()
+                Text("Click the time to type one")
             }
         case .timer:
-            Text("\(timerMinutes) min timer")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(finish ?? "Paused · \(formatClock(seconds: timerSeconds)) timer")
         case .stopwatch:
-            let splits = getLapSplits(store.laps)
-            HStack(spacing: 12) {
-                // The latest laps, newest first.
-                ForEach(Array(splits.enumerated().suffix(3).reversed()), id: \.offset) { index, split in
-                    Text("Lap \(index + 1)  \(formatClock(seconds: Int(split)))")
-                }
-            }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .frame(minHeight: 14)
+            Text(store.laps.isEmpty ? "Lap marks a split" : "\(store.laps.count) laps")
         }
     }
 
     private func controls(clock: RunClock) -> some View {
-        HStack(spacing: 10) {
-            Button(clock.isRunning ? "Pause" : "Start", systemImage: clock.isRunning ? "pause.fill" : "play.fill") {
+        HStack(spacing: 16) {
+            iconButton(clock.isRunning ? "Pause" : "Start", systemImage: clock.isRunning ? "pause.fill" : "play.fill") {
                 store.toggle(mode)
             }
             .keyboardShortcut(.space, modifiers: [])
-            .buttonStyle(.borderedProminent)
             switch mode {
             case .pomodoro:
-                Button("Skip", systemImage: "forward.end.fill") { store.skipPhase() }
-                    .help("Go to the next phase")
+                iconButton("Skip to the next phase", systemImage: "forward.end.fill") { store.skipPhase() }
             case .stopwatch:
-                Button("Lap", systemImage: "flag.fill") { store.lap() }
+                iconButton("Lap", systemImage: "flag.fill") { store.lap() }
                     .disabled(!clock.isRunning)
             case .timer:
                 EmptyView()
             }
-            Button("Reset", systemImage: "arrow.counterclockwise") { store.reset(mode) }
+            iconButton("Reset", systemImage: "arrow.counterclockwise") { store.reset(mode) }
                 .disabled(!clock.isRunning && clock.banked == 0 && (mode != .pomodoro || store.focusCount == 0))
         }
-        .controlSize(.large)
+        .font(.title2)
+    }
+
+    private func iconButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(title, systemImage: systemImage, action: action)
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .help(title)
+    }
+}
+
+/// The idle timer's length, typed over the clock: Return sets it and starts, clicking away only sets it.
+private struct DurationField: View {
+    @Binding var seconds: Int
+    let start: () -> Void
+    @State private var text = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("Duration", text: $text)
+            .textFieldStyle(.plain)
+            .monospacedDigit()
+            .focused($isFocused)
+            .frame(maxWidth: 240, alignment: .leading)
+            .onSubmit { if commit() { start() } }
+            .onChange(of: isFocused) { _, isFocused in if !isFocused { commit() } }
+            .onChange(of: seconds, initial: true) { text = formatClock(seconds: seconds) }
+            .help("Type a time like 25, 1:30 or 1h30m, then press Return to start")
+    }
+
+    /// Keeps a time that parses and puts back the last good one otherwise.
+    @discardableResult
+    private func commit() -> Bool {
+        let parsed = parseDuration(text)
+        if let parsed { seconds = parsed }
+        text = formatClock(seconds: seconds)
+        return parsed != nil
+    }
+}
+
+/// Every lap, newest first: its own time, then the stopwatch reading when it was marked.
+private struct LapList: View {
+    let laps: [TimeInterval]
+
+    var body: some View {
+        let splits = getLapSplits(laps)
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Laps", systemImage: "flag")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(splits.indices.reversed(), id: \.self) { index in
+                        HStack {
+                            Text("Lap \(index + 1)")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(formatTenths(splits[index]))
+                            Text(formatTenths(laps[index]))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 58, alignment: .trailing)
+                        }
+                    }
+                }
+                .font(.caption.monospacedDigit())
+            }
+            .scrollIndicators(.never)
+        }
+        .padding(12)
+    }
+}
+
+/// A selectable capsule, like the provider switcher in AI Usage.
+private struct Chip: View {
+    let title: String
+    var systemImage: String?
+    var font = Font.callout.weight(.medium)
+    let isSelected: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            HStack(spacing: 6) {
+                if let systemImage { Image(systemName: systemImage) }
+                Text(title)
+            }
+            .font(font)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(isSelected ? Color.primary.opacity(0.15) : .clear, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isSelected ? .primary : .secondary)
     }
 }
 

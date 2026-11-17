@@ -49,6 +49,46 @@ public func formatCountdown(_ remaining: TimeInterval) -> String {
     formatClock(seconds: Int(remaining.rounded(.up)))
 }
 
+/// "1:05.3", for laps that can be shorter than a second.
+public func formatTenths(_ seconds: TimeInterval) -> String {
+    let tenths = Int((max(0, seconds) * 10).rounded())
+    return "\(formatClock(seconds: tenths / 10)).\(tenths % 10)"
+}
+
+/// Seconds from a typed duration: "25" is minutes, "1:30" minutes and seconds, "1:00:00" adds hours, and "1h30m"
+/// or "90s" use units. Nil when it isn't one, or isn't between a second and a day.
+public func parseDuration(_ text: String) -> Int? {
+    let text = text.lowercased().filter { !$0.isWhitespace }
+    // Short enough that no number can overflow.
+    guard !text.isEmpty, text.count <= 9 else { return nil }
+    let seconds: Int
+    if text.contains(":") {
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false).compactMap { Int($0) }
+        guard (2...3).contains(parts.count), parts.count == text.filter({ $0 == ":" }).count + 1,
+            parts.allSatisfy({ $0 >= 0 })
+        else { return nil }
+        seconds = parts.reduce(0) { $0 * 60 + $1 }
+    } else if let minutes = Int(text) {
+        seconds = minutes * 60
+    } else {
+        let units: [Character: Int] = ["h": 3600, "m": 60, "s": 1]
+        var total = 0
+        var number = ""
+        for character in text {
+            if character.isASCII, character.isNumber {
+                number.append(character)
+            } else {
+                guard let value = Int(number), let unit = units[character] else { return nil }
+                total += value * unit
+                number = ""
+            }
+        }
+        guard number.isEmpty else { return nil }
+        seconds = total
+    }
+    return (1...86_400).contains(seconds) ? seconds : nil
+}
+
 public enum PomodoroPhase: String, Sendable {
     case focus, shortBreak, longBreak
 }

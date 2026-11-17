@@ -4,15 +4,19 @@ import SwiftUI
 private let repositoryURL = URL(string: "https://github.com/juangarcia-ts/coconotch")
 private let coffeeURL = URL(string: "https://buymeacoffee.com/juangarciats")
 
-/// The quiet line under every widget: the version, linking to the repository, and a link to support the app.
+/// The quiet line under every widget: the version, linking to the repository, a link to support the app and Settings.
 struct NotchFooter: View {
     /// The footer's whole height, its spacing included, so the widget above can be sized to leave room for it.
     static let height: CGFloat = 40
+    @Environment(\.openURL) private var openURL
+    @Environment(\.showSettings) private var showSettings
 
     var body: some View {
         HStack(spacing: 14) {
             if let repositoryURL {
-                FooterLink(url: repositoryURL, help: "CocoNotch on GitHub") {
+                FooterLink(help: "CocoNotch on GitHub") {
+                    openURL(repositoryURL)
+                } label: {
                     HStack(spacing: 5) {
                         Image("GitHub")
                             .resizable()
@@ -26,9 +30,17 @@ struct NotchFooter: View {
             }
             Spacer()
             if let coffeeURL {
-                FooterLink(url: coffeeURL, help: "Support CocoNotch") {
+                FooterLink(help: "Support CocoNotch") {
+                    openURL(coffeeURL)
+                } label: {
                     Label("Buy me a coffee", systemImage: "cup.and.saucer.fill")
                 }
+            }
+            // Here rather than in the tab row, so it doesn't read as one more widget.
+            FooterLink(help: "Settings") {
+                showSettings(.general)
+            } label: {
+                Label("Settings", systemImage: "gearshape")
             }
         }
         .font(.caption2)
@@ -40,13 +52,13 @@ struct NotchFooter: View {
 }
 
 private struct FooterLink<Content: View>: View {
-    let url: URL
     let help: String
-    @ViewBuilder let content: Content
+    let action: () -> Void
+    @ViewBuilder let label: Content
     @State private var isHovering = false
 
     var body: some View {
-        Link(destination: url) { content }
+        Button(action: action) { label }
             .buttonStyle(.plain)
             .foregroundStyle(isHovering ? .secondary : .tertiary)
             .onHover { isHovering = $0 }
