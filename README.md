@@ -4,7 +4,7 @@ A modular widget hub for the MacBook notch and menu bar, focused on the workday.
 
 Hover (or click) the notch to expand it; each widget is a tab, and ⌘1…⌘0, then ⌥⌘1…⌥⌘0, switch between them once the notch has focus. Shortcuts you record in Settings open the notch, or a single widget, from any app. The closed notch shows live activities, like a meeting about to start or the song that's playing.
 
-Open **Settings…** (⌘,) from the menu bar icon:
+Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
 
 - **General**: open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
 - **Shortcuts**: a system-wide shortcut to open or close the notch (⌥⌘N by default), one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
@@ -18,6 +18,8 @@ Open **Settings…** (⌘,) from the menu bar icon:
 - **Time Zones**: your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back.
 
 - **Meetings**: your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off).
+
+- **Timer**: a Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound.
 
 - **Weather**: current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F.
 
