@@ -238,6 +238,8 @@ private struct Metric: Identifiable {
     var history: [Double] = []
     /// Set when the color carries meaning, such as memory pressure.
     var tint: Color?
+    /// Shown as a small warning sign next to the value, with this as its tooltip.
+    var warning: String?
 }
 
 private func getPressureColor(_ pressure: MemoryPressure) -> Color {
@@ -266,9 +268,10 @@ private func makeMetrics(
         metrics.append(
             Metric(
                 id: "memory", title: "Memory", symbol: "memorychip",
-                value: pressure.map(getMemoryPressureLabel) ?? "–", fraction: store.memoryPressureFraction,
+                value: store.memoryPressureFraction.map(formatPercent) ?? "–", fraction: store.memoryPressureFraction,
                 detail: "\(used)\(formatBytes(store.memoryTotal, isMemory: true))", history: store.memoryHistory,
-                tint: pressure.map(getPressureColor)))
+                tint: pressure.map(getPressureColor),
+                warning: pressure.flatMap { $0 == .normal ? nil : "Memory pressure: \(getMemoryPressureLabel($0))" }))
     }
     if showsDisk, let disk = store.disk {
         metrics.append(
@@ -310,9 +313,18 @@ private struct SystemView: View {
                             Label(metric.title, systemImage: metric.symbol)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            Text(metric.value)
-                                .font(.title2.weight(.semibold).monospacedDigit())
-                                .lineLimit(1)
+                            HStack(spacing: 6) {
+                                Text(metric.value)
+                                    .font(.title2.weight(.semibold).monospacedDigit())
+                                    .lineLimit(1)
+                                if let warning = metric.warning {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.callout)
+                                        .foregroundStyle(metric.tint ?? .yellow)
+                                        .help(warning)
+                                        .accessibilityLabel(warning)
+                                }
+                            }
                             if showsGraphs, !metric.history.isEmpty {
                                 Sparkline(
                                     values: metric.history, limit: store.historyLimit, tint: metric.tint ?? .accentColor
