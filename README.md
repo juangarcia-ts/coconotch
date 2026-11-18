@@ -34,17 +34,17 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | Widget | What it does |
 | --- | --- |
 | **Home** | Always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field. |
-| **Time Zones** | Your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back. |
+| **Music** | What's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch. |
 | **Meetings** | Your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off). |
+| **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
+| **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
+| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. |
 | **Timer** | A Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound. |
 | **Weather** | Current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F. |
-| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. |
-| **Music** | What's playing in Music or Spotify, with playback and volume controls, synced lyrics from [LRCLIB](https://lrclib.net) and the current song in the closed notch. |
+| **Time Zones** | Your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back. |
 | **System** | CPU, memory, disk and battery, with graphs of the last minute and a low battery heads-up. |
-| **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
 | **Shelf** | Drop files on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share. |
 | **Convert** | Drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF. |
-| **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
 | **Camera** | A mirrored preview from any camera, to check how you look before a call. |
 
 ## Usage
@@ -78,7 +78,7 @@ CocoNotch has no account and no analytics. It only goes online for:
 
 - **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
 - **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
-- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Connect. Codex limits come from its local session logs.
+- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs.
 - **Updates**: checking for and installing new releases from GitHub.
 
 ## Build
