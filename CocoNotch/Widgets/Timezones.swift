@@ -362,9 +362,12 @@ private struct TimezonesSettings: View {
                         // Hide it instead; there would be no way to add it back.
                         .disabled(isLocal)
                     }
+                    .listRowInsets(settingsListRowInsets)
                 }
                 .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
             .onChange(of: focusedAliasID) { lost, gained in
                 if gained == nil, lost == editingID { editingID = nil }
