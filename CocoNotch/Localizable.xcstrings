@@ -8121,58 +8121,6 @@
         }
       }
     },
-    "Hide this limit's reminder in the closed notch until it resets or runs out": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erinnerung an dieses Limit in der geschlossenen Notch ausblenden, bis es zurückgesetzt oder aufgebraucht ist"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ocultar el aviso de este límite en el notch cerrado hasta que se reinicie o se agote"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Masquer le rappel de cette limite dans l'encoche fermée jusqu'à sa réinitialisation ou son épuisement"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nascondi il promemoria di questo limite nel notch chiuso finché non si azzera o si esaurisce"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リセットされるか使い切るまで、閉じたノッチでこの上限の通知を非表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 한도가 재설정되거나 소진될 때까지 닫힌 노치에서 알림 숨기기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ocultar o aviso deste limite no notch fechado até ele reiniciar ou acabar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在此限额重置或用完前，在收起的刘海中隐藏它的提醒"
-          }
-        }
-      }
-    },
     "Hide this meeting's reminder in the closed notch": {
       "localizations": {
         "de": {
@@ -8221,6 +8169,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "在收起的刘海中隐藏此会议的提醒"
+          }
+        }
+      }
+    },
+    "Hide until usage drops below the threshold and climbs back, or runs out": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausblenden, bis die Nutzung unter den Schwellenwert fällt und wieder steigt oder aufgebraucht ist"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar hasta que el uso baje del umbral y vuelva a subir, o se agote"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer jusqu'à ce que l'utilisation repasse sous le seuil puis le dépasse à nouveau, ou s'épuise"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi finché l'utilizzo non scende sotto la soglia e risale, o si esaurisce"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用量がしきい値を下回って再び超えるか、使い切るまで非表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용량이 기준치 아래로 내려갔다가 다시 오르거나 소진될 때까지 숨기기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar até o uso cair abaixo do limite e subir de novo, ou acabar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏，直到用量降到阈值以下后再次超过，或已用完"
           }
         }
       }

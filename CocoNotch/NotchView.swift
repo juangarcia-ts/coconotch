@@ -11,6 +11,7 @@ struct NotchView: View {
     @State private var isExpanded = false
     /// The top activity whose alert is showing, as an `alertKey`.
     @State private var alertingKey: String?
+    @State private var alertTask: Task<Void, Never>?
     @AppStorage(PreferenceKey.selectedWidget) private var selectedWidgetID = ""
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
@@ -120,6 +121,8 @@ struct NotchView: View {
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
             if !isHovering, FilePicker.shared.openerID == panelID || isHeldOpen { return }
+            // An alert dropping under a resting pointer isn't a hover; opening would take the keyboard. A click opens it.
+            if isHovering, alertingKey != nil { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
@@ -131,7 +134,10 @@ struct NotchView: View {
             }
         }
         .onTapGesture {
-            if expandsOnClick && !isExpanded && !isStickyAlertShowing { setExpanded(true) }
+            // Without click-to-open, a click still opens it when an alert came up under a resting pointer.
+            guard !isExpanded, !isStickyAlertShowing else { return }
+            if let widgetID = getHoverWidgetID(activities.first?.summary) { selectedWidgetID = widgetID }
+            setExpanded(true)
         }
         // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
         // not come back over it.
@@ -194,9 +200,10 @@ struct NotchView: View {
     /// Shows the new top activity's alert, then folds it back into the island.
     private func showAlert(key: String?, isSticky: Bool) {
         alertingKey = key
+        alertTask?.cancel()
         guard let key, !isSticky else { return }
-        Task {
-            try? await Task.sleep(for: .seconds(6))
+        alertTask = Task {
+            guard (try? await Task.sleep(for: .seconds(10))) != nil else { return }
             if alertingKey == key { alertingKey = nil }
         }
     }

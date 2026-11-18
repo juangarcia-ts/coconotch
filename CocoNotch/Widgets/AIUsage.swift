@@ -107,11 +107,9 @@ final class AIUsageStore {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     // Picks the next limit once the shown one resets, without waiting for the next fetch.
     @ObservationIgnored private var resetTask: Task<Void, Never>?
-    /// The heads-up showing in the closed notch, if any, as a `makeUsageHeadsUpKey`.
-    private(set) var headsUpKey: String?
     /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
     private(set) var headsUpProvider: AIProvider?
-    @ObservationIgnored private var dismissedHeadsUpKeys: Set<String> = []
+    @ObservationIgnored private var dismissedHeadsUps: [String: UsageLimit] = [:]
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -229,48 +227,60 @@ final class AIUsageStore {
     }
 
     /// The limits to show for a provider, with reset windows at zero: Claude's chosen kinds, or Codex's snapshot.
-    func getLimits(for provider: AIProvider, now: Date) -> [UsageLimit] {
+    func getLimits(for provider: AIProvider, now: Date, showsHidden: Bool = false) -> [UsageLimit] {
         switch provider {
         case .claude:
             getVisibleLimits(
                 resetExpiredLimits(claudeLimits, now: now),
-                hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
+                hiddenKinds: showsHidden ? [] : decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
         case .codex:
             resetExpiredLimits(codexUsage?.limits ?? [], now: now)
         }
     }
 
     private func clearHeadsUp() {
-        headsUpKey = nil
         headsUpProvider = nil
         ActivityCenter.shared.remove(id: headsUpActivityID)
     }
 
+    /// Silences every limit over the threshold, not just the fullest, so another one overtaking it doesn't alert again.
     func dismissHeadsUp() {
-        if let headsUpKey { dismissedHeadsUpKeys.insert(headsUpKey) }
+        let due = getDueUsageHeadsUps(getCandidates(now: .now), threshold: getThreshold())
+        dismissedHeadsUps = mergeDismissedHeadsUps(dismissedHeadsUps, due)
         updateHeadsUp()
+    }
+
+    private func getCandidates(now: Date, showsHidden: Bool = false) -> [(provider: AIProvider, limit: UsageLimit)] {
+        let shown = getShownProviders(
+            showsClaude: readDefault(showsClaudeKey, default: true),
+            showsCodex: readDefault(showsCodexKey, default: true)
+        )
+        return shown.flatMap { provider in
+            getLimits(for: provider, now: now, showsHidden: showsHidden).map { (provider, $0) }
+        }
+    }
+
+    private func getThreshold() -> Int {
+        readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold)
     }
 
     func updateHeadsUp() {
         resetTask?.cancel()
         let now = Date.now
-        dismissedHeadsUpKeys = pruneDismissedHeadsUpKeys(dismissedHeadsUpKeys, now: now)
-        let shown = getShownProviders(
-            showsClaude: readDefault(showsClaudeKey, default: true),
-            showsCodex: readDefault(showsCodexKey, default: true)
-        )
-        let candidates = shown.flatMap { provider in getLimits(for: provider, now: now).map { (provider, $0) } }
-        guard let (provider, limit) = getFullestProviderLimit(candidates) else {
+        let candidates = getCandidates(now: now)
+        // Hidden limits count, so hiding one and showing it again doesn't bring its dismissed heads-up back.
+        let due = getDueUsageHeadsUps(getCandidates(now: now, showsHidden: true), threshold: getThreshold())
+        dismissedHeadsUps = pruneDismissedHeadsUps(dismissedHeadsUps, due: due, now: now)
+        guard let (provider, limit) = getHeadsUpProviderLimit(candidates, dismissed: dismissedHeadsUps) else {
             clearHeadsUp()
             return
         }
-        let key = makeUsageHeadsUpKey(provider: provider, limit: limit)
         guard
             let priority = getUsageActivityPriority(
                 limit,
                 showsHeadsUp: readDefault(showsHeadsUpKey, default: true),
-                threshold: readDefault(headsUpThresholdKey, default: defaultHeadsUpThreshold),
-                isDismissed: dismissedHeadsUpKeys.contains(key),
+                threshold: getThreshold(),
+                isDismissed: isUsageHeadsUpDismissed(provider: provider, limit: limit, dismissed: dismissedHeadsUps),
                 showsIdle: readDefault(showsIdleKey, default: true)
             )
         else {
@@ -278,7 +288,6 @@ final class AIUsageStore {
             return
         }
         let isHeadsUp = priority > .low
-        headsUpKey = isHeadsUp ? key : nil
         headsUpProvider = isHeadsUp ? provider : nil
         let display =
             isHeadsUp
@@ -386,7 +395,7 @@ private struct AIUsageView: View {
                         if store.headsUpProvider == provider {
                             Button("Dismiss", systemImage: "bell.slash") { store.dismissHeadsUp() }
                                 .buttonStyle(.bordered)
-                                .help("Hide this limit's reminder in the closed notch until it resets or runs out")
+                                .help("Hide until usage drops below the threshold and climbs back, or runs out")
                         }
                         if provider == .codex,
                             let asOf = formatAsOf(store.codexUsage?.recordedAt, now: context.date, calendar: .current)
