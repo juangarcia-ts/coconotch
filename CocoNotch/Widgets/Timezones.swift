@@ -216,7 +216,7 @@ private struct DayBand: View {
                             startPoint: .leading, endPoint: .trailing)
                     )
                     .opacity(0.75)
-                if let midnight = getMidnightFraction(from: start, to: end, in: zone) {
+                ForEach(getMidnightFractions(from: start, to: end, in: zone), id: \.self) { midnight in
                     Rectangle()
                         .fill(.primary.opacity(0.4))
                         .frame(width: 1)

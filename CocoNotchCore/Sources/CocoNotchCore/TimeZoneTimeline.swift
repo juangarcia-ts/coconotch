@@ -26,14 +26,19 @@ public func isDaytime(hour: Double) -> Bool {
     getDaylight(hour: hour) >= 0.5
 }
 
-/// Where the zone's midnight falls between `start` and `end`, from 0 to 1, or nil if none does. Measured in elapsed time,
-/// so it stays right on days when the clocks change.
-public func getMidnightFraction(from start: Date, to end: Date, in zone: TimeZone) -> Double? {
+/// Where each of the zone's midnights falls between `start` and `end`, from 0 to 1. Measured in elapsed time, so it
+/// stays right when the clocks change, including a 23-hour day that puts two midnights in one span.
+public func getMidnightFractions(from start: Date, to end: Date, in zone: TimeZone) -> [Double] {
+    guard end > start else { return [] }
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = zone
-    let midnight = calendar.startOfDay(for: end)
-    guard midnight > start, end > start else { return nil }
-    return midnight.timeIntervalSince(start) / end.timeIntervalSince(start)
+    var fractions: [Double] = []
+    var midnight: Date? = calendar.startOfDay(for: end)
+    while let current = midnight, current > start {
+        fractions.insert(current.timeIntervalSince(start) / end.timeIntervalSince(start), at: 0)
+        midnight = calendar.date(byAdding: .day, value: -1, to: current)
+    }
+    return fractions
 }
 
 /// The hours a drag at `fraction` of the timeline's width moves time by, in quarter hours.

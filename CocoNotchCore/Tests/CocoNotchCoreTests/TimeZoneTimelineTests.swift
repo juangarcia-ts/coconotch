@@ -27,16 +27,23 @@ func shadesTheHourFromNightToDay(hour: Double, daylight: Double) {
 
 @Test func placesMidnightOnTheTimeline() throws {
     let start = Date(timeIntervalSince1970: 1_768_500_000)  // 2026-01-15 18:00 UTC
-    let fraction = getMidnightFraction(from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("UTC"))
-    #expect(fraction == 0.25)
+    let fractions = getMidnightFractions(from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("UTC"))
+    #expect(fractions == [0.25])
 }
 
 @Test func placesMidnightByElapsedTimeWhenTheClocksChange() throws {
     // 2026-03-08 06:00 UTC is 01:00 EST in New York, an hour before the clocks spring forward.
     let start = Date(timeIntervalSince1970: 1_772_949_600)
-    let fraction = getMidnightFraction(
+    let fractions = getMidnightFractions(
         from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("America/New_York"))
-    #expect(fraction == 22.0 / 24)
+    #expect(fractions == [22.0 / 24])
+}
+
+@Test func marksBothMidnightsAroundA23HourDay() throws {
+    let start = Date(timeIntervalSince1970: 1_772_944_200)  // 2026-03-08 04:30 UTC, 23:30 EST on March 7
+    let fractions = getMidnightFractions(
+        from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("America/New_York"))
+    #expect(fractions == [0.5 / 24, 23.5 / 24])
 }
 
 @Test(arguments: [(0.5, 0.0), (1.0, 12.0), (0.0, -12.0), (1.5, 12.0), (0.51, 0.25), (0.6, 2.5)])
