@@ -383,6 +383,9 @@ private struct WeatherView: View {
                 HStack(spacing: 10) {
                     Text(formatDayLabel(day.date, now: now, calendar: .current))
                         .font(.caption.weight(.medium))
+                        // Shrinks a long "Today", like "Aujourd'hui", rather than wrap it and break the row's bar.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(width: 44, alignment: .leading)
                     Image(systemName: getWeatherSymbol(code: day.code, isDay: true))
                         .symbolRenderingMode(.multicolor)

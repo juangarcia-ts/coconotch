@@ -61,17 +61,17 @@ public enum ConvertOutput: String, CaseIterable, Sendable {
     /// A short line under the format's name, saying when to pick it.
     public var detail: String {
         switch self {
-        case .heic: "Smallest photos"
-        case .jpeg: "Opens everywhere"
-        case .png: "Lossless, keeps transparency"
-        case .tiff: "Lossless, for print"
-        case .gif: "Simple web image"
-        case .bmp: "Uncompressed"
-        case .pdf: "Everything in one PDF"
-        case .mp4: "Plays everywhere"
-        case .mov: "QuickTime movie"
-        case .m4a: "Just the sound"
-        case .animatedGIF: "Looping, no sound"
+        case .heic: String(localized: "Smallest photos", bundle: .module)
+        case .jpeg: String(localized: "Opens everywhere", bundle: .module)
+        case .png: String(localized: "Lossless, keeps transparency", bundle: .module)
+        case .tiff: String(localized: "Lossless, for print", bundle: .module)
+        case .gif: String(localized: "Simple web image", bundle: .module)
+        case .bmp: String(localized: "Uncompressed", bundle: .module)
+        case .pdf: String(localized: "Everything in one PDF", bundle: .module)
+        case .mp4: String(localized: "Plays everywhere", bundle: .module)
+        case .mov: String(localized: "QuickTime movie", bundle: .module)
+        case .m4a: String(localized: "Just the sound", bundle: .module)
+        case .animatedGIF: String(localized: "Looping, no sound", bundle: .module)
         }
     }
 

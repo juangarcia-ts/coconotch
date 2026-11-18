@@ -468,10 +468,14 @@ private struct ConvertFileCard: View {
             }
             .frame(height: 112)
             VStack(spacing: 2) {
-                Text(store.paths.count == 1 ? (firstPath as NSString).lastPathComponent : "\(store.paths.count) files")
-                    .font(.callout.weight(.semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                Text(
+                    store.paths.count == 1
+                        ? (firstPath as NSString).lastPathComponent
+                        : String(localized: "\(store.paths.count) files")
+                )
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
                 Text(store.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)

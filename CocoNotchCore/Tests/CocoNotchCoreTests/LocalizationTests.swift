@@ -21,3 +21,14 @@ func translatesIntoEveryLanguage(language: String, today: String) throws {
     #expect(String(format: format, locale: locale, 1) == "1 ítem")
     #expect(String(format: format, locale: locale, 3) == "3 ítems")
 }
+
+@Test func pluralizesTheFailedCountAfterTheResult() throws {
+    let format = try getBundle("es").localizedString(
+        forKey: "%@; %lld files couldn't be converted", value: nil, table: nil)
+    let locale = Locale(identifier: "es")
+    let done = "3 archivos convertidos"
+    #expect(String(format: format, locale: locale, done, 1) == "3 archivos convertidos; no se pudo convertir 1 archivo")
+    #expect(
+        String(format: format, locale: locale, done, 2) == "3 archivos convertidos; no se pudieron convertir 2 archivos"
+    )
+}

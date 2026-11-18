@@ -271,7 +271,8 @@ private func makeMetrics(
         metrics.append(
             Metric(
                 id: "cpu", title: "CPU", symbol: "cpu", value: store.cpuUsage.map(formatPercent) ?? "–",
-                fraction: store.cpuUsage, detail: "\(ProcessInfo.processInfo.activeProcessorCount) cores",
+                fraction: store.cpuUsage,
+                detail: String(localized: "\(ProcessInfo.processInfo.activeProcessorCount) cores"),
                 history: store.cpuHistory))
     }
     if showsMemory {
