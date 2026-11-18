@@ -483,10 +483,7 @@ private struct UsageProblemView: View {
     private let store = AIUsageStore.shared
 
     var body: some View {
-        VStack(spacing: 10) {
-            Text(getClaudeUsageProblemMessage(problem))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+        WidgetPrompt(systemImage: NotchWidget.aiUsage.systemImage, message: getClaudeUsageProblemMessage(problem)) {
             switch problem {
             case .notConnected, .accessDeclined, .keychainError:
                 Button("Connect Claude Code") { store.connectClaude() }
@@ -494,9 +491,6 @@ private struct UsageProblemView: View {
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             }
         }
-        .frame(maxWidth: 380)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
     }
 }
 
