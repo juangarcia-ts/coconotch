@@ -52,7 +52,7 @@ struct NotchFooter: View {
 }
 
 private struct FooterLink<Content: View>: View {
-    let help: String
+    let help: LocalizedStringKey
     let action: () -> Void
     @ViewBuilder let label: Content
     @State private var isHovering = false

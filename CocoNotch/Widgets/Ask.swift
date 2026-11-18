@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let ask = NotchWidget(
         id: "ask",
-        title: "Ask",
+        title: String(localized: "Ask"),
         systemImage: "sparkles",
         makeView: {
             // The check runs each time the tab opens, so turning Apple Intelligence on shows the chat right away.
@@ -230,7 +230,7 @@ extension AskView {
                 Menu {
                     let now = Date.now
                     let groups = Dictionary(grouping: store.history) { getAskChatGroupTitle($0.date, now: now) }
-                    ForEach(["Today", "Yesterday", "Earlier"], id: \.self) { title in
+                    ForEach(askChatGroupTitles, id: \.self) { title in
                         if let chats = groups[title] {
                             Section(title) {
                                 ForEach(chats) { chat in
@@ -314,7 +314,8 @@ private struct AskComposer: View {
             }
             TextField("Ask anything…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
-                .lineLimit(1...5)
+                // Otherwise a long translated placeholder wraps to three lines on the narrow Home card.
+                .lineLimit(draft.isEmpty ? 1...1 : 1...5)
                 .padding(.vertical, 3)
                 .focused($isFocused)
                 // Option-Return already adds a line; Shift-Return does the same thing at the cursor.

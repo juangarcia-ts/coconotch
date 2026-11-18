@@ -93,10 +93,10 @@ public func parseCodexUsage(_ log: String) -> CodexUsage? {
 /// "5-hour window", "Weekly" or "2-day window", from a window's length.
 public func formatWindowTitle(minutes: Int) -> String {
     switch minutes {
-    case 10_080: "Weekly"
-    case let minutes where minutes % 1440 == 0: "\(minutes / 1440)-day window"
-    case let minutes where minutes % 60 == 0: "\(minutes / 60)-hour window"
-    default: "\(minutes)-minute window"
+    case 10_080: String(localized: "Weekly", bundle: .module)
+    case let minutes where minutes % 1440 == 0: String(localized: "\(minutes / 1440)-day window", bundle: .module)
+    case let minutes where minutes % 60 == 0: String(localized: "\(minutes / 60)-hour window", bundle: .module)
+    default: String(localized: "\(minutes)-minute window", bundle: .module)
     }
 }
 
@@ -115,7 +115,7 @@ public func formatAsOf(_ date: Date?, now: Date, calendar: Calendar) -> String? 
         calendar.isDate(date, inSameDayAs: now)
         ? date.formatted(date: .omitted, time: .shortened)
         : date.formatted(.dateTime.month(.abbreviated).day())
-    return "As of \(text)"
+    return String(localized: "As of \(text)", bundle: .module)
 }
 
 /// The fullest shown limit across providers, for the heads-up and the Home card.

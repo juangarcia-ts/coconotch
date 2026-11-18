@@ -105,12 +105,40 @@ struct SettingsView: View {
 
     private func getTitle(of page: SettingsPage) -> String {
         switch page {
-        case .general: "General"
-        case .appearance: "Appearance"
-        case .shortcuts: "Shortcuts"
-        case .widgets: "Widgets"
+        case .general: String(localized: "General")
+        case .appearance: String(localized: "Appearance")
+        case .shortcuts: String(localized: "Shortcuts")
+        case .widgets: String(localized: "Widgets")
         case .widget(let id): NotchWidget.find(id: id)?.title ?? ""
         }
+    }
+}
+
+/// The language chosen for CocoNotch alone, also set by System Settings → Language & Region → Applications.
+private func readAppLanguage() -> String? {
+    let domain = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")
+    return (domain?[appLanguagesKey] as? [String])?.first
+}
+
+/// Opens a fresh copy once this one has quit, so the two never hold the notch or the shortcuts at once. Returns false,
+/// leaving this copy running, when the helper that reopens it can't start.
+private func relaunch() -> Bool {
+    let process = Process()
+    process.executableURL = URL(filePath: "/bin/sh")
+    process.arguments = [
+        "-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier); do sleep 0.1; done; open \"$0\"",
+        Bundle.main.bundlePath,
+    ]
+    guard (try? process.run()) != nil else { return false }
+    NSApp.terminate(nil)
+    return true
+}
+
+private func writeAppLanguage(_ language: String) {
+    if language.isEmpty {
+        UserDefaults.standard.removeObject(forKey: appLanguagesKey)
+    } else {
+        UserDefaults.standard.set([language], forKey: appLanguagesKey)
     }
 }
 
@@ -124,9 +152,51 @@ private struct GeneralSettings: View {
     @State private var checksForUpdates = false
     @State private var isConfirmingReset = false
     @State private var resetError: String?
+    /// The app's own language, or "" to follow the system.
+    @State private var language = readAppLanguage() ?? ""
+    @State private var hasRestartFailed = false
+
+    private var shouldRestart: Bool {
+        let systemLanguages =
+            UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?[appLanguagesKey] as? [String]
+        return shouldRestartForLanguage(
+            chosen: language.isEmpty ? nil : language, systemLanguages: systemLanguages ?? [],
+            available: getAppLanguages(localizations: Bundle.main.localizations),
+            developmentLanguage: Bundle.main.developmentLocalization ?? "en",
+            running: Bundle.main.preferredLocalizations.first)
+    }
 
     var body: some View {
         Form {
+            // Saves only what the user picks, so refreshing from System Settings doesn't write back.
+            Picker(
+                "Language",
+                selection: Binding(
+                    get: { language },
+                    set: {
+                        language = $0; writeAppLanguage($0)
+                    })
+            ) {
+                Text("System default").tag("")
+                ForEach(getAppLanguages(localizations: Bundle.main.localizations), id: \.self) {
+                    Text(verbatim: formatLanguageName($0)).tag($0)
+                }
+            }
+            // A failed restart was for the old choice; picking again, here or in System Settings, starts fresh.
+            .onChange(of: language) { hasRestartFailed = false }
+            if shouldRestart {
+                HStack {
+                    Text(
+                        hasRestartFailed
+                            ? "CocoNotch couldn't restart. Quit it from the menu bar and open it again."
+                            : "Restart CocoNotch to use the new language."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(hasRestartFailed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                    Spacer()
+                    Button("Restart CocoNotch") { hasRestartFailed = !relaunch() }
+                }
+            }
             Picker("Open the notch", selection: $expandsOnClick) {
                 Text("On hover").tag(false)
                 Text("On click").tag(true)
@@ -175,8 +245,10 @@ private struct GeneralSettings: View {
             Button("Reset and Relaunch", role: .destructive) { resetToDefaults() }
         } message: {
             Text(
-                "This deletes all settings, shelf files, clipboard history and Ask chats, "
-                    + "and turns off launch at login.")
+                """
+                This deletes all settings, shelf files, clipboard history and Ask chats, \
+                and turns off launch at login.
+                """)
         }
         // The user may approve or remove CocoNotch in System Settings while this window stays open.
         .onAppear {
@@ -185,6 +257,8 @@ private struct GeneralSettings: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLoginStatus = SMAppService.mainApp.status
+            // The user may also set CocoNotch's language in System Settings → Language & Region → Applications.
+            language = readAppLanguage() ?? ""
         }
     }
 
@@ -214,26 +288,16 @@ private struct GeneralSettings: View {
                 try FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
             } catch CocoaError.fileNoSuchFile {}
         } catch {
-            resetError = "The reset stopped: \(error.localizedDescription)"
+            resetError = String(localized: "The reset stopped: \(error.localizedDescription)")
             return
         }
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
-        // Relaunching drops every store already loaded in memory; waiting for this process keeps `open` from reusing it.
-        let relaunch = Process()
-        relaunch.executableURL = URL(filePath: "/bin/sh")
-        relaunch.arguments = [
-            "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; open \"$0\"",
-            Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
-        ]
-        do {
-            try relaunch.run()
-        } catch {
-            resetError = "CocoNotch was reset but couldn't reopen itself. Quit it and open it again."
-            return
+        // Relaunching drops every store already loaded in memory.
+        if !relaunch() {
+            resetError = String(localized: "CocoNotch couldn't restart. Quit it from the menu bar and open it again.")
         }
-        NSApp.terminate(nil)
     }
 }
 

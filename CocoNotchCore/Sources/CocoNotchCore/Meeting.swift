@@ -63,18 +63,19 @@ public func getUpcomingMeetings(
 }
 
 public func formatCountdown(now: Date, start: Date) -> String {
-    guard start > now else { return "Now" }
+    guard start > now else { return String(localized: "Now", bundle: .module) }
     // Round up, so a meeting 30 seconds away reads "in 1m" rather than "in 0m".
     let minutes = Int((start.timeIntervalSince(now) / 60).rounded(.up))
-    return "in " + Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+    let duration = Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+    return String(localized: "in \(duration)", bundle: .module)
 }
 
 /// How long ago a meeting started, such as "Started 3m ago"; the first minute reads "Starting now".
 public func formatStartedAgo(now: Date, start: Date) -> String {
     let minutes = Int(now.timeIntervalSince(start) / 60)
-    guard minutes > 0 else { return "Starting now" }
-    return "Started " + Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
-        + " ago"
+    guard minutes > 0 else { return String(localized: "Starting now", bundle: .module) }
+    let duration = Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+    return String(localized: "Started \(duration) ago", bundle: .module)
 }
 
 /// Calendar identifiers are stored one per line; they never contain line breaks.
@@ -87,7 +88,8 @@ public func encodeIDSet(_ ids: Set<String>) -> String {
 }
 
 public func formatStartTime(_ meeting: Meeting) -> String {
-    meeting.isAllDay ? "All day" : meeting.start.formatted(date: .omitted, time: .shortened)
+    meeting.isAllDay
+        ? String(localized: "All day", bundle: .module) : meeting.start.formatted(date: .omitted, time: .shortened)
 }
 
 public func formatTimeRange(_ meeting: Meeting) -> String {
@@ -149,11 +151,14 @@ public func getDayInterval(for date: Date, calendar: Calendar) -> DateInterval? 
 }
 
 public func formatAgendaTitle(day: Date?) -> String {
-    day?.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()) ?? "Today"
+    day?.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        ?? String(localized: "Today", bundle: .module)
 }
 
 public func formatEmptyAgenda(day: Date?) -> String {
-    day == nil ? "No more meetings today" : "No meetings"
+    day == nil
+        ? String(localized: "No more meetings today", bundle: .module)
+        : String(localized: "No meetings", bundle: .module)
 }
 
 /// The meeting to show in the closed notch: the first one that starts within `leadTime`, or started less than
@@ -230,5 +235,7 @@ public func getDayMark(_ day: Date, selection: Date, now: Date, calendar: Calend
 /// What the Home card says with no meetings to show. Without calendar access an empty list would read as a free
 /// day, so it points to the Meetings tab, where access is granted.
 public func formatMeetingsSummaryEmpty(hasCalendarAccess: Bool) -> String {
-    hasCalendarAccess ? formatEmptyAgenda(day: nil) : "Calendar access needed. Open Meetings to allow it."
+    hasCalendarAccess
+        ? formatEmptyAgenda(day: nil)
+        : String(localized: "Calendar access needed. Open Meetings to allow it.", bundle: .module)
 }

@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let timer = NotchWidget(
         id: "timer",
-        title: "Timer",
+        title: String(localized: "Timer"),
         systemImage: "timer",
         makeView: { AnyView(TimerView()) },
         makeSettings: { AnyView(TimerSettings()) }
@@ -17,9 +17,9 @@ enum TimerMode: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .pomodoro: "Pomodoro"
-        case .timer: "Timer"
-        case .stopwatch: "Stopwatch"
+        case .pomodoro: String(localized: "Pomodoro")
+        case .timer: String(localized: "Timer")
+        case .stopwatch: String(localized: "Stopwatch")
         }
     }
 
@@ -58,9 +58,9 @@ private func readSetting<T>(_ key: String, default value: T) -> T {
 
 private func getTitle(_ phase: PomodoroPhase) -> String {
     switch phase {
-    case .focus: "Focus"
-    case .shortBreak: "Short break"
-    case .longBreak: "Long break"
+    case .focus: String(localized: "Focus")
+    case .shortBreak: String(localized: "Short break")
+    case .longBreak: String(localized: "Long break")
     }
 }
 
@@ -176,10 +176,10 @@ final class TimerStore {
             advancePhase(isFinished: true)
             pomodoro = RunClock()
             if readSetting(autoStartsNextKey, default: false) { pomodoro.start(at: .now) }
-            message = "\(getTitle(finished)) done · \(getTitle(phase)) next"
+            message = String(localized: "\(getTitle(finished)) done · \(getTitle(phase)) next")
         } else {
             countdown = RunClock()
-            message = "Timer done"
+            message = String(localized: "Timer done")
         }
         if readSetting(playsSoundKey, default: true) {
             NSSound(named: NSSound.Name(readSetting(soundNameKey, default: defaultSoundName)))?.play()
@@ -343,7 +343,7 @@ private struct TimerView: View {
     @ViewBuilder
     private func detail(clock: RunClock, duration: TimeInterval) -> some View {
         let finish = getFinishDate(clock, duration: duration).map {
-            "Ends at \($0.formatted(date: .omitted, time: .shortened))"
+            String(localized: "Ends at \($0.formatted(date: .omitted, time: .shortened))")
         }
         switch mode {
         case .pomodoro:
@@ -376,7 +376,7 @@ private struct TimerView: View {
                 Text("Click the time to type one")
             }
         case .timer:
-            Text(finish ?? "Paused · \(formatClock(seconds: timerSeconds)) timer")
+            Text(finish ?? String(localized: "Paused · \(formatClock(seconds: timerSeconds)) timer"))
         case .stopwatch:
             Text(store.laps.isEmpty ? "Lap marks a split" : "\(store.laps.count) laps")
         }
@@ -403,7 +403,8 @@ private struct TimerView: View {
         .font(.title2)
     }
 
-    private func iconButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ title: LocalizedStringKey, systemImage: String, action: @escaping () -> Void) -> some View
+    {
         Button(title, systemImage: systemImage, action: action)
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
