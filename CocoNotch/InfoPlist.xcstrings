@@ -1,0 +1,266 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch zeigt und steuert, was in Musik und Spotify läuft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch muestra y controla lo que suena en Música y Spotify."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch affiche et contrôle la lecture en cours dans Musique et Spotify."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch mostra e controlla cosa è in riproduzione in Musica e Spotify."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch はミュージックと Spotify で再生中の曲を表示し、操作します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch는 음악과 Spotify에서 재생 중인 항목을 표시하고 제어합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch mostra e controla o que está tocando no Música e no Spotify."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 会显示并控制音乐和 Spotify 中正在播放的内容。"
+          }
+        }
+      }
+    },
+    "NSCalendarsFullAccessUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch zeigt deine nächsten Meetings und ihre Beitrittslinks in der Notch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch muestra tus próximas reuniones y sus enlaces para unirte en el notch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch affiche vos prochaines réunions et leurs liens pour les rejoindre dans l'encoche."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch mostra le tue prossime riunioni e i link per partecipare nel notch."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch は今後のミーティングと参加リンクをノッチに表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch는 다가오는 회의와 참가 링크를 노치에 표시합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch mostra suas próximas reuniões e os links para entrar no notch."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 会在刘海中显示你接下来的会议及其加入链接。"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch zeigt eine Kameravorschau, damit du vor einem Anruf prüfen kannst, wie du aussiehst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch muestra una vista previa de tu cámara para que veas cómo te ves antes de una llamada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch affiche un aperçu de votre caméra pour vérifier votre apparence avant un appel."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch mostra un'anteprima della fotocamera per controllare come appari prima di una chiamata."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch はカメラのプレビューを表示し、通話前に自分の映りを確認できるようにします。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch는 통화 전에 내 모습을 확인할 수 있도록 카메라 미리보기를 표시합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch mostra uma pré-visualização da câmera para você ver como está antes de uma chamada."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 会显示相机预览，方便你在通话前查看自己的样子。"
+          }
+        }
+      }
+    },
+    "NSLocationUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch zeigt das Wetter an deinem Ort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch muestra el clima donde estás."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch affiche la météo là où vous êtes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch mostra il meteo dove ti trovi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch は現在地の天気を表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch는 현재 위치의 날씨를 표시합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch mostra o tempo onde você está."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 会显示你所在位置的天气。"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch zeigt das Wetter an deinem Ort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch muestra el clima donde estás."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch affiche la météo là où vous êtes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch mostra il meteo dove ti trovi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch は現在地の天気を表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch는 현재 위치의 날씨를 표시합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch mostra o tempo onde você está."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 会显示你所在位置的天气。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

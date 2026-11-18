@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let weather = NotchWidget(
         id: "weather",
-        title: "Weather",
+        title: String(localized: "Weather"),
         systemImage: "cloud.sun",
         makeView: { AnyView(WeatherView()) },
         makeSettings: { AnyView(WeatherSettings()) },
@@ -383,6 +383,9 @@ private struct WeatherView: View {
                 HStack(spacing: 10) {
                     Text(formatDayLabel(day.date, now: now, calendar: .current))
                         .font(.caption.weight(.medium))
+                        // Shrinks a long "Today", like "Aujourd'hui", rather than wrap it and break the row's bar.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(width: 44, alignment: .leading)
                     Image(systemName: getWeatherSymbol(code: day.code, isDay: true))
                         .symbolRenderingMode(.multicolor)
@@ -412,7 +415,7 @@ private struct WeatherView: View {
 /// One line of the current details: a quiet icon and label, with the value aligned on the right.
 private struct DetailRow: View {
     let symbol: String
-    let label: String
+    let label: LocalizedStringKey
     let value: String
 
     var body: some View {
@@ -620,7 +623,7 @@ private struct WeatherSummary: View {
                 }
             }
         } else {
-            Text(store.problem.map(getWeatherProblemMessage) ?? "Loading the forecast…")
+            Text(store.problem.map(getWeatherProblemMessage) ?? String(localized: "Loading the forecast…"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -7,7 +7,7 @@ import SwiftUI
 extension NotchWidget {
     static let clipboard = NotchWidget(
         id: "clipboard",
-        title: "Clipboard",
+        title: String(localized: "Clipboard"),
         systemImage: "square.on.square",
         makeView: { AnyView(ClipboardView()) },
         makeSettings: { AnyView(ClipboardSettings()) }
@@ -435,7 +435,7 @@ private struct ClipboardDetail: View {
                             Text(row.label)
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 12)
-                            if row.label == "Source", let icon = item.sourceBundleID.flatMap(getAppIcon) {
+                            if row.label == clipboardSourceLabel, let icon = item.sourceBundleID.flatMap(getAppIcon) {
                                 Image(nsImage: icon)
                                     .resizable()
                                     .frame(width: 14, height: 14)
@@ -512,7 +512,7 @@ private struct ClipboardSettings: View {
                 Text("History")
             } footer: {
                 Text(
-                    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies from password managers are never saved; add other apps you copy secrets from under Ignored apps."
+                    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies an app marks as private, as most password managers do, are never saved; add any other app you copy secrets from under Ignored apps."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -593,7 +593,7 @@ private func getAppIcon(bundleID: String) -> NSImage? {
 }
 
 private func getFrontmostAppName() -> String {
-    NSWorkspace.shared.frontmostApplication?.localizedName ?? "App"
+    NSWorkspace.shared.frontmostApplication?.localizedName ?? String(localized: "App")
 }
 
 private func listRunningApps(excluding ignoredIDs: Set<String>) -> [String] {

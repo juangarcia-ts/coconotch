@@ -292,23 +292,23 @@ public func getWeatherSymbol(code: Int, isDay: Bool) -> String {
 
 public func getWeatherDescription(code: Int) -> String {
     switch code {
-    case 0: "Clear"
-    case 1: "Mostly clear"
-    case 2: "Partly cloudy"
-    case 3: "Overcast"
-    case 45, 48: "Fog"
-    case 51...55: "Drizzle"
-    case 56, 57: "Freezing drizzle"
-    case 61, 63: "Rain"
-    case 65: "Heavy rain"
-    case 66, 67: "Freezing rain"
-    case 71...77: "Snow"
-    case 80, 81: "Showers"
-    case 82: "Heavy showers"
-    case 85, 86: "Snow showers"
-    case 95: "Thunderstorm"
-    case 96, 99: "Thunderstorm with hail"
-    default: "Unknown"
+    case 0: String(localized: "Clear", bundle: .module)
+    case 1: String(localized: "Mostly clear", bundle: .module)
+    case 2: String(localized: "Partly cloudy", bundle: .module)
+    case 3: String(localized: "Overcast", bundle: .module)
+    case 45, 48: String(localized: "Fog", bundle: .module)
+    case 51...55: String(localized: "Drizzle", bundle: .module)
+    case 56, 57: String(localized: "Freezing drizzle", bundle: .module)
+    case 61, 63: String(localized: "Rain", bundle: .module)
+    case 65: String(localized: "Heavy rain", bundle: .module)
+    case 66, 67: String(localized: "Freezing rain", bundle: .module)
+    case 71...77: String(localized: "Snow", bundle: .module)
+    case 80, 81: String(localized: "Showers", bundle: .module)
+    case 82: String(localized: "Heavy showers", bundle: .module)
+    case 85, 86: String(localized: "Snow showers", bundle: .module)
+    case 95: String(localized: "Thunderstorm", bundle: .module)
+    case 96, 99: String(localized: "Thunderstorm with hail", bundle: .module)
+    default: String(localized: "Unknown", bundle: .module)
     }
 }
 
@@ -386,22 +386,27 @@ public enum WeatherProblem: Equatable, Sendable {
 
 public func getWeatherProblemMessage(_ problem: WeatherProblem) -> String {
     switch problem {
-    case .noPlace: "Search for a city to see its weather."
-    case .locationNotAsked: "See the weather where you are, or search for a city."
-    case .locationDenied: "CocoNotch can't use your location. Allow it, or search for a city."
-    case .locationFailed: "Your location couldn't be found. Try again, or search for a city."
-    case .network: "The forecast couldn't be loaded. Check your connection and try again."
+    case .noPlace: String(localized: "Search for a city to see its weather.", bundle: .module)
+    case .locationNotAsked: String(localized: "See the weather where you are, or search for a city.", bundle: .module)
+    case .locationDenied:
+        String(localized: "CocoNotch can't use your location. Allow it, or search for a city.", bundle: .module)
+    case .locationFailed:
+        String(localized: "Your location couldn't be found. Try again, or search for a city.", bundle: .module)
+    case .network:
+        String(localized: "The forecast couldn't be loaded. Check your connection and try again.", bundle: .module)
     }
 }
 
 /// "Now" for the hour in progress, otherwise the hour in the user's format.
 public func formatHourLabel(_ time: Date, now: Date) -> String {
-    time <= now && now < time.addingTimeInterval(3600) ? "Now" : time.formatted(.dateTime.hour())
+    time <= now && now < time.addingTimeInterval(3600)
+        ? String(localized: "Now", bundle: .module) : time.formatted(.dateTime.hour())
 }
 
 /// "Today" for today, otherwise the short weekday.
 public func formatDayLabel(_ date: Date, now: Date, calendar: Calendar) -> String {
-    calendar.isDate(date, inSameDayAs: now) ? "Today" : date.formatted(.dateTime.weekday(.abbreviated))
+    calendar.isDate(date, inSameDayAs: now)
+        ? String(localized: "Today", bundle: .module) : date.formatted(.dateTime.weekday(.abbreviated))
 }
 
 public func isStale(updatedAt: Date?, now: Date, maxAge: TimeInterval) -> Bool {

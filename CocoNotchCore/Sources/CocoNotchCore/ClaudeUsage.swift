@@ -148,16 +148,21 @@ public func parseUsageDate(_ text: String) -> Date? {
 public func formatLimitTitle(_ limit: UsageLimit) -> String {
     if let minutes = limit.windowMinutes { return formatWindowTitle(minutes: minutes) }
     return switch limit.kind {
-    case "session": "Current session"
-    case "weekly_all": "Weekly · all models"
-    case "weekly_scoped": "Weekly · \(limit.modelName ?? "one model")"
+    case "session": String(localized: "Current session", bundle: .module)
+    case "weekly_all": String(localized: "Weekly · all models", bundle: .module)
+    case "weekly_scoped":
+        String(
+            localized: "Weekly · \(limit.modelName ?? String(localized: "one model", bundle: .module))", bundle: .module
+        )
     default: limit.kind.replacing("_", with: " ").capitalized
     }
 }
 
 /// "74% used" or "26% left", as the user prefers.
 public func formatUsagePercent(_ percent: Int, showsRemaining: Bool) -> String {
-    showsRemaining ? "\(max(100 - percent, 0))% left" : "\(percent)% used"
+    showsRemaining
+        ? String(localized: "\(max(100 - percent, 0))% left", bundle: .module)
+        : String(localized: "\(percent)% used", bundle: .module)
 }
 
 /// How full a bar is drawn, from 0 to 1, matching the label: remaining usage empties as it is used up.
@@ -170,8 +175,12 @@ public func getUsageBarFraction(_ percent: Int, showsRemaining: Bool) -> Double 
 public func formatResetTime(_ resetsAt: Date?, now: Date) -> String? {
     guard let resetsAt else { return nil }
     let seconds = resetsAt.timeIntervalSince(now)
-    guard let short = formatShortResetTime(resetsAt, now: now) else { return "Resetting now" }
-    return seconds < 24 * 3600 ? "Resets in \(short)" : "Resets \(short)"
+    guard let short = formatShortResetTime(resetsAt, now: now) else {
+        return String(localized: "Resetting now", bundle: .module)
+    }
+    return seconds < 24 * 3600
+        ? String(localized: "Resets in \(short)", bundle: .module)
+        : String(localized: "Resets \(short)", bundle: .module)
 }
 
 /// "2h 15m" within a day, otherwise "Sat 15:00", for the closed notch. Nil once it has passed.
@@ -253,19 +262,37 @@ public enum ClaudeUsageProblem: Equatable, Sendable {
 public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> String {
     switch problem {
     case .notConnected:
-        "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does."
+        String(
+            localized:
+                "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does.",
+            bundle: .module)
     case .codexNotFound:
-        "No Codex sessions found on this Mac. Use Codex once, then its limits show up here."
+        String(
+            localized: "No Codex sessions found on this Mac. Use Codex once, then its limits show up here.",
+            bundle: .module)
     case .accessDeclined:
-        "macOS declined access to Claude Code's login in the Keychain. Connect again to retry."
+        String(
+            localized: "macOS declined access to Claude Code's login in the Keychain. Connect again to retry.",
+            bundle: .module)
     case .keychainLocked:
-        "Your keychain is locked. Unlock your Mac, and usage loads again on its own."
+        String(
+            localized: "Your keychain is locked. Unlock your Mac, and usage loads again on its own.", bundle: .module)
     case .keychainError(let status):
-        "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again."
-    case .notSignedIn: "Claude Code isn't signed in on this Mac. Run `claude` and sign in, then try again."
-    case .loginExpired: "Your Claude Code login has expired. Open Claude Code once to refresh it, then try again."
-    case .network: "Usage couldn't be loaded. Check your connection and try again."
-    case .unexpectedResponse: "Claude's usage service answered in an unexpected way. It may have changed."
+        String(
+            localized:
+                "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again.",
+            bundle: .module)
+    case .notSignedIn:
+        String(
+            localized: "Claude Code isn't signed in on this Mac. Run `claude` and sign in, then try again.",
+            bundle: .module)
+    case .loginExpired:
+        String(
+            localized: "Your Claude Code login has expired. Open Claude Code once to refresh it, then try again.",
+            bundle: .module)
+    case .network: String(localized: "Usage couldn't be loaded. Check your connection and try again.", bundle: .module)
+    case .unexpectedResponse:
+        String(localized: "Claude's usage service answered in an unexpected way. It may have changed.", bundle: .module)
     }
 }
 

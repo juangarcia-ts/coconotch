@@ -101,30 +101,47 @@ public func getClipboardItemTitle(_ item: ClipboardItem, pixelSize: (width: Int,
     case .text:
         return formatClipboardPreview(item.value).split(separator: "\n").first.map(String.init) ?? ""
     case .image:
-        return pixelSize.map { "Image (\($0.width)×\($0.height))" } ?? "Image"
+        return pixelSize.map { String(localized: "Image (\($0.width)×\($0.height))", bundle: .module) }
+            ?? String(localized: "Image", bundle: .module)
     }
 }
+
+public let clipboardSourceLabel = String(localized: "Source", bundle: .module)
 
 /// The label and value rows under the preview, like Raycast's Information section.
 public func makeClipboardDetails(
     _ item: ClipboardItem, sourceName: String?, pixelSize: (width: Int, height: Int)?, byteCount: Int?, now: Date
 ) -> [(label: String, value: String)] {
     var rows: [(label: String, value: String)] = []
-    if let sourceName { rows.append(("Source", sourceName)) }
+    if let sourceName { rows.append((clipboardSourceLabel, sourceName)) }
     switch item.kind {
     case .text:
-        rows.append(("Content type", "Text"))
-        rows.append(("Characters", item.value.count.formatted()))
-        rows.append(("Words", item.value.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count.formatted()))
+        rows.append((String(localized: "Content type", bundle: .module), String(localized: "Text", bundle: .module)))
+        rows.append((String(localized: "Characters", bundle: .module), item.value.count.formatted()))
+        rows.append(
+            (
+                String(localized: "Words", bundle: .module),
+                item.value.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count.formatted()
+            ))
     case .image:
-        rows.append(("Content type", "Image"))
-        if let pixelSize { rows.append(("Dimensions", "\(pixelSize.width)×\(pixelSize.height)")) }
+        rows.append((String(localized: "Content type", bundle: .module), String(localized: "Image", bundle: .module)))
+        if let pixelSize {
+            rows.append((String(localized: "Dimensions", bundle: .module), "\(pixelSize.width)×\(pixelSize.height)"))
+        }
         if let byteCount {
-            rows.append(("Image size", ByteCountFormatter.string(fromByteCount: Int64(byteCount), countStyle: .file)))
+            rows.append(
+                (
+                    String(localized: "Image size", bundle: .module),
+                    ByteCountFormatter.string(fromByteCount: Int64(byteCount), countStyle: .file)
+                ))
         }
     }
     if let copiedAt = item.copiedAt {
-        rows.append(("Copied", RelativeDateTimeFormatter().localizedString(for: copiedAt, relativeTo: now)))
+        rows.append(
+            (
+                String(localized: "Copied", bundle: .module),
+                RelativeDateTimeFormatter().localizedString(for: copiedAt, relativeTo: now)
+            ))
     }
     return rows
 }
