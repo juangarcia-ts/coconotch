@@ -122,6 +122,7 @@ private struct GeneralSettings: View {
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
+    @State private var isConfirmingReset = false
 
     var body: some View {
         Form {
@@ -157,8 +158,20 @@ private struct GeneralSettings: View {
             // Sparkle owns this value, so mirror it rather than writing its defaults key behind its back.
             Toggle("Automatically check for updates", isOn: $checksForUpdates)
                 .onChange(of: checksForUpdates) { updater.automaticallyChecksForUpdates = checksForUpdates }
+            Section {
+                Button("Reset to Defaults…", role: .destructive) { isConfirmingReset = true }
+            } footer: {
+                Text("Privacy permissions stay as they are; change them in System Settings → Privacy & Security.")
+            }
         }
         .formStyle(.grouped)
+        .confirmationDialog("Reset CocoNotch to defaults?", isPresented: $isConfirmingReset) {
+            Button("Reset and Relaunch", role: .destructive) { resetToDefaults() }
+        } message: {
+            Text(
+                "This deletes all settings, shelf files, clipboard history and Ask chats, "
+                    + "and turns off launch at login.")
+        }
         // The user may approve or remove CocoNotch in System Settings while this window stays open.
         .onAppear {
             launchAtLoginStatus = SMAppService.mainApp.status
@@ -181,6 +194,20 @@ private struct GeneralSettings: View {
             launchAtLoginError = error.localizedDescription
         }
         launchAtLoginStatus = SMAppService.mainApp.status
+    }
+
+    private func resetToDefaults() {
+        try? SMAppService.mainApp.unregister()
+        try? FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        // Relaunching drops every store already loaded in memory; the delay lets this instance quit first.
+        let relaunch = Process()
+        relaunch.executableURL = URL(filePath: "/bin/sh")
+        relaunch.arguments = ["-c", "sleep 1; open \"$0\"", Bundle.main.bundlePath]
+        try? relaunch.run()
+        NSApp.terminate(nil)
     }
 }
 
