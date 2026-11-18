@@ -140,17 +140,35 @@ public func getIdleProviderLimit(
     return getFullestProviderLimit(candidates)
 }
 
-/// Identifies one heads-up state, so dismissing it hides that state only. Running out makes it urgent, a new key.
+/// Identifies a limit's heads-up. Each field is quoted on its own, so no two limits share a key.
 public func makeUsageHeadsUpKey(provider: AIProvider, limit: UsageLimit) -> String {
-    "\(provider.rawValue)-\(limit.id)-\(getUsagePriority(limit).rawValue)"
+    [provider.rawValue, limit.kind, limit.modelName].description
 }
 
-/// The keys of every limit at or over the threshold. A dismissal lasts only while its key stays in here, so a heads-up
-/// comes back once its limit drops below the threshold, say on reset, and climbs over it again.
-public func getDueUsageHeadsUpKeys(
+/// Each limit at or over the threshold, by heads-up key, with how urgent it is now. A dismissal lasts only while its key
+/// stays in here, so a heads-up comes back once its limit drops below the threshold, say on reset, and climbs again.
+public func getDueUsageHeadsUps(
     _ candidates: [(provider: AIProvider, limit: UsageLimit)], threshold: Int
-) -> Set<String> {
-    Set(
+) -> [String: ActivityPriority] {
+    Dictionary(
         candidates.filter { $0.limit.percent >= threshold }
-            .map { makeUsageHeadsUpKey(provider: $0.provider, limit: $0.limit) })
+            .map { (makeUsageHeadsUpKey(provider: $0.provider, limit: $0.limit), getUsagePriority($0.limit)) },
+        uniquingKeysWith: max)
+}
+
+/// Dismissed at this urgency or above, so running out still alerts once but dropping back from 100% doesn't.
+public func isUsageHeadsUpDismissed(
+    provider: AIProvider, limit: UsageLimit, dismissed: [String: ActivityPriority]
+) -> Bool {
+    dismissed[makeUsageHeadsUpKey(provider: provider, limit: limit)].map { $0 >= getUsagePriority(limit) } ?? false
+}
+
+/// The fullest limit not dismissed, so dismissing one doesn't hide another that climbs over the threshold later; the
+/// fullest when all are.
+public func getHeadsUpProviderLimit(
+    _ candidates: [(provider: AIProvider, limit: UsageLimit)], dismissed: [String: ActivityPriority]
+) -> (provider: AIProvider, limit: UsageLimit)? {
+    getFullestProviderLimit(
+        candidates.filter { !isUsageHeadsUpDismissed(provider: $0.provider, limit: $0.limit, dismissed: dismissed) })
+        ?? getFullestProviderLimit(candidates)
 }

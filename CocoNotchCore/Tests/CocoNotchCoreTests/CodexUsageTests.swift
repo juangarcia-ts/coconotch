@@ -72,27 +72,47 @@ private let sampleLog = """
     #expect(getFullestProviderLimit([]) == nil)
 }
 
-@Test func keysHeadsUpByLimitAndUrgency() {
-    let resetsAt = Date(timeIntervalSince1970: 1_800_000_000)
-    let near = UsageLimit(kind: "session", percent: 85, resetsAt: resetsAt)
-    let nearer = UsageLimit(kind: "session", percent: 92, resetsAt: resetsAt - 0.1)
-    let full = UsageLimit(kind: "session", percent: 100, resetsAt: resetsAt)
+@Test func keysHeadsUpByProviderKindAndModel() {
+    let near = UsageLimit(kind: "session", percent: 85)
     let key = makeUsageHeadsUpKey(provider: .claude, limit: near)
-    // Creeping up doesn't bring a dismissed heads-up back; running out or another provider does.
-    #expect(makeUsageHeadsUpKey(provider: .claude, limit: nearer) == key)
-    #expect(makeUsageHeadsUpKey(provider: .claude, limit: full) != key)
+    #expect(makeUsageHeadsUpKey(provider: .claude, limit: UsageLimit(kind: "session", percent: 100)) == key)
     #expect(makeUsageHeadsUpKey(provider: .codex, limit: near) != key)
+    // Fields that join to the same text still key apart.
+    #expect(
+        makeUsageHeadsUpKey(provider: .claude, limit: UsageLimit(kind: "weekly", percent: 85, modelName: "opus"))
+            != makeUsageHeadsUpKey(provider: .claude, limit: UsageLimit(kind: "weeklyopus", percent: 85)))
 }
 
-@Test func dueHeadsUpKeysAreTheLimitsOverTheThreshold() {
+@Test func dueHeadsUpsAreTheLimitsOverTheThresholdWithTheirUrgency() {
     let session = UsageLimit(kind: "session", percent: 85)
-    let weekly = UsageLimit(kind: "weekly", percent: 86)
-    let reset = UsageLimit(kind: "weekly", percent: 3)
-    let due = getDueUsageHeadsUpKeys([(.claude, session), (.claude, weekly)], threshold: 80)
-    #expect(due.count == 2)
-    #expect(due.contains(makeUsageHeadsUpKey(provider: .claude, limit: session)))
-    #expect(getDueUsageHeadsUpKeys([(.claude, session), (.claude, reset)], threshold: 80).count == 1)
-    #expect(getDueUsageHeadsUpKeys([(.claude, session)], threshold: 90).isEmpty)
+    let weekly = UsageLimit(kind: "weekly", percent: 100)
+    let due = getDueUsageHeadsUps([(.claude, session), (.claude, weekly), (.codex, session)], threshold: 80)
+    #expect(due.count == 3)
+    #expect(due[makeUsageHeadsUpKey(provider: .claude, limit: session)] == .normal)
+    #expect(due[makeUsageHeadsUpKey(provider: .claude, limit: weekly)] == .urgent)
+    #expect(getDueUsageHeadsUps([(.claude, session)], threshold: 90).isEmpty)
+}
+
+@Test func dismissalCoversItsUrgencyAndBelow() {
+    let near = UsageLimit(kind: "session", percent: 85)
+    let full = UsageLimit(kind: "session", percent: 100)
+    let key = makeUsageHeadsUpKey(provider: .claude, limit: near)
+    // Dismissed near the limit, running out still alerts; dismissed when out, dropping back to 99% doesn't.
+    #expect(isUsageHeadsUpDismissed(provider: .claude, limit: near, dismissed: [key: .normal]))
+    #expect(!isUsageHeadsUpDismissed(provider: .claude, limit: full, dismissed: [key: .normal]))
+    #expect(isUsageHeadsUpDismissed(provider: .claude, limit: near, dismissed: [key: .urgent]))
+    #expect(!isUsageHeadsUpDismissed(provider: .codex, limit: near, dismissed: [key: .urgent]))
+}
+
+@Test func headsUpGoesToTheFullestUndismissedLimit() {
+    let fullest = UsageLimit(kind: "weekly", percent: 95)
+    let climbing = UsageLimit(kind: "session", percent: 85)
+    let candidates: [(provider: AIProvider, limit: UsageLimit)] = [(.claude, fullest), (.claude, climbing)]
+    let dismissed = [makeUsageHeadsUpKey(provider: .claude, limit: fullest): ActivityPriority.normal]
+    #expect(getHeadsUpProviderLimit(candidates, dismissed: [:])?.limit == fullest)
+    #expect(getHeadsUpProviderLimit(candidates, dismissed: dismissed)?.limit == climbing)
+    let allDismissed = dismissed.merging([makeUsageHeadsUpKey(provider: .claude, limit: climbing): .normal]) { $1 }
+    #expect(getHeadsUpProviderLimit(candidates, dismissed: allDismissed)?.limit == fullest)
 }
 
 @Test func picksIdleLimitByNextReset() {

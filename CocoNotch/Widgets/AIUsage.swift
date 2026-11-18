@@ -109,7 +109,7 @@ final class AIUsageStore {
     @ObservationIgnored private var resetTask: Task<Void, Never>?
     /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
     private(set) var headsUpProvider: AIProvider?
-    @ObservationIgnored private var dismissedHeadsUpKeys: Set<String> = []
+    @ObservationIgnored private var dismissedHeadsUps: [String: ActivityPriority] = [:]
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -227,12 +227,12 @@ final class AIUsageStore {
     }
 
     /// The limits to show for a provider, with reset windows at zero: Claude's chosen kinds, or Codex's snapshot.
-    func getLimits(for provider: AIProvider, now: Date) -> [UsageLimit] {
+    func getLimits(for provider: AIProvider, now: Date, showsHidden: Bool = false) -> [UsageLimit] {
         switch provider {
         case .claude:
             getVisibleLimits(
                 resetExpiredLimits(claudeLimits, now: now),
-                hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
+                hiddenKinds: showsHidden ? [] : decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
         case .codex:
             resetExpiredLimits(codexUsage?.limits ?? [], now: now)
         }
@@ -245,16 +245,19 @@ final class AIUsageStore {
 
     /// Silences every limit over the threshold, not just the fullest, so another one overtaking it doesn't alert again.
     func dismissHeadsUp() {
-        dismissedHeadsUpKeys = getDueUsageHeadsUpKeys(getCandidates(now: .now), threshold: getThreshold())
+        let due = getDueUsageHeadsUps(getCandidates(now: .now), threshold: getThreshold())
+        dismissedHeadsUps.merge(due, uniquingKeysWith: max)
         updateHeadsUp()
     }
 
-    private func getCandidates(now: Date) -> [(provider: AIProvider, limit: UsageLimit)] {
+    private func getCandidates(now: Date, showsHidden: Bool = false) -> [(provider: AIProvider, limit: UsageLimit)] {
         let shown = getShownProviders(
             showsClaude: readDefault(showsClaudeKey, default: true),
             showsCodex: readDefault(showsCodexKey, default: true)
         )
-        return shown.flatMap { provider in getLimits(for: provider, now: now).map { (provider, $0) } }
+        return shown.flatMap { provider in
+            getLimits(for: provider, now: now, showsHidden: showsHidden).map { (provider, $0) }
+        }
     }
 
     private func getThreshold() -> Int {
@@ -265,18 +268,19 @@ final class AIUsageStore {
         resetTask?.cancel()
         let now = Date.now
         let candidates = getCandidates(now: now)
-        dismissedHeadsUpKeys.formIntersection(getDueUsageHeadsUpKeys(candidates, threshold: getThreshold()))
-        guard let (provider, limit) = getFullestProviderLimit(candidates) else {
+        // Hidden limits count, so hiding one and showing it again doesn't bring its dismissed heads-up back.
+        let due = getDueUsageHeadsUps(getCandidates(now: now, showsHidden: true), threshold: getThreshold())
+        dismissedHeadsUps = dismissedHeadsUps.filter { due[$0.key] != nil }
+        guard let (provider, limit) = getHeadsUpProviderLimit(candidates, dismissed: dismissedHeadsUps) else {
             clearHeadsUp()
             return
         }
-        let key = makeUsageHeadsUpKey(provider: provider, limit: limit)
         guard
             let priority = getUsageActivityPriority(
                 limit,
                 showsHeadsUp: readDefault(showsHeadsUpKey, default: true),
                 threshold: getThreshold(),
-                isDismissed: dismissedHeadsUpKeys.contains(key),
+                isDismissed: isUsageHeadsUpDismissed(provider: provider, limit: limit, dismissed: dismissedHeadsUps),
                 showsIdle: readDefault(showsIdleKey, default: true)
             )
         else {
@@ -391,7 +395,7 @@ private struct AIUsageView: View {
                         if store.headsUpProvider == provider {
                             Button("Dismiss", systemImage: "bell.slash") { store.dismissHeadsUp() }
                                 .buttonStyle(.bordered)
-                                .help("Hide the reminder until usage drops below the threshold and climbs again")
+                                .help("Hide until usage drops below the threshold and climbs back, or runs out")
                         }
                         if provider == .codex,
                             let asOf = formatAsOf(store.codexUsage?.recordedAt, now: context.date, calendar: .current)
