@@ -263,7 +263,7 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
     switch problem {
     case .notConnected:
         String(
-            localized: "See your Claude Code limits right in the notch.",
+            localized: "See your Claude Code limits here. CocoNotch reads Claude Code's login from your Keychain.",
             bundle: .module)
     case .codexNotFound:
         String(

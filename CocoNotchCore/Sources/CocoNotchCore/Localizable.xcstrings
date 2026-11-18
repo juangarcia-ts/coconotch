@@ -4307,54 +4307,54 @@
         }
       }
     },
-    "See your Claude Code limits right in the notch.": {
+    "See your Claude Code limits here. CocoNotch reads Claude Code's login from your Keychain.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sieh deine Claude-Code-Limits direkt in der Notch."
+            "value": "Sieh hier deine Claude-Code-Limits. CocoNotch liest die Claude-Code-Anmeldung aus deinem Schlüsselbund."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consulta tus límites de Claude Code directamente en el notch."
+            "value": "Consulta aquí tus límites de Claude Code. CocoNotch lee la sesión de Claude Code de tu Llavero."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consultez vos limites Claude Code directement dans l'encoche."
+            "value": "Consultez ici vos limites Claude Code. CocoNotch lit la connexion Claude Code dans votre trousseau."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vedi i limiti di Claude Code direttamente nel notch."
+            "value": "Vedi qui i limiti di Claude Code. CocoNotch legge l'accesso di Claude Code dal tuo Portachiavi."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code の上限をノッチで直接確認できます。"
+            "value": "ここで Claude Code の上限を確認できます。CocoNotch はキーチェーンから Claude Code のログインを読み取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "노치에서 바로 Claude Code 한도를 확인하세요."
+            "value": "여기에서 Claude Code 한도를 확인하세요. CocoNotch는 키체인에서 Claude Code 로그인을 읽습니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veja seus limites do Claude Code direto no notch."
+            "value": "Veja aqui seus limites do Claude Code. O CocoNotch lê o login do Claude Code nas suas Chaves."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "直接在刘海中查看 Claude Code 限额。"
+            "value": "在此查看 Claude Code 限额。CocoNotch 会从你的钥匙串读取 Claude Code 登录。"
           }
         }
       }
