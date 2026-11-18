@@ -7,7 +7,14 @@ echo "==> Lint"
 swift format lint --strict --recursive CocoNotch CocoNotchCore
 
 echo "==> Test"
-swift test --package-path CocoNotchCore --quiet -Xswiftc -warnings-as-errors
+# xcodebuild, not `swift test`: it compiles the string catalogs on every toolchain, and the tests expect English.
+log=$(mktemp)
+if ! (cd CocoNotchCore && xcodebuild test -scheme CocoNotchCore -destination 'platform=macOS' \
+    -derivedDataPath ../build/core -testLanguage en SWIFT_TREAT_WARNINGS_AS_ERRORS=YES) >"$log" 2>&1; then
+    grep -E "error:|warning:|recorded an issue" "$log" | grep -v "^xcodebuild" || cat "$log"
+    exit 1
+fi
+grep -E "Test run with" "$log"
 
 echo "==> Build"
 log=$(mktemp)
