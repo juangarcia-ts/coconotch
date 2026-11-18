@@ -29,6 +29,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # The release notes need the commits since the last tag.
 
       # A tag pushed with the workflow token wouldn't start this workflow, so the button picks the version here.
       - name: Pick the version
@@ -97,13 +99,31 @@ jobs:
           mkdir dist
           ditto -c -k --keepParent "$app" "dist/CocoNotch-${VERSION#v}.zip"
 
+      # generate_appcast embeds the .md named after the zip as the notes in Sparkle's update window.
+      - name: Write release notes
+        run: |
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$VERSION" HEAD 2>/dev/null || true)
+          titles=$(git log --format=%s "${previous:+$previous..}HEAD")
+          getSection() {
+            perl -ne "s/ \(#\d+\)\$//; print \"- \u\$1\n\" if /^$1(?:\([^)]*\))?!?: (.*)/" <<< "$titles"
+          }
+          new=$(getSection feat)
+          fixes=$(getSection fix)
+          {
+            [[ -z $new ]] || printf '### New\n\n%s\n\n' "$new"
+            [[ -z $fixes ]] || printf '### Fixes\n\n%s\n\n' "$fixes"
+            [[ -n $new$fixes ]] || printf 'Behind-the-scenes improvements.\n'
+          } > "dist/CocoNotch-${VERSION#v}.md"
+          cat "dist/CocoNotch-${VERSION#v}.md"
+
       # The app reads releases/latest/download/appcast.xml, so each release only needs its own entry.
       - name: Sign update and write appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           echo "$SPARKLE_PRIVATE_KEY" | build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
-            --ed-key-file - --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/$VERSION/" dist
+            --ed-key-file - --embed-release-notes \
+            --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/$VERSION/" dist
 
       - name: Publish release
         env:
@@ -114,7 +134,8 @@ jobs:
             gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" > /dev/null
           fi
-          gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml --generate-notes
+          gh release create "$VERSION" "dist/CocoNotch-${VERSION#v}.zip" dist/appcast.xml \
+            --notes-file "dist/CocoNotch-${VERSION#v}.md"
 
       - name: Update Homebrew tap
         env:

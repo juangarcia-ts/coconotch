@@ -63,6 +63,6 @@ Keep views thin: any branch, parse or calculation goes in `CocoNotchCore` as a p
 
 ## Releasing
 
-Open **Actions → Release → Run workflow** on `main` and pick patch, minor or major; it tags the next version for you. Pushing a `vX.Y.Z` tag on `main` works too. The Release workflow signs CocoNotch with the Developer ID certificate, notarizes it, publishes the zip and the Sparkle appcast as a GitHub Release, and updates the cask in [homebrew-tap](https://github.com/juangarcia-ts/homebrew-tap). It needs these repository secrets: `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `SPARKLE_PRIVATE_KEY` and `TAP_TOKEN`.
+Open **Actions → Release → Run workflow** on `main` and pick patch, minor or major; it tags the next version for you. Pushing a `vX.Y.Z` tag on `main` works too. The release notes, on GitHub and in the in-app update window, list the `feat:` and `fix:` PR titles since the last release, so write those titles for users. The Release workflow signs CocoNotch with the Developer ID certificate, notarizes it, publishes the zip and the Sparkle appcast as a GitHub Release, and updates the cask in [homebrew-tap](https://github.com/juangarcia-ts/homebrew-tap). It needs these repository secrets: `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `SPARKLE_PRIVATE_KEY` and `TAP_TOKEN`.
 
 By contributing, you agree that your work is licensed under [GPL-3.0](LICENSE).
