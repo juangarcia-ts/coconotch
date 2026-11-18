@@ -150,6 +150,8 @@ private struct GeneralSettings: View {
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
+    @State private var isConfirmingReset = false
+    @State private var resetError: String?
     /// The app's own language, or "" to follow the system.
     @State private var language = readAppLanguage() ?? ""
     @State private var hasRestartFailed = false
@@ -227,8 +229,27 @@ private struct GeneralSettings: View {
             // Sparkle owns this value, so mirror it rather than writing its defaults key behind its back.
             Toggle("Automatically check for updates", isOn: $checksForUpdates)
                 .onChange(of: checksForUpdates) { updater.automaticallyChecksForUpdates = checksForUpdates }
+            Section {
+                Button("Reset to Defaults…", role: .destructive) { isConfirmingReset = true }
+                if let resetError {
+                    Text(resetError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            } footer: {
+                Text("Privacy permissions stay as they are; change them in System Settings → Privacy & Security.")
+            }
         }
         .formStyle(.grouped)
+        .confirmationDialog("Reset CocoNotch to defaults?", isPresented: $isConfirmingReset) {
+            Button("Reset and Relaunch", role: .destructive) { resetToDefaults() }
+        } message: {
+            Text(
+                """
+                This deletes all settings, shelf files, clipboard history and Ask chats, \
+                and turns off launch at login.
+                """)
+        }
         // The user may approve or remove CocoNotch in System Settings while this window stays open.
         .onAppear {
             launchAtLoginStatus = SMAppService.mainApp.status
@@ -253,6 +274,30 @@ private struct GeneralSettings: View {
             launchAtLoginError = error.localizedDescription
         }
         launchAtLoginStatus = SMAppService.mainApp.status
+    }
+
+    private func resetToDefaults() {
+        // Any exit that keeps Settings open must show whether login launch is still on.
+        defer { launchAtLoginStatus = SMAppService.mainApp.status }
+        // Stops before settings are cleared, so a failed step can be retried from the same button.
+        do {
+            if [.enabled, .requiresApproval].contains(SMAppService.mainApp.status) {
+                try SMAppService.mainApp.unregister()
+            }
+            do {
+                try FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
+            } catch CocoaError.fileNoSuchFile {}
+        } catch {
+            resetError = String(localized: "The reset stopped: \(error.localizedDescription)")
+            return
+        }
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        // Relaunching drops every store already loaded in memory.
+        if !relaunch() {
+            resetError = String(localized: "CocoNotch couldn't restart. Quit it from the menu bar and open it again.")
+        }
     }
 }
 

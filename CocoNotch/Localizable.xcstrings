@@ -13532,6 +13532,58 @@
         }
       }
     },
+    "Privacy permissions stay as they are; change them in System Settings → Privacy & Security.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzberechtigungen bleiben unverändert; ändere sie unter Systemeinstellungen → Datenschutz & Sicherheit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los permisos de privacidad no cambian; modifícalos en Ajustes del Sistema → Privacidad y seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les autorisations de confidentialité restent inchangées ; modifiez-les dans Réglages Système → Confidentialité et sécurité."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I permessi della privacy restano invariati; modificali in Impostazioni di Sistema → Privacy e sicurezza."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プライバシーの許可はそのままです。変更するにはシステム設定 →「プライバシーとセキュリティ」を開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "개인정보 보호 권한은 그대로 유지됩니다. 시스템 설정 → 개인정보 보호 및 보안에서 변경하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As permissões de privacidade continuam como estão; altere-as em Ajustes do Sistema → Privacidade e Segurança."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私权限保持不变；可在“系统设置”→“隐私与安全性”中更改。"
+          }
+        }
+      }
+    },
     "Progress": {
       "localizations": {
         "de": {
@@ -14508,6 +14560,162 @@
           "stringUnit": {
             "state": "translated",
             "value": "重置"
+          }
+        }
+      }
+    },
+    "Reset CocoNotch to defaults?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch auf Standard zurücksetzen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Restablecer CocoNotch a los valores predeterminados?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser les réglages de CocoNotch ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripristinare le impostazioni predefinite di CocoNotch?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch をデフォルトにリセットしますか?"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch를 기본값으로 재설정할까요?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redefinir o CocoNotch para o padrão?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 CocoNotch 恢复为默认设置？"
+          }
+        }
+      }
+    },
+    "Reset and Relaunch": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurücksetzen und neu starten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer y reiniciar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser et relancer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripristina e riavvia"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リセットして再起動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "재설정 후 다시 시작"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redefinir e reiniciar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复并重新启动"
+          }
+        }
+      }
+    },
+    "Reset to Defaults…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf Standard zurücksetzen …"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer valores predeterminados…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser les réglages…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripristina impostazioni predefinite…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デフォルトにリセット…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기본값으로 재설정…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redefinir para o padrão…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复默认设置…"
           }
         }
       }
@@ -18204,6 +18412,58 @@
         }
       }
     },
+    "The reset stopped: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Zurücksetzen wurde abgebrochen: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El restablecimiento se detuvo: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La réinitialisation s'est arrêtée : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il ripristino si è interrotto: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リセットが中断されました: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "재설정이 중단되었습니다: %@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A redefinição parou: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复已中止：%@"
+          }
+        }
+      }
+    },
     "Then show": {
       "localizations": {
         "de": {
@@ -18304,6 +18564,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在思考…"
+          }
+        }
+      }
+    },
+    "This deletes all settings, shelf files, clipboard history and Ask chats, and turns off launch at login.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dadurch werden alle Einstellungen, Dateien in der Ablage, der Verlauf der Zwischenablage und die Chats in „Fragen“ gelöscht und „Bei der Anmeldung öffnen“ wird ausgeschaltet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se borrarán todos los ajustes, los archivos del estante, el historial del portapapeles y los chats de Preguntar, y se desactivará abrir al iniciar sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les réglages, les fichiers de l'étagère, l'historique du presse-papiers et les conversations de Demander seront supprimés, et l'ouverture à la connexion sera désactivée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verranno eliminati tutte le impostazioni, i file dello scaffale, la cronologia degli appunti e le chat di Chiedi, e l'apertura al login verrà disattivata."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての設定、シェルフのファイル、クリップボードの履歴、「質問」のチャットが削除され、ログイン時の起動がオフになります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모든 설정, 선반 파일, 클립보드 기록, 질문 채팅이 삭제되고 로그인 시 실행이 꺼집니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isso apaga todos os ajustes, os arquivos da estante, o histórico da área de transferência e as conversas do Perguntar, e desativa abrir ao iniciar sessão."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这会删除所有设置、暂存架文件、剪贴板历史和“提问”对话，并关闭登录时启动。"
           }
         }
       }
