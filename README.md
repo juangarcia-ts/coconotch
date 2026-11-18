@@ -34,7 +34,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | Widget | What it does |
 | --- | --- |
 | **Home** | Always the first tab, with compact cards from the other widgets you pick, what's playing and a quick Ask field. |
-| **Time Zones** | Your local time plus any cities you add, with country flags, custom labels and a slider to scrub ahead or back. |
+| **Time Zones** | Your local time plus any cities you add, one row each with a day-and-night timeline, "Tomorrow" or "Yesterday" when the date differs and custom labels. Drag any timeline to look ahead or back. Country flags are optional. |
 | **Meetings** | Your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off). |
 | **Timer** | A Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound. |
 | **Weather** | Current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F. |
