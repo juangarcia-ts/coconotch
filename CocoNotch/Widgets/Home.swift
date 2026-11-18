@@ -182,3 +182,18 @@ struct HomeSettings: View {
         )
     }
 }
+
+/// What a Home card says when its widget has nothing to show, styled the same for every widget.
+struct SummaryMessage: View {
+    let message: String
+
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var body: some View {
+        Text(message)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+}
