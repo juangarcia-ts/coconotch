@@ -4,7 +4,7 @@ import SwiftUI
 extension NotchWidget {
     static let home = NotchWidget(
         id: homeWidgetID,
-        title: "Home",
+        title: String(localized: "Home"),
         systemImage: "house",
         makeView: { AnyView(HomeView()) },
         makeSettings: { AnyView(HomeSettings()) }

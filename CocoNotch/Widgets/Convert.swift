@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 extension NotchWidget {
     static let convert = NotchWidget(
         id: "convert",
-        title: "Convert",
+        title: String(localized: "Convert"),
         systemImage: "arrow.left.arrow.right",
         makeView: { AnyView(ConvertView()) },
         makeSettings: { AnyView(ConvertSettings()) }
@@ -468,10 +468,14 @@ private struct ConvertFileCard: View {
             }
             .frame(height: 112)
             VStack(spacing: 2) {
-                Text(store.paths.count == 1 ? (firstPath as NSString).lastPathComponent : "\(store.paths.count) files")
-                    .font(.callout.weight(.semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                Text(
+                    store.paths.count == 1
+                        ? (firstPath as NSString).lastPathComponent
+                        : String(localized: "\(store.paths.count) files")
+                )
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
                 Text(store.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -670,7 +674,7 @@ private struct ConvertSettings: View {
             Section {
                 LabeledContent("Save to") {
                     HStack {
-                        Text(outputFolder.isEmpty ? "Next to the original" : outputFolder)
+                        Text(outputFolder.isEmpty ? String(localized: "Next to the original") : outputFolder)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Button("Choose…", action: chooseFolder)

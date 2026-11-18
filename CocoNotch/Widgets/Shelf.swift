@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 extension NotchWidget {
     static let shelf = NotchWidget(
         id: "shelf",
-        title: "Shelf",
+        title: String(localized: "Shelf"),
         systemImage: "tray",
         makeView: { AnyView(ShelfView()) },
         makeSettings: { AnyView(ShelfSettings()) }
@@ -638,7 +638,7 @@ private struct ShelfTile: View {
         .background(Color.primary.opacity(isSelected ? 0.16 : 0), in: RoundedRectangle(cornerRadius: 10))
         .opacity(isMissing ? 0.4 : 1)
         .overlay { ShelfDragSource(item: item) }
-        .help(isMissing ? "\(item.path) can't be found right now." : item.path)
+        .help(isMissing ? String(localized: "\(item.path) can't be found right now.") : item.path)
         .task(id: item.path) {
             await store.loadThumbnail(for: item)
             thumbnailVersion += 1
@@ -771,9 +771,9 @@ private final class MenuAction: NSObject {
     }
 }
 
-private func makeMenuItem(_ title: String, handler: @escaping () -> Void) -> NSMenuItem {
+private func makeMenuItem(_ title: LocalizedStringResource, handler: @escaping () -> Void) -> NSMenuItem {
     let action = MenuAction(handler)
-    let item = NSMenuItem(title: title, action: #selector(MenuAction.run), keyEquivalent: "")
+    let item = NSMenuItem(title: String(localized: title), action: #selector(MenuAction.run), keyEquivalent: "")
     item.target = action
     // A menu item holds its target weakly, so it keeps the action alive here.
     item.representedObject = action

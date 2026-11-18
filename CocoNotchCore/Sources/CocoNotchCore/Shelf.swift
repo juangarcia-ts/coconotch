@@ -80,7 +80,7 @@ public func getShelfFileStatus(savedPath: String, resolvedPath: String?, isStale
 
 /// "3 items · 12 MB", leaving the size out when no file's size is known.
 public func formatShelfSummary(_ items: [ShelfItem]) -> String {
-    let count = items.count == 1 ? "1 item" : "\(items.count) items"
+    let count = String(localized: "\(items.count) items", bundle: .module)
     let sizes = items.compactMap(\.byteCount)
     guard !sizes.isEmpty else { return count }
     return count + " · " + ByteCountFormatter.string(fromByteCount: Int64(sizes.reduce(0, +)), countStyle: .file)
@@ -126,7 +126,9 @@ public struct Shelf: Codable, Equatable, Identifiable, Sendable {
 /// "Shelf", then "Shelf 2", "Shelf 3"… skipping names already taken.
 public func makeShelfName(existing: [Shelf]) -> String {
     let names = Set(existing.map(\.name))
-    return (1...).lazy.map { $0 == 1 ? "Shelf" : "Shelf \($0)" }.first { !names.contains($0) } ?? "Shelf"
+    let first = String(localized: "Shelf", bundle: .module)
+    return (1...).lazy.map { $0 == 1 ? first : String(localized: "Shelf \($0)", bundle: .module) }
+        .first { !names.contains($0) } ?? first
 }
 
 /// Moves the items to the end of the target shelf; one the target already holds is dropped as a duplicate.

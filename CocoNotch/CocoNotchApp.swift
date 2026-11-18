@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // area during layout, and AppKit aborts the app.
         hostingController.sizingOptions = []
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "CocoNotch Settings"
+        window.title = String(localized: "CocoNotch Settings")
         // Lets the sidebar run up under the traffic lights, like System Settings.
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true

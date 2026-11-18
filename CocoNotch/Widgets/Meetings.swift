@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let meetings = NotchWidget(
         id: "meetings",
-        title: "Meetings",
+        title: String(localized: "Meetings"),
         systemImage: "calendar",
         makeView: { AnyView(MeetingsView()) },
         makeSettings: { AnyView(MeetingsSettings()) },
@@ -45,7 +45,7 @@ private func getMeetings(on day: Date) -> [Meeting] {
         Meeting(
             // Occurrences of a repeating event share an identifier, so the start time keeps each one unique.
             id: "\(event.eventIdentifier ?? "")-\(event.startDate.timeIntervalSince1970)",
-            title: event.title ?? "Untitled",
+            title: event.title ?? String(localized: "Untitled"),
             start: event.startDate,
             end: event.endDate,
             isAllDay: event.isAllDay,
@@ -208,14 +208,15 @@ private struct MeetingsView: View {
             case .notDetermined:
                 WidgetPrompt(
                     systemImage: NotchWidget.meetings.systemImage,
-                    message: "See your next meetings and join them from the notch."
+                    message: String(localized: "See your next meetings and join them from the notch.")
                 ) {
                     Button("Allow Calendar Access") { Task { await store.requestAccess() } }
                 }
             default:
                 WidgetPrompt(
                     systemImage: NotchWidget.meetings.systemImage,
-                    message: "CocoNotch can't read your calendars. You can allow it in System Settings."
+                    message: String(
+                        localized: "CocoNotch can't read your calendars. You can allow it in System Settings.")
                 ) {
                     Button("Open Privacy Settings") { openPrivacySettings("Privacy_Calendars") }
                 }
@@ -338,7 +339,8 @@ private struct MeetingRow: View {
             Text(formatStartTime(meeting))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 56, alignment: .leading)
+                .fixedSize()
+                .frame(minWidth: 56, alignment: .leading)
             Text(meeting.title)
                 .lineLimit(1)
             Spacer()
@@ -406,7 +408,9 @@ private struct MeetingsSummary: View {
                             Text(formatStartTime(meeting))
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.tertiary)
-                                .frame(width: 44, alignment: .leading)
+                                // Translated "All day" labels can be wider than the times, so they widen the column.
+                                .fixedSize()
+                                .frame(minWidth: 44, alignment: .leading)
                             Text(meeting.title)
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
@@ -446,7 +450,8 @@ private struct PastMeetingRow: View {
         HStack(spacing: 10) {
             Text(formatStartTime(meeting))
                 .font(.caption2.monospacedDigit())
-                .frame(width: 56, alignment: .leading)
+                .fixedSize()
+                .frame(minWidth: 56, alignment: .leading)
             Text(meeting.title)
                 .font(.caption)
                 .strikethrough()

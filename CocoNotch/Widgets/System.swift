@@ -7,7 +7,7 @@ import SwiftUI
 extension NotchWidget {
     static let system = NotchWidget(
         id: "system",
-        title: "System",
+        title: String(localized: "System"),
         systemImage: "cpu",
         makeView: { AnyView(SystemView()) },
         makeSettings: { AnyView(SystemSettings()) },
@@ -271,7 +271,8 @@ private func makeMetrics(
         metrics.append(
             Metric(
                 id: "cpu", title: "CPU", symbol: "cpu", value: store.cpuUsage.map(formatPercent) ?? "–",
-                fraction: store.cpuUsage, detail: "\(ProcessInfo.processInfo.activeProcessorCount) cores",
+                fraction: store.cpuUsage,
+                detail: String(localized: "\(ProcessInfo.processInfo.activeProcessorCount) cores"),
                 history: store.cpuHistory))
     }
     if showsMemory {
@@ -280,7 +281,7 @@ private func makeMetrics(
             isPercent: readSetting(showsMemoryPercentKey, default: true))
         metrics.append(
             Metric(
-                id: "memory", title: "Memory", symbol: "memorychip", value: text.value,
+                id: "memory", title: String(localized: "Memory"), symbol: "memorychip", value: text.value,
                 fraction: store.memoryPressureFraction, detail: text.detail, history: store.memoryHistory,
                 tint: store.memoryPressure.map(getPressureColor)))
     }
@@ -289,13 +290,14 @@ private func makeMetrics(
             free: disk.free, total: disk.total, isPercent: readSetting(showsDiskPercentKey, default: true))
         metrics.append(
             Metric(
-                id: "disk", title: "Disk", symbol: "internaldrive", value: text.value,
+                id: "disk", title: String(localized: "Disk"), symbol: "internaldrive", value: text.value,
                 fraction: getDiskUsedFraction(free: disk.free, total: disk.total), detail: text.detail))
     }
     if showsBattery, let battery = store.battery {
         metrics.append(
             Metric(
-                id: "battery", title: "Battery", symbol: getBatterySymbol(battery), value: "\(battery.percent)%",
+                id: "battery", title: String(localized: "Battery"), symbol: getBatterySymbol(battery),
+                value: "\(battery.percent)%",
                 fraction: Double(battery.percent) / 100, detail: getBatteryDetail(battery)))
     }
     return metrics

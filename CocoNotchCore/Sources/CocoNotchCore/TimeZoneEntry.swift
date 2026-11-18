@@ -116,5 +116,7 @@ public func getDisplayTitle(label: String?, identifier: String) -> String {
 
 /// The line under an entry's alias field, such as "America/Los_Angeles · GMT-8 · Current time zone".
 public func formatTimeZoneCaption(identifier: String, abbreviation: String?, isLocal: Bool) -> String {
-    [identifier, abbreviation, isLocal ? "Current time zone" : nil].compactMap { $0 }.joined(separator: " · ")
+    [identifier, abbreviation, isLocal ? String(localized: "Current time zone", bundle: .module) : nil].compactMap {
+        $0
+    }.joined(separator: " · ")
 }
