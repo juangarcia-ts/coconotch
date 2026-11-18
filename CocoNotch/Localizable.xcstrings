@@ -5110,6 +5110,58 @@
         }
       }
     },
+    "CocoNotch couldn't restart. Quit it from the menu bar and open it again.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch konnte nicht neu starten. Beende es über die Menüleiste und öffne es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch no pudo reiniciarse. Ciérralo desde la barra de menús y vuelve a abrirlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch n'a pas pu redémarrer. Quittez-le depuis la barre des menus et rouvrez-le."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch non è riuscito a riavviarsi. Chiudilo dalla barra dei menu e riaprilo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch を再起動できませんでした。メニューバーから終了して、もう一度開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch를 재시작할 수 없습니다. 메뉴 막대에서 종료한 다음 다시 여세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O CocoNotch não conseguiu reiniciar. Encerre-o pela barra de menus e abra-o novamente."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CocoNotch 无法重新启动。请从菜单栏退出并重新打开。"
+          }
+        }
+      }
+    },
     "CocoNotch isn't allowed to control %@.": {
       "localizations": {
         "de": {
