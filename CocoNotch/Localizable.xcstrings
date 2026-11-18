@@ -8121,54 +8121,54 @@
         }
       }
     },
-    "Hide this limit's reminder in the closed notch until it resets or runs out": {
+    "Hide the reminder until usage drops below the threshold and climbs again": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erinnerung an dieses Limit in der geschlossenen Notch ausblenden, bis es zurückgesetzt oder aufgebraucht ist"
+            "value": "Erinnerung ausblenden, bis die Nutzung unter den Schwellenwert fällt und wieder steigt"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar el aviso de este límite en el notch cerrado hasta que se reinicie o se agote"
+            "value": "Ocultar el aviso hasta que el uso baje del umbral y vuelva a subir"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer le rappel de cette limite dans l'encoche fermée jusqu'à sa réinitialisation ou son épuisement"
+            "value": "Masquer le rappel jusqu'à ce que l'utilisation repasse sous le seuil puis le dépasse à nouveau"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nascondi il promemoria di questo limite nel notch chiuso finché non si azzera o si esaurisce"
+            "value": "Nascondi il promemoria finché l'utilizzo non scende sotto la soglia e risale"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "リセットされるか使い切るまで、閉じたノッチでこの上限の通知を非表示"
+            "value": "使用量がしきい値を下回って再び超えるまで通知を非表示"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 한도가 재설정되거나 소진될 때까지 닫힌 노치에서 알림 숨기기"
+            "value": "사용량이 기준치 아래로 내려갔다가 다시 오를 때까지 알림 숨기기"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar o aviso deste limite no notch fechado até ele reiniciar ou acabar"
+            "value": "Ocultar o aviso até o uso cair abaixo do limite e subir de novo"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在此限额重置或用完前，在收起的刘海中隐藏它的提醒"
+            "value": "在用量降到阈值以下并再次超过之前隐藏提醒"
           }
         }
       }

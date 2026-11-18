@@ -140,19 +140,17 @@ public func getIdleProviderLimit(
     return getFullestProviderLimit(candidates)
 }
 
-/// Identifies one heads-up state, so dismissing it hides that state only. A new key, and so the heads-up again, comes
-/// with the limit's next reset, or once it is used up and turns urgent.
+/// Identifies one heads-up state, so dismissing it hides that state only. Running out makes it urgent, a new key.
 public func makeUsageHeadsUpKey(provider: AIProvider, limit: UsageLimit) -> String {
-    // Rounded to the minute: the reported reset time can shift by a fraction of a second between fetches.
-    let resetsAt = limit.resetsAt.map { String(Int(($0.timeIntervalSince1970 / 60).rounded())) } ?? "none"
-    return "\(provider.rawValue)-\(limit.id)-\(getUsagePriority(limit).rawValue)-\(resetsAt)"
+    "\(provider.rawValue)-\(limit.id)-\(getUsagePriority(limit).rawValue)"
 }
 
-/// Keeps each dismissal until its own window resets, whatever other limits do meanwhile. The reset minute is the key's
-/// last part; a limit with no reset time keeps its dismissal until the app quits.
-public func pruneDismissedHeadsUpKeys(_ keys: Set<String>, now: Date) -> Set<String> {
-    keys.filter { key in
-        guard let minute = key.split(separator: "-").last.flatMap({ Double($0) }) else { return true }
-        return Date(timeIntervalSince1970: minute * 60) > now
-    }
+/// The keys of every limit at or over the threshold. A dismissal lasts only while its key stays in here, so a heads-up
+/// comes back once its limit drops below the threshold, say on reset, and climbs over it again.
+public func getDueUsageHeadsUpKeys(
+    _ candidates: [(provider: AIProvider, limit: UsageLimit)], threshold: Int
+) -> Set<String> {
+    Set(
+        candidates.filter { $0.limit.percent >= threshold }
+            .map { makeUsageHeadsUpKey(provider: $0.provider, limit: $0.limit) })
 }

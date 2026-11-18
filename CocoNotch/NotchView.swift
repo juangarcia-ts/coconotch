@@ -120,6 +120,8 @@ struct NotchView: View {
             // While typing, the notch closes once the user clicks into another app instead.
             if !isHovering, staysOpenWhileTyping, isTypingInNotch() { return }
             if !isHovering, FilePicker.shared.openerID == panelID || isHeldOpen { return }
+            // An alert dropping under a resting pointer isn't a hover; opening would take the keyboard. A click opens it.
+            if isHovering, alertingKey != nil { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
@@ -131,7 +133,7 @@ struct NotchView: View {
             }
         }
         .onTapGesture {
-            if expandsOnClick && !isExpanded && !isStickyAlertShowing { setExpanded(true) }
+            if (expandsOnClick || alertingKey != nil) && !isExpanded && !isStickyAlertShowing { setExpanded(true) }
         }
         // Stays open to show what was picked; taking the keyboard lets a click elsewhere close it, as the pointer may
         // not come back over it.
@@ -196,7 +198,7 @@ struct NotchView: View {
         alertingKey = key
         guard let key, !isSticky else { return }
         Task {
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(10))
             if alertingKey == key { alertingKey = nil }
         }
     }
