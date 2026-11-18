@@ -298,21 +298,9 @@ private struct TimezonesSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Show country flags")
-                Spacer()
-                Toggle("Show country flags", isOn: $showsFlags)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-            }
-            Text(
-                "Drag to reorder. Double-click a name or use ✎ to give it an alias. Your current time zone follows your Mac when you travel."
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            List {
+        Form {
+            Toggle("Show country flags", isOn: $showsFlags)
+            Section {
                 ForEach($entries) { $entry in
                     let isLocal = entry.identifier == localTimeZoneEntryID
                     let identifier = resolveTimeZoneIdentifier(
@@ -367,39 +355,39 @@ private struct TimezonesSettings: View {
                         .disabled(isLocal)
                         Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
                             .labelsHidden()
-                            .toggleStyle(.switch)
                     }
-                    .listRowInsets(settingsListRowInsets)
                 }
                 .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
+            } footer: {
+                Text(
+                    "Drag to reorder. Double-click a name or use ✎ to give it an alias. Your current time zone follows your Mac when you travel."
+                )
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
-            .onChange(of: focusedAliasID) { lost, gained in
-                if gained == nil, lost == editingID { editingID = nil }
-            }
-            .frame(height: 200)
-
-            TextField("Add a time zone…", text: $query)
-                .onSubmit {
-                    if let identifier = suggestions.first { add(identifier) }
+            Section {
+                TextField("Add a time zone…", text: $query, prompt: Text("Add a time zone…"))
+                    .labelsHidden()
+                    .onSubmit {
+                        if let identifier = suggestions.first { add(identifier) }
+                    }
+                ForEach(suggestions, id: \.self) { identifier in
+                    Button {
+                        add(identifier)
+                    } label: {
+                        Text(
+                            verbatim: [showsFlags ? getFlag(forTimeZoneIdentifier: identifier) : nil, identifier]
+                                .compactMap { $0 }.joined(separator: " ")
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.borderless)
                 }
-            ForEach(suggestions, id: \.self) { identifier in
-                Button {
-                    add(identifier)
-                } label: {
-                    Text(
-                        verbatim: [showsFlags ? getFlag(forTimeZoneIdentifier: identifier) : nil, identifier]
-                            .compactMap { $0 }.joined(separator: " ")
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.borderless)
             }
         }
-        .padding(20)
-        .frame(minHeight: 420, alignment: .top)
+        .formStyle(.grouped)
+        // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
+        .onChange(of: focusedAliasID) { lost, gained in
+            if gained == nil, lost == editingID { editingID = nil }
+        }
         .onAppear {
             entries = decodeTimeZoneEntries(storedEntries)
         }
