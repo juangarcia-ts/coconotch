@@ -55,12 +55,12 @@ The closed notch shows live activities, like a meeting about to start or the son
 
 Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
 
-- **General**: open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
+- **General**: the app's language, open on hover or click, which displays show the notch, live activities, launch at login and automatic update checks.
 - **Shortcuts**: a system-wide shortcut to open or close the notch, one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 
-CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German, Japanese, Simplified Chinese and Korean, and follows your Mac's language. To use a different one for CocoNotch only, pick it in System Settings → General → Language & Region → Applications.
+CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German, Japanese, Simplified Chinese and Korean, and follows your Mac's language. To use a different one for CocoNotch only, pick it in Settings → General → Language and restart CocoNotch.
 
 ## Permissions
 

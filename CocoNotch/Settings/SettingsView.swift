@@ -114,6 +114,24 @@ struct SettingsView: View {
     }
 }
 
+/// The language chosen for CocoNotch alone, also set by System Settings → Language & Region → Applications.
+private func readAppLanguage() -> String? {
+    let domain = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")
+    return (domain?[appLanguagesKey] as? [String])?.first
+}
+
+/// Opens a fresh copy once this one has quit, so the two never hold the notch or the shortcuts at once.
+private func relaunch() {
+    let process = Process()
+    process.executableURL = URL(filePath: "/bin/sh")
+    process.arguments = [
+        "-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier); do sleep 0.1; done; open \"$0\"",
+        Bundle.main.bundlePath,
+    ]
+    guard (try? process.run()) != nil else { return }
+    NSApp.terminate(nil)
+}
+
 private struct GeneralSettings: View {
     let updater: SPUUpdater
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
@@ -122,9 +140,42 @@ private struct GeneralSettings: View {
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
+    /// The app's own language, or "" to follow the system.
+    @State private var language = readAppLanguage() ?? ""
+
+    private var needsRestart: Bool {
+        let systemLanguages =
+            UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?[appLanguagesKey] as? [String]
+        let chosen = resolveAppLanguage(
+            chosen: language.isEmpty ? nil : language, systemLanguages: systemLanguages ?? [],
+            available: getAppLanguages(localizations: Bundle.main.localizations))
+        return chosen != Bundle.main.preferredLocalizations.first
+    }
 
     var body: some View {
         Form {
+            Picker("Language", selection: $language) {
+                Text("System default").tag("")
+                ForEach(getAppLanguages(localizations: Bundle.main.localizations), id: \.self) {
+                    Text(verbatim: formatLanguageName($0)).tag($0)
+                }
+            }
+            .onChange(of: language) {
+                if language.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: appLanguagesKey)
+                } else {
+                    UserDefaults.standard.set([language], forKey: appLanguagesKey)
+                }
+            }
+            if needsRestart {
+                HStack {
+                    Text("Restart CocoNotch to use the new language.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Restart CocoNotch", action: relaunch)
+                }
+            }
             Picker("Open the notch", selection: $expandsOnClick) {
                 Text("On hover").tag(false)
                 Text("On click").tag(true)
