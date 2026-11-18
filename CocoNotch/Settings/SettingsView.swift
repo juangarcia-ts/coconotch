@@ -180,6 +180,8 @@ private struct GeneralSettings: View {
                     Text(verbatim: formatLanguageName($0)).tag($0)
                 }
             }
+            // A failed restart was for the old choice; picking again, here or in System Settings, starts fresh.
+            .onChange(of: language) { hasRestartFailed = false }
             if shouldRestart {
                 HStack {
                     Text(
