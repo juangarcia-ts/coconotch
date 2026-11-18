@@ -36,14 +36,16 @@ func shadesTheHourFromNightToDay(hour: Double, daylight: Double) {
     let start = Date(timeIntervalSince1970: 1_772_949_600)
     let fractions = getMidnightFractions(
         from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("America/New_York"))
-    #expect(fractions == [22.0 / 24])
+    let expected: [Double] = [22.0 / 24]
+    #expect(fractions == expected)
 }
 
 @Test func marksBothMidnightsAroundA23HourDay() throws {
     let start = Date(timeIntervalSince1970: 1_772_944_200)  // 2026-03-08 04:30 UTC, 23:30 EST on March 7
     let fractions = getMidnightFractions(
         from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("America/New_York"))
-    #expect(fractions == [0.5 / 24, 23.5 / 24])
+    let expected: [Double] = [0.5 / 24, 23.5 / 24]
+    #expect(fractions == expected)
 }
 
 @Test(arguments: [(0.5, 0.0), (1.0, 12.0), (0.0, -12.0), (1.5, 12.0), (0.51, 0.25), (0.6, 2.5)])
