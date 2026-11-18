@@ -203,6 +203,8 @@ private struct GeneralSettings: View {
     }
 
     private func resetToDefaults() {
+        // Any exit that keeps Settings open must show whether login launch is still on.
+        defer { launchAtLoginStatus = SMAppService.mainApp.status }
         // Stops before settings are cleared, so a failed step can be retried from the same button.
         do {
             if [.enabled, .requiresApproval].contains(SMAppService.mainApp.status) {
@@ -212,7 +214,6 @@ private struct GeneralSettings: View {
                 try FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
             } catch CocoaError.fileNoSuchFile {}
         } catch {
-            launchAtLoginStatus = SMAppService.mainApp.status
             resetError = "The reset stopped: \(error.localizedDescription)"
             return
         }
