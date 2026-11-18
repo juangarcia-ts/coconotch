@@ -60,6 +60,8 @@ Open **Settings…** (⌘,) from the menu bar icon or the footer of the open not
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
 
+CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German, Japanese, Simplified Chinese and Korean, and follows your Mac's language. To use a different one for CocoNotch only, pick it in System Settings → General → Language & Region → Applications.
+
 ## Permissions
 
 macOS asks for each one the first time a widget needs it:

@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let weather = NotchWidget(
         id: "weather",
-        title: "Weather",
+        title: String(localized: "Weather"),
         systemImage: "cloud.sun",
         makeView: { AnyView(WeatherView()) },
         makeSettings: { AnyView(WeatherSettings()) },
@@ -412,7 +412,7 @@ private struct WeatherView: View {
 /// One line of the current details: a quiet icon and label, with the value aligned on the right.
 private struct DetailRow: View {
     let symbol: String
-    let label: String
+    let label: LocalizedStringKey
     let value: String
 
     var body: some View {
@@ -620,7 +620,7 @@ private struct WeatherSummary: View {
                 }
             }
         } else {
-            Text(store.problem.map(getWeatherProblemMessage) ?? "Loading the forecast…")
+            Text(store.problem.map(getWeatherProblemMessage) ?? String(localized: "Loading the forecast…"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

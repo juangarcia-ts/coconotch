@@ -4,7 +4,7 @@ import SwiftUI
 extension NotchWidget {
     static let aiUsage = NotchWidget(
         id: "aiUsage",
-        title: "AI Usage",
+        title: String(localized: "AI Usage"),
         systemImage: "sparkles",
         imageName: "ClaudeLogo",
         makeView: { AnyView(AIUsageView()) },

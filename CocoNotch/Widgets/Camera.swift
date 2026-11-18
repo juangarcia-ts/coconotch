@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let camera = NotchWidget(
         id: "camera",
-        title: "Camera",
+        title: String(localized: "Camera"),
         systemImage: "web.camera",
         makeView: { AnyView(CameraView()) },
         makeSettings: { AnyView(CameraSettings()) }
@@ -101,13 +101,14 @@ private struct CameraView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .frame(maxWidth: 360)
             case .authorized:
-                WidgetPrompt(systemImage: NotchWidget.camera.systemImage, message: "No camera found.")
+                WidgetPrompt(
+                    systemImage: NotchWidget.camera.systemImage, message: String(localized: "No camera found."))
             case .notDetermined:
                 ProgressView()
             default:
                 WidgetPrompt(
                     systemImage: NotchWidget.camera.systemImage,
-                    message: "CocoNotch can't use the camera. You can allow it in System Settings."
+                    message: String(localized: "CocoNotch can't use the camera. You can allow it in System Settings.")
                 ) {
                     Button("Open Privacy Settings") { openPrivacySettings("Privacy_Camera") }
                 }

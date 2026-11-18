@@ -4,7 +4,7 @@ import SwiftUI
 extension NotchWidget {
     static let timezones = NotchWidget(
         id: "timezones",
-        title: "Time Zones",
+        title: String(localized: "Time Zones"),
         systemImage: "globe",
         makeView: { AnyView(TimezonesView()) },
         makeSettings: { AnyView(TimezonesSettings()) },
@@ -68,7 +68,7 @@ private struct TimezonesView: View {
                 HStack(spacing: 10) {
                     Slider(value: $hourOffset, in: -12...12, step: 0.5)
                         .controlSize(.small)
-                    Button(hourOffset == 0 ? "Now" : formatOffset(seconds: Int(hourOffset * 3600))) {
+                    Button(hourOffset == 0 ? String(localized: "Now") : formatOffset(seconds: Int(hourOffset * 3600))) {
                         hourOffset = 0
                     }
                     .buttonStyle(.plain)

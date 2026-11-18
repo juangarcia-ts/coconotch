@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 extension NotchWidget {
     static let convert = NotchWidget(
         id: "convert",
-        title: "Convert",
+        title: String(localized: "Convert"),
         systemImage: "arrow.left.arrow.right",
         makeView: { AnyView(ConvertView()) },
         makeSettings: { AnyView(ConvertSettings()) }
@@ -670,7 +670,7 @@ private struct ConvertSettings: View {
             Section {
                 LabeledContent("Save to") {
                     HStack {
-                        Text(outputFolder.isEmpty ? "Next to the original" : outputFolder)
+                        Text(outputFolder.isEmpty ? String(localized: "Next to the original") : outputFolder)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Button("Choose…", action: chooseFolder)

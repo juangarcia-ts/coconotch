@@ -102,7 +102,11 @@ struct HotKeyRecorder: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Button(monitor != nil ? "Press keys…" : decodeHotKey(stored)?.label ?? "Record Shortcut") {
+            Button(
+                monitor != nil
+                    ? String(localized: "Press keys…")
+                    : decodeHotKey(stored)?.label ?? String(localized: "Record Shortcut")
+            ) {
                 monitor == nil ? startRecording() : stopRecording()
             }
             .monospacedDigit()

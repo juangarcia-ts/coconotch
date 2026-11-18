@@ -100,9 +100,13 @@ public func getBatterySymbol(_ battery: BatteryStatus) -> String {
 /// "1:05 left", "Charging", "On power"…, for under the battery level.
 public func getBatteryDetail(_ battery: BatteryStatus) -> String {
     let time = battery.minutesRemaining.map { formatTimeRemaining(minutes: $0) }
-    if battery.isCharging { return time.map { "\($0) until full" } ?? "Charging" }
-    if battery.isOnPower { return "On power" }
-    return time.map { "\($0) left" } ?? "On battery"
+    if battery.isCharging {
+        return time.map { String(localized: "\($0) until full", bundle: .module) }
+            ?? String(localized: "Charging", bundle: .module)
+    }
+    if battery.isOnPower { return String(localized: "On power", bundle: .module) }
+    return time.map { String(localized: "\($0) left", bundle: .module) }
+        ?? String(localized: "On battery", bundle: .module)
 }
 
 /// The share of a disk in use, from 0 to 1; 0 for a disk that reports no size.
@@ -118,8 +122,11 @@ public func formatDisk(free: UInt64, total: UInt64, isPercent: Bool, locale: Loc
     let totalText = formatBytes(total, isMemory: false, locale: locale)
     let freeText = formatBytes(free, isMemory: false, locale: locale)
     return isPercent
-        ? (formatPercent(getDiskUsedFraction(free: free, total: total)), "\(freeText) free of \(totalText)")
-        : (freeText, "free of \(totalText)")
+        ? (
+            formatPercent(getDiskUsedFraction(free: free, total: total)),
+            String(localized: "\(freeText) free of \(totalText)", bundle: .module)
+        )
+        : (freeText, String(localized: "free of \(totalText)", bundle: .module))
 }
 
 /// The Memory tile's value and the line under it: the pressure as a percent, or the amount in use.
@@ -129,9 +136,10 @@ public func formatMemory(
     let totalText = formatBytes(total, isMemory: true, locale: locale)
     let usedText = used.map { formatBytes($0, isMemory: true, locale: locale) }
     if isPercent {
-        return (pressureFraction.map(formatPercent) ?? "–", usedText.map { "\($0) of \(totalText)" } ?? totalText)
+        let detail = usedText.map { String(localized: "\($0) of \(totalText)", bundle: .module) } ?? totalText
+        return (pressureFraction.map(formatPercent) ?? "–", detail)
     }
-    return (usedText ?? "–", "of \(totalText)")
+    return (usedText ?? "–", String(localized: "of \(totalText)", bundle: .module))
 }
 
 public func formatPercent(_ fraction: Double) -> String {
@@ -164,9 +172,9 @@ public func parseMemoryPressure(level: Int32) -> MemoryPressure? {
 
 public func getMemoryPressureLabel(_ pressure: MemoryPressure) -> String {
     switch pressure {
-    case .normal: "Normal"
-    case .warning: "Warning"
-    case .critical: "Critical"
+    case .normal: String(localized: "Normal", bundle: .module)
+    case .warning: String(localized: "Warning", bundle: .module)
+    case .critical: String(localized: "Critical", bundle: .module)
     }
 }
 

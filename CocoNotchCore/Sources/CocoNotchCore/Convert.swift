@@ -53,7 +53,7 @@ public enum ConvertOutput: String, CaseIterable, Sendable {
         case .pdf: "PDF"
         case .mp4: "MP4"
         case .mov: "MOV"
-        case .m4a: "Audio (M4A)"
+        case .m4a: String(localized: "Audio (M4A)", bundle: .module)
         case .animatedGIF: "GIF"
         }
     }
@@ -118,8 +118,8 @@ public func makeOutputPath(
     let slash = inputPath.lastIndex(of: "/")
     let name = slash.map { String(inputPath[inputPath.index(after: $0)...]) } ?? inputPath
     let directory = folder ?? slash.map { String(inputPath[..<$0]) } ?? "."
-    let stem =
-        (name.lastIndex(of: ".").map { String(name[..<$0]) } ?? name) + (pageNumber.map { " page \($0)" } ?? "")
+    let baseName = name.lastIndex(of: ".").map { String(name[..<$0]) } ?? name
+    let stem = pageNumber.map { String(localized: "\(baseName) page \($0)", bundle: .module) } ?? baseName
     let base = directory.hasSuffix("/") ? String(directory.dropLast()) : directory
     var candidate = "\(base)/\(stem).\(fileExtension)"
     var number = 2
@@ -146,7 +146,7 @@ public enum VideoCodec: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .keep: "Keep (fastest)"
+        case .keep: String(localized: "Keep (fastest)", bundle: .module)
         case .h264: "H.264"
         case .hevc: "HEVC"
         }
@@ -205,9 +205,8 @@ public func addConvertFiles(_ newPaths: [String], to paths: [String], isFinished
 
 /// "Converted 3 files", adding how many couldn't be.
 public func formatConvertResult(converted: Int, failed: Int) -> String {
-    let files = { (count: Int) in count == 1 ? "1 file" : "\(count) files" }
-    let done = "Converted \(files(converted))"
-    return failed == 0 ? done : "\(done); \(files(failed)) couldn't be converted"
+    let done = String(localized: "Converted \(converted) files", bundle: .module)
+    return failed == 0 ? done : String(localized: "\(done); \(failed) files couldn't be converted", bundle: .module)
 }
 
 /// Overall progress of a batch, from the files already done and how far the current one is.

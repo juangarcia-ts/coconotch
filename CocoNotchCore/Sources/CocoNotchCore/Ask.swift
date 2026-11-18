@@ -48,11 +48,18 @@ public func formatAskAnswer(_ answer: String) -> AttributedString {
 
 public func getAskUnavailableMessage(_ reason: AskUnavailableReason) -> String {
     switch reason {
-    case .olderSystem: "Ask needs macOS 26 or later with Apple Intelligence."
-    case .deviceNotEligible: "This Mac can't run Apple Intelligence, so Ask isn't available."
-    case .appleIntelligenceOff: "Turn on Apple Intelligence in System Settings → Apple Intelligence & Siri to use Ask."
-    case .modelNotReady: "Apple Intelligence is still downloading. Ask shows up in the notch once it's ready."
-    case .unknown: "Apple Intelligence isn't available right now."
+    case .olderSystem: String(localized: "Ask needs macOS 26 or later with Apple Intelligence.", bundle: .module)
+    case .deviceNotEligible:
+        String(localized: "This Mac can't run Apple Intelligence, so Ask isn't available.", bundle: .module)
+    case .appleIntelligenceOff:
+        String(
+            localized: "Turn on Apple Intelligence in System Settings → Apple Intelligence & Siri to use Ask.",
+            bundle: .module)
+    case .modelNotReady:
+        String(
+            localized: "Apple Intelligence is still downloading. Ask shows up in the notch once it's ready.",
+            bundle: .module)
+    case .unknown: String(localized: "Apple Intelligence isn't available right now.", bundle: .module)
     }
 }
 
@@ -63,13 +70,14 @@ public func canFixAskInSettings(_ reason: AskUnavailableReason) -> Bool {
 
 public func getAskFailureMessage(_ failure: AskFailure) -> String {
     switch failure {
-    case .guardrail: "Apple Intelligence won't answer that. Try asking another way."
-    case .unsupportedLanguage: "Apple Intelligence doesn't support this language yet."
-    case .other(let description): "Something went wrong: \(description)"
+    case .guardrail: String(localized: "Apple Intelligence won't answer that. Try asking another way.", bundle: .module)
+    case .unsupportedLanguage:
+        String(localized: "Apple Intelligence doesn't support this language yet.", bundle: .module)
+    case .other(let description): String(localized: "Something went wrong: \(description)", bundle: .module)
     }
 }
 
-public let askContextResetNote = "The chat got too long, so a new one was started."
+public let askContextResetNote = String(localized: "The chat got too long, so a new one was started.", bundle: .module)
 
 public struct AskChatTurn: Codable, Equatable, Sendable {
     public let question: String
@@ -105,12 +113,18 @@ public func getAskChatTitle(_ chat: AskChat, maxLength: Int = 50) -> String {
     return question.count > maxLength ? question.prefix(maxLength - 1) + "…" : question
 }
 
+/// The history menu's sections, in order.
+public let askChatGroupTitles = [
+    String(localized: "Today", bundle: .module), String(localized: "Yesterday", bundle: .module),
+    String(localized: "Earlier", bundle: .module),
+]
+
 /// "Today", "Yesterday" or "Earlier", for grouping chats in the history menu.
 public func getAskChatGroupTitle(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
-    if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+    if calendar.isDate(date, inSameDayAs: now) { return askChatGroupTitles[0] }
     if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday)
     {
-        return "Yesterday"
+        return askChatGroupTitles[1]
     }
-    return "Earlier"
+    return askChatGroupTitles[2]
 }

@@ -105,10 +105,10 @@ struct SettingsView: View {
 
     private func getTitle(of page: SettingsPage) -> String {
         switch page {
-        case .general: "General"
-        case .appearance: "Appearance"
-        case .shortcuts: "Shortcuts"
-        case .widgets: "Widgets"
+        case .general: String(localized: "General")
+        case .appearance: String(localized: "Appearance")
+        case .shortcuts: String(localized: "Shortcuts")
+        case .widgets: String(localized: "Widgets")
         case .widget(let id): NotchWidget.find(id: id)?.title ?? ""
         }
     }

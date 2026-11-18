@@ -5,7 +5,7 @@ import SwiftUI
 extension NotchWidget {
     static let music = NotchWidget(
         id: "music",
-        title: "Music",
+        title: String(localized: "Music"),
         systemImage: "music.note",
         makeView: { AnyView(MusicView()) },
         makeSettings: { AnyView(MusicSettings()) }
@@ -272,7 +272,7 @@ private struct PlayerControls: View {
         .disabled(nowPlaying == nil)
     }
 
-    private func button(_ title: String, systemImage: String, command: String) -> some View {
+    private func button(_ title: LocalizedStringKey, systemImage: String, command: String) -> some View {
         Button(title, systemImage: systemImage) { MusicStore.shared.send(command) }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
@@ -305,13 +305,13 @@ struct NowPlayingPanel: View {
         VStack(alignment: .leading, spacing: 4) {
             Artwork(url: nowPlaying?.artworkURL, size: 56)
                 .padding(.bottom, 2)
-            Text(nowPlaying?.title ?? "Nothing playing")
+            Text(nowPlaying?.title ?? String(localized: "Nothing playing"))
                 .font(.callout.weight(.semibold))
                 .lineLimit(1)
             if nowPlaying == nil, let player = MusicStore.shared.deniedPlayer {
                 AutomationHint(player: player)
             } else {
-                Text(nowPlaying?.artist ?? "Music or Spotify")
+                Text(nowPlaying?.artist ?? String(localized: "Music or Spotify"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -347,13 +347,13 @@ private struct MusicView: View {
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Artwork(url: nowPlaying?.artworkURL, size: 72)
-                Text(nowPlaying?.title ?? "Nothing playing")
+                Text(nowPlaying?.title ?? String(localized: "Nothing playing"))
                     .font(.headline)
                     .lineLimit(2)
                 if nowPlaying == nil, let player = MusicStore.shared.deniedPlayer {
                     AutomationHint(player: player)
                 } else {
-                    Text(nowPlaying?.artist ?? "Play something in Music or Spotify.")
+                    Text(nowPlaying?.artist ?? String(localized: "Play something in Music or Spotify."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -412,7 +412,7 @@ private struct MusicView: View {
         }
     }
 
-    private func placeholder(_ text: String) -> some View {
+    private func placeholder(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.callout)
             .foregroundStyle(.tertiary)
