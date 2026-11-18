@@ -299,7 +299,13 @@ private struct TimezonesSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle("Show country flags", isOn: $showsFlags)
+            HStack {
+                Text("Show country flags")
+                Spacer()
+                Toggle("Show country flags", isOn: $showsFlags)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
             Text(
                 "Drag to reorder. Double-click a name or use ✎ to give it an alias. Your current time zone follows your Mac when you travel."
             )
@@ -313,8 +319,6 @@ private struct TimezonesSettings: View {
                         entry.identifier, localIdentifier: TimeZone.autoupdatingCurrent.identifier)
                     HStack {
                         DragHandle()
-                        Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
-                            .labelsHidden()
                         if showsFlags {
                             Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
                                 .frame(width: 22)
@@ -361,6 +365,9 @@ private struct TimezonesSettings: View {
                         .buttonStyle(.borderless)
                         // Hide it instead; there would be no way to add it back.
                         .disabled(isLocal)
+                        Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
                     }
                     .listRowInsets(settingsListRowInsets)
                 }
