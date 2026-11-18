@@ -212,16 +212,20 @@ private struct GeneralSettings: View {
                 try FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
             } catch CocoaError.fileNoSuchFile {}
         } catch {
+            launchAtLoginStatus = SMAppService.mainApp.status
             resetError = "The reset stopped: \(error.localizedDescription)"
             return
         }
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
-        // Relaunching drops every store already loaded in memory; the delay lets this instance quit first.
+        // Relaunching drops every store already loaded in memory; waiting for this process keeps `open` from reusing it.
         let relaunch = Process()
         relaunch.executableURL = URL(filePath: "/bin/sh")
-        relaunch.arguments = ["-c", "sleep 1; open \"$0\"", Bundle.main.bundlePath]
+        relaunch.arguments = [
+            "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; open \"$0\"",
+            Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
+        ]
         do {
             try relaunch.run()
         } catch {
