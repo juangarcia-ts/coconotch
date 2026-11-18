@@ -314,7 +314,8 @@ private struct AskComposer: View {
             }
             TextField("Ask anything…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
-                .lineLimit(1...5)
+                // Otherwise a long translated placeholder wraps to three lines on the narrow Home card.
+                .lineLimit(draft.isEmpty ? 1...1 : 1...5)
                 .padding(.vertical, 3)
                 .focused($isFocused)
                 // Option-Return already adds a line; Shift-Return does the same thing at the cursor.
