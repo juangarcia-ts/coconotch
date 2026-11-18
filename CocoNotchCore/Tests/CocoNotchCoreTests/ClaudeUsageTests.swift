@@ -88,6 +88,14 @@ import Testing
     #expect(formatShortResetTime(later, now: now) == later.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
 }
 
+@Test func formatsUsageNotchLabel() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let limit = UsageLimit(kind: "session", percent: 38, resetsAt: now + 8100)
+    #expect(formatUsageNotchLabel(limit, showsReset: true, now: now).hasPrefix("38% · 2"))
+    #expect(formatUsageNotchLabel(limit, showsReset: false, now: now) == "38%")
+    #expect(formatUsageNotchLabel(UsageLimit(kind: "session", percent: 38), showsReset: true, now: now) == "38%")
+}
+
 @Test func formatsResetTime() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(formatResetTime(nil, now: now) == nil)

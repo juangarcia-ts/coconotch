@@ -115,3 +115,13 @@ private let sampleLog = """
     #expect(
         getIdleProviderLimit([staleSession, candidates[1]], showsFullest: false, now: now)?.limit.kind == "weekly_all")
 }
+
+@Test func expiredClaudeLimitNoLongerWarns() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let stale = resetExpiredLimits([UsageLimit(kind: "session", percent: 92, resetsAt: now - 60)], now: now)
+    #expect(stale.first?.percent == 0)
+    #expect(
+        stale.first.flatMap {
+            getUsageActivityPriority($0, showsHeadsUp: true, threshold: 80, isDismissed: false, showsIdle: true)
+        } == .low)
+}

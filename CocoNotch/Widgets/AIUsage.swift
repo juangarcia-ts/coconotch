@@ -228,12 +228,13 @@ final class AIUsageStore {
         }
     }
 
-    /// The limits to show for a provider: Claude's chosen kinds, or Codex's snapshot with reset windows at zero.
+    /// The limits to show for a provider, with reset windows at zero: Claude's chosen kinds, or Codex's snapshot.
     func getLimits(for provider: AIProvider, now: Date) -> [UsageLimit] {
         switch provider {
         case .claude:
             getVisibleLimits(
-                claudeLimits, hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
+                resetExpiredLimits(claudeLimits, now: now),
+                hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
         case .codex:
             resetExpiredLimits(codexUsage?.limits ?? [], now: now)
         }
@@ -506,12 +507,8 @@ private struct UsageNotchTrailing: View {
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            Text(
-                ["\(limit.percent)%", showsReset ? formatShortResetTime(limit.resetsAt, now: context.date) : nil]
-                    .compactMap { $0 }
-                    .joined(separator: " · ")
-            )
-            .monospacedDigit()
+            Text(formatUsageNotchLabel(limit, showsReset: showsReset, now: context.date))
+                .monospacedDigit()
         }
     }
 }

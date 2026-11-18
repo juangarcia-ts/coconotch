@@ -186,6 +186,12 @@ public func formatShortResetTime(_ resetsAt: Date?, now: Date) -> String? {
     return resetsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute())
 }
 
+/// "38% · 2h 15m" for the closed notch, or just the percent when the reset is hidden or unknown.
+public func formatUsageNotchLabel(_ limit: UsageLimit, showsReset: Bool, now: Date) -> String {
+    let reset = showsReset ? formatShortResetTime(limit.resetsAt, now: now) : nil
+    return ["\(limit.percent)%", reset].compactMap { $0 }.joined(separator: " · ")
+}
+
 /// The fullest shown limit, for the Home card and the heads-up.
 public func getFullestLimit(_ limits: [UsageLimit], hiddenKinds: Set<String>) -> UsageLimit? {
     getVisibleLimits(limits, hiddenKinds: hiddenKinds).max { $0.percent < $1.percent }
