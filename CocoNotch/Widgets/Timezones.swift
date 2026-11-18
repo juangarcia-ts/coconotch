@@ -315,8 +315,10 @@ private struct TimezonesSettings: View {
                         DragHandle()
                         Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
                             .labelsHidden()
-                        Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
-                            .frame(width: 22)
+                        if showsFlags {
+                            Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
+                                .frame(width: 22)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             if editingID == entry.id {
                                 TextField(
@@ -377,8 +379,11 @@ private struct TimezonesSettings: View {
                 Button {
                     add(identifier)
                 } label: {
-                    Text("\(getFlag(forTimeZoneIdentifier: identifier) ?? "") \(identifier)")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(
+                        verbatim: [showsFlags ? getFlag(forTimeZoneIdentifier: identifier) : nil, identifier]
+                            .compactMap { $0 }.joined(separator: " ")
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.borderless)
             }
