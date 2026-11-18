@@ -252,8 +252,9 @@ struct NotchView: View {
     }
 
     private func openSettings(_ page: SettingsPage) {
-        setExpanded(false)
+        // Settings first, so closing finds it key and doesn't deactivate the app it's activating.
         showSettings(page)
+        setExpanded(false)
     }
 
     /// With a notch on every display, a hotkey opens only the one under the pointer.
