@@ -90,20 +90,37 @@ private struct TimezonesView: View {
         )
     }
 
+    private func makeRows(now: Date, date: Date) -> some View {
+        VStack(spacing: 12) {
+            ForEach(entries) { entry in
+                if let zone = getZone(for: entry) {
+                    ZoneRow(
+                        zone: zone, label: entry.label, showsFlag: showsFlags, now: now, date: date,
+                        hourOffset: $hourOffset)
+                }
+            }
+        }
+    }
+
     var body: some View {
         TimelineView(.everyMinute) { context in
             let date = context.date.addingTimeInterval(hourOffset * 3600)
             VStack(spacing: 12) {
-                ForEach(entries) { entry in
-                    if let zone = getZone(for: entry) {
-                        ZoneRow(
-                            zone: zone, label: entry.label, showsFlag: showsFlags, now: context.date, date: date,
-                            hourOffset: $hourOffset)
+                // Scrolls only when there are more cities than fit; the reset below stays in view.
+                ViewThatFits(in: .vertical) {
+                    makeRows(now: context.date, date: date)
+                    ScrollView {
+                        makeRows(now: context.date, date: date)
+                            .padding(.vertical, 5)
                     }
+                    .scrollIndicators(.never)
                 }
                 HStack {
                     Spacer()
-                    if hourOffset == 0 {
+                    if entries.isEmpty {
+                        Text("Turn on a city in Settings → Time Zones.")
+                            .foregroundStyle(.secondary)
+                    } else if hourOffset == 0 {
                         Text("Drag a timeline to look ahead or back.")
                             .foregroundStyle(.tertiary)
                     } else {
@@ -178,7 +195,8 @@ private struct DayBand: View {
     @Binding var hourOffset: Double
 
     var body: some View {
-        let startHour = getLocalHour(at: now.addingTimeInterval(-timelineHalfSpan * 3600), in: zone)
+        let start = now.addingTimeInterval(-timelineHalfSpan * 3600)
+        let end = now.addingTimeInterval(timelineHalfSpan * 3600)
         let hourCount = Int(timelineHalfSpan * 2)
         GeometryReader { geometry in
             let width = geometry.size.width
@@ -189,16 +207,21 @@ private struct DayBand: View {
                             stops: (0...hourCount).map { hour in
                                 Gradient.Stop(
                                     color: nightColor.mix(
-                                        with: dayColor, by: getDaylight(hour: startHour + Double(hour))),
+                                        with: dayColor,
+                                        by: getDaylight(
+                                            hour: getLocalHour(
+                                                at: start.addingTimeInterval(Double(hour) * 3600), in: zone))),
                                     location: Double(hour) / Double(hourCount))
                             },
                             startPoint: .leading, endPoint: .trailing)
                     )
                     .opacity(0.75)
-                Rectangle()
-                    .fill(.primary.opacity(0.4))
-                    .frame(width: 1)
-                    .offset(x: width * getMidnightFraction(startHour: startHour))
+                if let midnight = getMidnightFraction(from: start, to: end, in: zone) {
+                    Rectangle()
+                        .fill(.primary.opacity(0.4))
+                        .frame(width: 1)
+                        .offset(x: width * midnight)
+                }
                 Capsule()
                     .fill(.primary)
                     .frame(width: 2, height: geometry.size.height + 10)
@@ -214,6 +237,11 @@ private struct DayBand: View {
         }
         .frame(height: 8)
         .help("Drag to look ahead or back")
+        .accessibilityRepresentation {
+            Slider(value: $hourOffset, in: -timelineHalfSpan...timelineHalfSpan, step: 0.25) {
+                Text("Look ahead or back")
+            }
+        }
     }
 }
 

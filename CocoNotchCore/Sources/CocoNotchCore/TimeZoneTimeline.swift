@@ -26,9 +26,14 @@ public func isDaytime(hour: Double) -> Bool {
     getDaylight(hour: hour) >= 0.5
 }
 
-/// Where local midnight falls on a timeline that starts at `startHour`, from 0 at its left edge to 1 at its right.
-public func getMidnightFraction(startHour: Double) -> Double {
-    (24 - startHour).truncatingRemainder(dividingBy: 24) / 24
+/// Where the zone's midnight falls between `start` and `end`, from 0 to 1, or nil if none does. Measured in elapsed time,
+/// so it stays right on days when the clocks change.
+public func getMidnightFraction(from start: Date, to end: Date, in zone: TimeZone) -> Double? {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = zone
+    let midnight = calendar.startOfDay(for: end)
+    guard midnight > start, end > start else { return nil }
+    return midnight.timeIntervalSince(start) / end.timeIntervalSince(start)
 }
 
 /// The hours a drag at `fraction` of the timeline's width moves time by, in quarter hours.
@@ -37,18 +42,21 @@ public func getScrubHourOffset(fraction: Double) -> Double {
     return (hours * 4).rounded() / 4
 }
 
-/// "Tomorrow" or "Yesterday" when a zone's date differs from the local one at that moment; nil on the same day.
+/// "Tomorrow" or "Yesterday" when a zone's date is a day off the local one, its weekday when it's further, nil on the
+/// same day.
 public func formatRelativeDay(at date: Date, in zone: TimeZone, localZone: TimeZone) -> String? {
-    func getDay(_ zone: TimeZone) -> [Int] {
+    func getDay(_ zone: TimeZone) -> DateComponents {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        return [components.year ?? 0, components.month ?? 0, components.day ?? 0]
+        return calendar.dateComponents([.year, .month, .day], from: date)
     }
-    let day = getDay(zone)
-    let localDay = getDay(localZone)
-    if day == localDay { return nil }
-    return day.lexicographicallyPrecedes(localDay)
-        ? String(localized: "Yesterday", bundle: .module)
-        : String(localized: "Tomorrow", bundle: .module)
+    var utc = Calendar(identifier: .gregorian)
+    utc.timeZone = .gmt
+    guard let day = utc.date(from: getDay(zone)), let localDay = utc.date(from: getDay(localZone)) else { return nil }
+    switch utc.dateComponents([.day], from: localDay, to: day).day ?? 0 {
+    case 0: return nil
+    case 1: return String(localized: "Tomorrow", bundle: .module)
+    case -1: return String(localized: "Yesterday", bundle: .module)
+    default: return date.formatted(Date.FormatStyle(timeZone: zone).weekday(.wide))
+    }
 }

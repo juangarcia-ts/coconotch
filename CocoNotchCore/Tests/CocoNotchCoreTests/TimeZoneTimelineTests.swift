@@ -25,9 +25,18 @@ func shadesTheHourFromNightToDay(hour: Double, daylight: Double) {
     #expect(!isDaytime(hour: 19.5))
 }
 
-@Test(arguments: [(18.0, 0.25), (0.0, 0.0), (23.5, 0.5 / 24)])
-func placesMidnightOnTheTimeline(startHour: Double, fraction: Double) {
-    #expect(getMidnightFraction(startHour: startHour) == fraction)
+@Test func placesMidnightOnTheTimeline() throws {
+    let start = Date(timeIntervalSince1970: 1_768_500_000)  // 2026-01-15 18:00 UTC
+    let fraction = getMidnightFraction(from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("UTC"))
+    #expect(fraction == 0.25)
+}
+
+@Test func placesMidnightByElapsedTimeWhenTheClocksChange() throws {
+    // 2026-03-08 06:00 UTC is 01:00 EST in New York, an hour before the clocks spring forward.
+    let start = Date(timeIntervalSince1970: 1_772_949_600)
+    let fraction = getMidnightFraction(
+        from: start, to: start.addingTimeInterval(24 * 3600), in: try getZone("America/New_York"))
+    #expect(fraction == 22.0 / 24)
 }
 
 @Test(arguments: [(0.5, 0.0), (1.0, 12.0), (0.0, -12.0), (1.5, 12.0), (0.51, 0.25), (0.6, 2.5)])
@@ -40,4 +49,12 @@ func turnsADragIntoQuarterHours(fraction: Double, hours: Double) {
     #expect(formatRelativeDay(at: lateEvening, in: try getZone("Asia/Tokyo"), localZone: utc) == "Tomorrow")
     #expect(formatRelativeDay(at: lateEvening, in: utc, localZone: try getZone("Asia/Tokyo")) == "Yesterday")
     #expect(formatRelativeDay(at: lateEvening, in: try getZone("America/New_York"), localZone: utc) == nil)
+}
+
+@Test func namesTheWeekdayWhenTheDatesAreTwoDaysApart() throws {
+    let morning = Date(timeIntervalSince1970: 1_767_349_800)  // 2026-01-02 10:30 UTC
+    let label = formatRelativeDay(
+        at: morning, in: try getZone("Pacific/Kiritimati"), localZone: try getZone("Pacific/Pago_Pago"))
+    #expect(label == morning.formatted(Date.FormatStyle(timeZone: try getZone("Pacific/Kiritimati")).weekday(.wide)))
+    #expect(label != "Tomorrow")
 }
