@@ -4307,54 +4307,54 @@
         }
       }
     },
-    "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does.": {
+    "See your Claude Code limits here. CocoNotch reads Claude Code's login from your Keychain.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sieh hier deine Claude-Code-Limits. Verbinde dich, und CocoNotch liest deine Claude-Code-Anmeldung genau wie Claude Code."
+            "value": "Sieh hier deine Claude-Code-Limits. CocoNotch liest die Claude-Code-Anmeldung aus deinem Schlüsselbund."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ve aquí tus límites de Claude Code. Conéctate y CocoNotch leerá tu sesión de Claude Code igual que lo hace Claude Code."
+            "value": "Consulta aquí tus límites de Claude Code. CocoNotch lee la sesión de Claude Code de tu Llavero."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voyez ici vos limites Claude Code. Connectez-vous, et CocoNotch lit votre connexion Claude Code comme le fait Claude Code."
+            "value": "Consultez ici vos limites Claude Code. CocoNotch lit la connexion Claude Code dans votre trousseau."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vedi qui i tuoi limiti di Claude Code. Connettiti e CocoNotch legge il tuo accesso a Claude Code come fa Claude Code."
+            "value": "Vedi qui i limiti di Claude Code. CocoNotch legge l'accesso di Claude Code dal tuo Portachiavi."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code の上限をここで確認できます。接続すると、CocoNotch は Claude Code と同じ方法でログイン情報を読み取ります。"
+            "value": "ここで Claude Code の上限を確認できます。CocoNotch はキーチェーンから Claude Code のログインを読み取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기에서 Claude Code 한도를 확인하세요. 연결하면 CocoNotch가 Claude Code와 같은 방식으로 Claude Code 로그인을 읽습니다."
+            "value": "여기에서 Claude Code 한도를 확인하세요. CocoNotch는 키체인에서 Claude Code 로그인을 읽습니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veja aqui seus limites do Claude Code. Conecte, e o CocoNotch lê seu login do Claude Code do mesmo jeito que o Claude Code."
+            "value": "Veja aqui seus limites do Claude Code. O CocoNotch lê o login do Claude Code nas suas Chaves."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在这里查看 Claude Code 限额。连接后，CocoNotch 会以与 Claude Code 相同的方式读取你的 Claude Code 登录。"
+            "value": "在此查看 Claude Code 限额。CocoNotch 会从你的钥匙串读取 Claude Code 登录。"
           }
         }
       }
@@ -6179,106 +6179,106 @@
         }
       }
     },
-    "macOS declined access to Claude Code's login in the Keychain. Connect again to retry.": {
+    "macOS declined access to Claude Code's login in the Keychain. Enable it again to retry.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS hat den Zugriff auf die Claude-Code-Anmeldung im Schlüsselbund verweigert. Verbinde dich erneut, um es nochmal zu versuchen."
+            "value": "macOS hat den Zugriff auf die Claude-Code-Anmeldung im Schlüsselbund verweigert. Aktiviere es erneut, um es nochmal zu versuchen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS denegó el acceso a la sesión de Claude Code en el Llavero. Vuelve a conectar para reintentarlo."
+            "value": "macOS denegó el acceso a la sesión de Claude Code en el Llavero. Vuelve a activarlo para reintentarlo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS a refusé l'accès à la connexion Claude Code dans le trousseau. Reconnectez-vous pour réessayer."
+            "value": "macOS a refusé l'accès à la connexion Claude Code dans le trousseau. Réactivez-le pour réessayer."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS ha negato l'accesso all'accesso di Claude Code nel Portachiavi. Connettiti di nuovo per riprovare."
+            "value": "macOS ha negato l'accesso all'accesso di Claude Code nel Portachiavi. Riattivalo per riprovare."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS がキーチェーン内の Claude Code のログインへのアクセスを拒否しました。もう一度接続してください。"
+            "value": "macOS がキーチェーン内の Claude Code のログインへのアクセスを拒否しました。もう一度有効にしてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS가 키체인의 Claude Code 로그인 접근을 거부했습니다. 다시 연결해 재시도하세요."
+            "value": "macOS가 키체인의 Claude Code 로그인 접근을 거부했습니다. 다시 켜서 재시도하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS negou acesso ao login do Claude Code nas Chaves. Conecte novamente para tentar de novo."
+            "value": "O macOS negou acesso ao login do Claude Code nas Chaves. Ative novamente para tentar de novo."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 拒绝访问钥匙串中的 Claude Code 登录。请重新连接以重试。"
+            "value": "macOS 拒绝访问钥匙串中的 Claude Code 登录。请重新启用以重试。"
           }
         }
       }
     },
-    "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error %d). Try connecting again.": {
+    "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error %d). Try enabling it again.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS hat die Claude-Code-Anmeldung nicht mit CocoNotch geteilt (Schlüsselbundfehler %d). Versuch erneut, dich zu verbinden."
+            "value": "macOS hat die Claude-Code-Anmeldung nicht mit CocoNotch geteilt (Schlüsselbundfehler %d). Versuch erneut, es zu aktivieren."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS no compartió la sesión de Claude Code con CocoNotch (error del Llavero %d). Vuelve a conectar."
+            "value": "macOS no compartió la sesión de Claude Code con CocoNotch (error del Llavero %d). Vuelve a activarlo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS n'a pas partagé la connexion Claude Code avec CocoNotch (erreur du trousseau %d). Réessayez de vous connecter."
+            "value": "macOS n'a pas partagé la connexion Claude Code avec CocoNotch (erreur du trousseau %d). Réessayez de l'activer."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS non ha condiviso l'accesso di Claude Code con CocoNotch (errore Portachiavi %d). Prova a connetterti di nuovo."
+            "value": "macOS non ha condiviso l'accesso di Claude Code con CocoNotch (errore Portachiavi %d). Prova a riattivarlo."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS が Claude Code のログインを CocoNotch と共有しませんでした（キーチェーンエラー %d）。もう一度接続してください。"
+            "value": "macOS が Claude Code のログインを CocoNotch と共有しませんでした（キーチェーンエラー %d）。もう一度有効にしてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS가 Claude Code 로그인을 CocoNotch와 공유하지 않았습니다(키체인 오류 %d). 다시 연결해 보세요."
+            "value": "macOS가 Claude Code 로그인을 CocoNotch와 공유하지 않았습니다(키체인 오류 %d). 다시 켜 보세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS não compartilhou o login do Claude Code com o CocoNotch (erro das Chaves %d). Tente conectar novamente."
+            "value": "O macOS não compartilhou o login do Claude Code com o CocoNotch (erro das Chaves %d). Tente ativar novamente."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 未与 CocoNotch 共享 Claude Code 登录（钥匙串错误 %d）。请重新连接。"
+            "value": "macOS 未与 CocoNotch 共享 Claude Code 登录（钥匙串错误 %d）。请重新启用。"
           }
         }
       }

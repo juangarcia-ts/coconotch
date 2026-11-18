@@ -263,8 +263,7 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
     switch problem {
     case .notConnected:
         String(
-            localized:
-                "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does.",
+            localized: "See your Claude Code limits here. CocoNotch reads Claude Code's login from your Keychain.",
             bundle: .module)
     case .codexNotFound:
         String(
@@ -272,7 +271,7 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
             bundle: .module)
     case .accessDeclined:
         String(
-            localized: "macOS declined access to Claude Code's login in the Keychain. Connect again to retry.",
+            localized: "macOS declined access to Claude Code's login in the Keychain. Enable it again to retry.",
             bundle: .module)
     case .keychainLocked:
         String(
@@ -280,7 +279,7 @@ public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> Strin
     case .keychainError(let status):
         String(
             localized:
-                "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again.",
+                "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try enabling it again.",
             bundle: .module)
     case .notSignedIn:
         String(
