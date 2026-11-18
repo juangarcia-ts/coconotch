@@ -5,12 +5,6 @@ import SwiftUI
 
 let openNotchHotKeyKey = "shortcuts.openNotch"
 
-/// Shortcuts that are on until the user records another or clears them; a cleared one is stored as "".
-private let defaultHotKeys = [
-    openNotchHotKeyKey: encodeHotKey(
-        HotKey(keyCode: UInt32(kVK_ANSI_N), modifiers: HotKey.command | HotKey.option, key: "N"))
-]
-
 func getWidgetHotKeyKey(widgetID: String) -> String {
     "shortcuts.widget.\(widgetID)"
 }
@@ -60,7 +54,7 @@ final class HotKeyCenter {
         let entries =
             ([("", openNotchHotKeyKey)] + tabIDs.map { ($0, getWidgetHotKeyKey(widgetID: $0)) }).compactMap {
                 action, key in
-                decodeHotKey(defaults.string(forKey: key) ?? defaultHotKeys[key] ?? "").map { (action, $0) }
+                decodeHotKey(defaults.string(forKey: key) ?? "").map { (action, $0) }
             }
         let keys = entries.map { "\($0.0)=\(encodeHotKey($0.1))" }
         guard keys != registeredKeys else { return }
@@ -103,7 +97,7 @@ struct HotKeyRecorder: View {
     @State private var monitor: Any?
 
     init(storageKey: String) {
-        _stored = AppStorage(wrappedValue: defaultHotKeys[storageKey] ?? "", storageKey)
+        _stored = AppStorage(wrappedValue: "", storageKey)
     }
 
     var body: some View {
