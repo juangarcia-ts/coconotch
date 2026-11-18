@@ -491,6 +491,8 @@ private struct UsageProblemView: View {
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             }
         }
+        // The provider tabs above already space the stack, so the prompt's own top padding would double it.
+        .padding(.top, -12)
     }
 }
 

@@ -253,7 +253,7 @@ public enum ClaudeUsageProblem: Equatable, Sendable {
 public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> String {
     switch problem {
     case .notConnected:
-        "See your Claude Code limits here. Enable it, and CocoNotch reads your Claude Code login the same way Claude Code does."
+        "See your Claude Code limits right in the notch."
     case .codexNotFound:
         "No Codex sessions found on this Mac. Use Codex once, then its limits show up here."
     case .accessDeclined:
