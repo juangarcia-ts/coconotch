@@ -623,9 +623,7 @@ private struct WeatherSummary: View {
                 }
             }
         } else {
-            Text(store.problem.map(getWeatherProblemMessage) ?? String(localized: "Loading the forecast…"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            SummaryMessage(store.problem.map(getWeatherProblemMessage) ?? String(localized: "Loading the forecast…"))
         }
     }
 }

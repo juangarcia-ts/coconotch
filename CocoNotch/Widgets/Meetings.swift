@@ -419,9 +419,7 @@ private struct MeetingsSummary: View {
                         .padding(.leading, 13)
                     }
                 } else {
-                    Text(formatMeetingsSummaryEmpty(hasCalendarAccess: store.accessStatus == .fullAccess))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                    SummaryMessage(formatMeetingsSummaryEmpty(hasCalendarAccess: store.accessStatus == .fullAccess))
                 }
             }
         }
