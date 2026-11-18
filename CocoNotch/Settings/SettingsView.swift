@@ -123,6 +123,7 @@ private struct GeneralSettings: View {
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
     @State private var isConfirmingReset = false
+    @State private var resetError: String?
 
     var body: some View {
         Form {
@@ -160,6 +161,11 @@ private struct GeneralSettings: View {
                 .onChange(of: checksForUpdates) { updater.automaticallyChecksForUpdates = checksForUpdates }
             Section {
                 Button("Reset to Defaults…", role: .destructive) { isConfirmingReset = true }
+                if let resetError {
+                    Text(resetError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             } footer: {
                 Text("Privacy permissions stay as they are; change them in System Settings → Privacy & Security.")
             }
@@ -197,8 +203,18 @@ private struct GeneralSettings: View {
     }
 
     private func resetToDefaults() {
-        try? SMAppService.mainApp.unregister()
-        try? FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
+        // Stops before settings are cleared, so a failed step can be retried from the same button.
+        do {
+            if [.enabled, .requiresApproval].contains(SMAppService.mainApp.status) {
+                try SMAppService.mainApp.unregister()
+            }
+            do {
+                try FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "CocoNotch"))
+            } catch CocoaError.fileNoSuchFile {}
+        } catch {
+            resetError = "The reset stopped: \(error.localizedDescription)"
+            return
+        }
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
@@ -206,7 +222,12 @@ private struct GeneralSettings: View {
         let relaunch = Process()
         relaunch.executableURL = URL(filePath: "/bin/sh")
         relaunch.arguments = ["-c", "sleep 1; open \"$0\"", Bundle.main.bundlePath]
-        try? relaunch.run()
+        do {
+            try relaunch.run()
+        } catch {
+            resetError = "CocoNotch was reset but couldn't reopen itself. Quit it and open it again."
+            return
+        }
         NSApp.terminate(nil)
     }
 }
