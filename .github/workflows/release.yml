@@ -72,11 +72,12 @@ jobs:
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         # Overrides Signing.xcconfig's ad-hoc identity; notarization needs the timestamp and rejects get-task-allow.
+        # Through Local.xcconfig, not the command line, so it reaches only the app and not CocoNotchCore's resource bundle.
         run: |
+          printf '%s\n' 'CODE_SIGN_IDENTITY = Developer ID Application' "DEVELOPMENT_TEAM = $TEAM_ID" \
+            'OTHER_CODE_SIGN_FLAGS = --timestamp' 'CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO' > Local.xcconfig
           xcodebuild -project CocoNotch.xcodeproj -scheme CocoNotch -configuration Release \
             -destination 'generic/platform=macOS' -derivedDataPath build build -quiet \
-            CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
-            OTHER_CODE_SIGN_FLAGS=--timestamp CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             MARKETING_VERSION="${VERSION#v}" CURRENT_PROJECT_VERSION="${VERSION#v}"
           # Xcode re-signs Sparkle.framework but leaves its helpers ad-hoc, which notarization rejects. Inside out.
           app=build/Build/Products/Release/CocoNotch.app
