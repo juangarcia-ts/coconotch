@@ -109,7 +109,7 @@ final class AIUsageStore {
     @ObservationIgnored private var resetTask: Task<Void, Never>?
     /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
     private(set) var headsUpProvider: AIProvider?
-    @ObservationIgnored private var dismissedHeadsUps: [String: ActivityPriority] = [:]
+    @ObservationIgnored private var dismissedHeadsUps: [String: UsageLimit] = [:]
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -246,7 +246,7 @@ final class AIUsageStore {
     /// Silences every limit over the threshold, not just the fullest, so another one overtaking it doesn't alert again.
     func dismissHeadsUp() {
         let due = getDueUsageHeadsUps(getCandidates(now: .now), threshold: getThreshold())
-        dismissedHeadsUps.merge(due, uniquingKeysWith: max)
+        dismissedHeadsUps = mergeDismissedHeadsUps(dismissedHeadsUps, due)
         updateHeadsUp()
     }
 
@@ -270,7 +270,7 @@ final class AIUsageStore {
         let candidates = getCandidates(now: now)
         // Hidden limits count, so hiding one and showing it again doesn't bring its dismissed heads-up back.
         let due = getDueUsageHeadsUps(getCandidates(now: now, showsHidden: true), threshold: getThreshold())
-        dismissedHeadsUps = dismissedHeadsUps.filter { due[$0.key] != nil }
+        dismissedHeadsUps = pruneDismissedHeadsUps(dismissedHeadsUps, due: due, now: now)
         guard let (provider, limit) = getHeadsUpProviderLimit(candidates, dismissed: dismissedHeadsUps) else {
             clearHeadsUp()
             return
