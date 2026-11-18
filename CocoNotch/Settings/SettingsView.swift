@@ -378,6 +378,7 @@ private struct WidgetsSettings: View {
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }
+                .listRowInsets(settingsListRowInsets)
                 ForEach($preferences) { $preference in
                     if let widget = NotchWidget.find(id: preference.id) {
                         HStack {
@@ -393,16 +394,22 @@ private struct WidgetsSettings: View {
                                 .toggleStyle(.switch)
                                 .disabled(!canToggleWidget(preference.id, in: preferences))
                         }
+                        .listRowInsets(settingsListRowInsets)
                     }
                 }
                 .onMove { preferences.move(fromOffsets: $0, toOffset: $1) }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
         .padding(20)
         .onAppear { preferences = NotchWidget.getPreferences(stored: storedWidgetPreferences) }
         .onChange(of: preferences) { storedWidgetPreferences = encodeWidgetPreferences(preferences) }
     }
 }
+
+/// Lines settings lists up with the text around them; the default macOS list indents its rows.
+let settingsListRowInsets = EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0)
 
 /// macOS only starts a row drag from a spot that isn't a control, so rows full of controls get this as a grip.
 struct DragHandle: View {

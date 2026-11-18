@@ -17,6 +17,8 @@ extension NotchWidget {
 private let entriesKey = "timezones.identifiers"
 private let showsFlagsKey = "timezones.showsFlags"
 private let homeCountKey = "timezones.homeCount"
+// Off by default: the day band and sun or moon already say what a flag would, more quietly.
+private let defaultShowsFlags = false
 private let defaultHomeCount = maxHomeTimeZoneCount
 private let defaultStoredEntries = encodeTimeZoneEntries(
     [localTimeZoneEntryID, "America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Tokyo"].map {
@@ -42,9 +44,43 @@ private func getZoneTitle(identifier: String, label: String?) -> String {
     getDisplayTitle(label: label, identifier: identifier)
 }
 
+private let nightColor = Color(red: 0.22, green: 0.26, blue: 0.46)
+private let dayColor = Color(red: 0.98, green: 0.79, blue: 0.45)
+
+/// The time with AM or PM set smaller, so the digits carry the weight.
+private func formatTime(_ date: Date, in zone: TimeZone, periodFont: Font) -> AttributedString {
+    var text = date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone).attributedStyle)
+    let periods = text.runs.compactMap { $0.foundation.dateField == .amPM ? $0.range : nil }
+    for range in periods {
+        text[range].font = periodFont
+        text[range].foregroundColor = .secondary
+    }
+    return text
+}
+
+/// The offset from here, plus "Tomorrow" or "Yesterday" when the date differs.
+private func getZoneCaption(_ zone: TimeZone, at date: Date) -> String {
+    let local = TimeZone.autoupdatingCurrent
+    let offset = formatOffsetLabel(
+        seconds: zone.secondsFromGMT(for: date) - local.secondsFromGMT(for: date),
+        isLocal: zone.identifier == local.identifier)
+    return [offset, formatRelativeDay(at: date, in: zone, localZone: local)].compactMap { $0 }.joined(separator: " · ")
+}
+
+private struct DaySymbol: View {
+    let hour: Double
+
+    var body: some View {
+        let isDay = isDaytime(hour: hour)
+        Image(systemName: isDay ? "sun.max.fill" : "moon.fill")
+            .foregroundStyle(isDay ? dayColor : Color(red: 0.62, green: 0.67, blue: 0.95))
+            .help(isDay ? String(localized: "Daytime") : String(localized: "Night"))
+    }
+}
+
 private struct TimezonesView: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
-    @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(showsFlagsKey) private var showsFlags = defaultShowsFlags
     @State private var hourOffset = 0.0
 
     private var entries: [TimeZoneEntry] {
@@ -54,82 +90,170 @@ private struct TimezonesView: View {
         )
     }
 
+    private func makeRows(now: Date, date: Date) -> some View {
+        VStack(spacing: 12) {
+            ForEach(entries) { entry in
+                if let zone = getZone(for: entry) {
+                    ZoneRow(
+                        zone: zone, label: entry.label, showsFlag: showsFlags, now: now, date: date,
+                        hourOffset: $hourOffset)
+                }
+            }
+        }
+    }
+
     var body: some View {
         TimelineView(.everyMinute) { context in
             let date = context.date.addingTimeInterval(hourOffset * 3600)
-            VStack(spacing: 14) {
-                HStack(spacing: 0) {
-                    ForEach(entries) { entry in
-                        if let zone = getZone(for: entry) {
-                            ZoneColumn(zone: zone, label: entry.label, showsFlag: showsFlags, date: date)
+            VStack(spacing: 12) {
+                // Scrolls only when there are more cities than fit; the reset below stays in view.
+                ViewThatFits(in: .vertical) {
+                    makeRows(now: context.date, date: date)
+                    ScrollView {
+                        makeRows(now: context.date, date: date)
+                            .padding(.vertical, 5)
+                    }
+                    .scrollIndicators(.never)
+                }
+                HStack {
+                    Spacer()
+                    if entries.isEmpty {
+                        Text("Turn on a city in Settings → Time Zones.")
+                            .foregroundStyle(.secondary)
+                    } else if hourOffset == 0 {
+                        Text("Drag a timeline to look ahead or back.")
+                            .foregroundStyle(.tertiary)
+                    } else {
+                        Button {
+                            hourOffset = 0
+                        } label: {
+                            Label {
+                                HStack(spacing: 4) {
+                                    Text("Back to now")
+                                    Text(verbatim: "(\(formatOffset(seconds: Int(hourOffset * 3600))))")
+                                }
+                            } icon: {
+                                Image(systemName: "arrow.uturn.backward")
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
                     }
                 }
-                HStack(spacing: 10) {
-                    Slider(value: $hourOffset, in: -12...12, step: 0.5)
-                        .controlSize(.small)
-                    Button(hourOffset == 0 ? String(localized: "Now") : formatOffset(seconds: Int(hourOffset * 3600))) {
-                        hourOffset = 0
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 64, alignment: .trailing)
-                    .help("Back to now")
-                }
+                .font(.caption.monospacedDigit())
             }
         }
     }
 }
 
-private struct ZoneColumn: View {
+private struct ZoneRow: View {
     let zone: TimeZone
     let label: String?
     let showsFlag: Bool
+    let now: Date
+    /// The moment shown, which differs from `now` while the timeline is dragged.
     let date: Date
+    @Binding var hourOffset: Double
 
     private var isLocal: Bool { zone.identifier == TimeZone.autoupdatingCurrent.identifier }
 
-    private var title: String {
-        getZoneTitle(identifier: zone.identifier, label: label)
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    if showsFlag, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
+                        Text(flag)
+                    }
+                    Text(getZoneTitle(identifier: zone.identifier, label: label))
+                        .fontWeight(isLocal ? .semibold : .regular)
+                }
+                .font(.callout)
+                Text(getZoneCaption(zone, at: date))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+            .frame(width: 150, alignment: .leading)
+            DayBand(zone: zone, now: now, hourOffset: $hourOffset)
+            HStack(spacing: 8) {
+                DaySymbol(hour: getLocalHour(at: date, in: zone))
+                    .font(.caption)
+                Text(formatTime(date, in: zone, periodFont: .system(.callout, design: .rounded)))
+                    .font(.system(.title2, design: .rounded, weight: .light).monospacedDigit())
+                    .contentTransition(.numericText())
+            }
+            .lineLimit(1)
+            .frame(width: 130, alignment: .trailing)
+        }
     }
+}
 
-    private var detail: String {
-        let weekday = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated))
-        let offset = zone.secondsFromGMT(for: date) - TimeZone.autoupdatingCurrent.secondsFromGMT(for: date)
-        return "\(weekday) · \(formatOffsetLabel(seconds: offset, isLocal: isLocal))"
-    }
+/// A day around now in one zone, tinted from night to day, with a tick at local midnight and the line being dragged.
+private struct DayBand: View {
+    let zone: TimeZone
+    let now: Date
+    @Binding var hourOffset: Double
 
     var body: some View {
-        // Same order as the Home card: flag, time, place, then the day and offset.
-        VStack(spacing: 2) {
-            if showsFlag, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
-                Text(flag)
-                    .font(.title3)
+        let start = now.addingTimeInterval(-timelineHalfSpan * 3600)
+        let end = now.addingTimeInterval(timelineHalfSpan * 3600)
+        let hourCount = Int(timelineHalfSpan * 2)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            stops: (0...hourCount).map { hour in
+                                Gradient.Stop(
+                                    color: nightColor.mix(
+                                        with: dayColor,
+                                        by: getDaylight(
+                                            hour: getLocalHour(
+                                                at: start.addingTimeInterval(Double(hour) * 3600), in: zone))),
+                                    location: Double(hour) / Double(hourCount))
+                            },
+                            startPoint: .leading, endPoint: .trailing)
+                    )
+                    .opacity(0.75)
+                ForEach(getMidnightFractions(from: start, to: end, in: zone), id: \.self) { midnight in
+                    Rectangle()
+                        .fill(.primary.opacity(0.4))
+                        .frame(width: 1)
+                        .offset(x: width * midnight)
+                }
+                Capsule()
+                    .fill(.primary)
+                    .frame(width: 2, height: geometry.size.height + 10)
+                    .offset(x: width * (0.5 + hourOffset / (timelineHalfSpan * 2)) - 1)
             }
-            Text(date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone)))
-                .font(.title2.weight(.semibold).monospacedDigit())
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(isLocal ? .primary : .secondary)
-                .lineLimit(1)
-            Text(detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            .frame(height: geometry.size.height)
+            .contentShape(Rectangle().inset(by: -8))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { hourOffset = getScrubHourOffset(fraction: $0.location.x / width) }
+            )
+            .animation(.snappy(duration: 0.2), value: hourOffset)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: 8)
+        .help("Drag to look ahead or back")
+        .accessibilityRepresentation {
+            Slider(value: $hourOffset, in: -timelineHalfSpan...timelineHalfSpan, step: 0.25) {
+                Text("Look ahead or back")
+            }
+        }
     }
 }
 
 /// The first few other time zones, for the Home tab.
 private struct TimezonesSummary: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
-    @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(showsFlagsKey) private var showsFlags = defaultShowsFlags
     @AppStorage(homeCountKey) private var homeCount = defaultHomeCount
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            HStack(spacing: 0) {
+            VStack(spacing: 8) {
                 ForEach(
                     getHomeEntries(
                         decodeTimeZoneEntries(storedEntries),
@@ -138,31 +262,28 @@ private struct TimezonesSummary: View {
                     )
                 ) { entry in
                     if let zone = getZone(for: entry) {
-                        VStack(spacing: 0) {
-                            if showsFlags, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
-                                Text(flag)
-                                    .font(.caption)
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                HStack(spacing: 4) {
+                                    if showsFlags, let flag = getFlag(forTimeZoneIdentifier: zone.identifier) {
+                                        Text(flag)
+                                    }
+                                    Text(getZoneTitle(identifier: zone.identifier, label: entry.label))
+                                }
+                                .font(.caption.weight(.medium))
+                                Text(getZoneCaption(zone, at: context.date))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.tertiary)
                             }
-                            Text(
-                                context.date.formatted(
-                                    Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
-                            )
-                            .font(.headline.monospacedDigit())
-                            Text(getZoneTitle(identifier: zone.identifier, label: entry.label))
+                            .lineLimit(1)
+                            Spacer(minLength: 6)
+                            DaySymbol(hour: getLocalHour(at: context.date, in: zone))
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            Text(formatTime(context.date, in: zone, periodFont: .system(.caption, design: .rounded)))
+                                .font(.system(.title3, design: .rounded, weight: .light).monospacedDigit())
                                 .lineLimit(1)
-                            Text(
-                                formatOffsetLabel(
-                                    seconds: zone.secondsFromGMT(for: context.date)
-                                        - TimeZone.autoupdatingCurrent.secondsFromGMT(for: context.date),
-                                    isLocal: zone.identifier == TimeZone.autoupdatingCurrent.identifier
-                                )
-                            )
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.tertiary)
+                                .fixedSize()
                         }
-                        .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -185,7 +306,7 @@ private struct TimezonesSummarySettings: View {
 
 private struct TimezonesSettings: View {
     @AppStorage(entriesKey) private var storedEntries = defaultStoredEntries
-    @AppStorage(showsFlagsKey) private var showsFlags = true
+    @AppStorage(showsFlagsKey) private var showsFlags = defaultShowsFlags
     // Decoded once when the tab appears and saved on every change, instead of decoding on each access.
     @State private var entries: [TimeZoneEntry] = []
     @State private var query = ""
@@ -205,25 +326,19 @@ private struct TimezonesSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Form {
             Toggle("Show country flags", isOn: $showsFlags)
-            Text(
-                "Drag to reorder. Double-click a name or use ✎ to give it an alias. Your current time zone follows your Mac when you travel."
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            List {
+            Section {
                 ForEach($entries) { $entry in
                     let isLocal = entry.identifier == localTimeZoneEntryID
                     let identifier = resolveTimeZoneIdentifier(
                         entry.identifier, localIdentifier: TimeZone.autoupdatingCurrent.identifier)
                     HStack {
                         DragHandle()
-                        Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
-                            .labelsHidden()
-                        Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
-                            .frame(width: 22)
+                        if showsFlags {
+                            Text(getFlag(forTimeZoneIdentifier: identifier) ?? "")
+                                .frame(width: 22)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             if editingID == entry.id {
                                 TextField(
@@ -266,32 +381,41 @@ private struct TimezonesSettings: View {
                         .buttonStyle(.borderless)
                         // Hide it instead; there would be no way to add it back.
                         .disabled(isLocal)
+                        Toggle("Show \(getCityName(forTimeZoneIdentifier: identifier))", isOn: $entry.isVisible)
+                            .labelsHidden()
                     }
                 }
                 .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
+            } footer: {
+                Text(
+                    "Drag to reorder. Double-click a name or use ✎ to give it an alias. Your current time zone follows your Mac when you travel."
+                )
             }
-            // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
-            .onChange(of: focusedAliasID) { lost, gained in
-                if gained == nil, lost == editingID { editingID = nil }
-            }
-            .frame(height: 200)
-
-            TextField("Add a time zone…", text: $query)
-                .onSubmit {
-                    if let identifier = suggestions.first { add(identifier) }
-                }
-            ForEach(suggestions, id: \.self) { identifier in
-                Button {
-                    add(identifier)
-                } label: {
-                    Text("\(getFlag(forTimeZoneIdentifier: identifier) ?? "") \(identifier)")
+            Section {
+                TextField("Add a time zone…", text: $query, prompt: Text("Add a time zone…"))
+                    .labelsHidden()
+                    .onSubmit {
+                        if let identifier = suggestions.first { add(identifier) }
+                    }
+                ForEach(suggestions, id: \.self) { identifier in
+                    Button {
+                        add(identifier)
+                    } label: {
+                        Text(
+                            verbatim: [showsFlags ? getFlag(forTimeZoneIdentifier: identifier) : nil, identifier]
+                                .compactMap { $0 }.joined(separator: " ")
+                        )
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
             }
         }
-        .padding(20)
-        .frame(minHeight: 420, alignment: .top)
+        .formStyle(.grouped)
+        // Clicking away from an alias saves it, like Return. Focus moving to another row's field leaves that row open.
+        .onChange(of: focusedAliasID) { lost, gained in
+            if gained == nil, lost == editingID { editingID = nil }
+        }
         .onAppear {
             entries = decodeTimeZoneEntries(storedEntries)
         }
