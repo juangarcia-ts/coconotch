@@ -7,7 +7,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [.library(name: "CocoNotchCore", targets: ["CocoNotchCore"])],
     targets: [
-        .target(name: "CocoNotchCore"),
+        .target(name: "CocoNotchCore", resources: [.process("Localizable.xcstrings")]),
         .testTarget(name: "CocoNotchCoreTests", dependencies: ["CocoNotchCore"]),
     ]
 )
