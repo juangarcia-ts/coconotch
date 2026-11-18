@@ -5425,54 +5425,54 @@
     "Codex": {
       "shouldTranslate": false
     },
-    "Codex records its limits in its session logs while you use it. CocoNotch reads only those numbers from ~/.codex/sessions, nothing else, and sends nothing anywhere.": {
+    "Codex records its limits in its session logs while you use it. CocoNotch reads the end of your latest logs in ~/.codex/sessions, keeps only those numbers, and sends nothing anywhere.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex schreibt seine Limits in seine Sitzungsprotokolle, während du es benutzt. CocoNotch liest nur diese Zahlen aus ~/.codex/sessions, sonst nichts, und sendet nichts irgendwohin."
+            "value": "Codex schreibt seine Limits in seine Sitzungsprotokolle, während du es benutzt. CocoNotch liest das Ende deiner neuesten Protokolle in ~/.codex/sessions, behält nur diese Zahlen und sendet nichts irgendwohin."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex registra sus límites en sus registros de sesión mientras lo usas. CocoNotch solo lee esos números de ~/.codex/sessions, nada más, y no envía nada a ningún sitio."
+            "value": "Codex registra sus límites en sus registros de sesión mientras lo usas. CocoNotch lee el final de tus registros más recientes en ~/.codex/sessions, conserva solo esos números y no envía nada a ningún sitio."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex enregistre ses limites dans ses journaux de session pendant que vous l'utilisez. CocoNotch lit uniquement ces chiffres dans ~/.codex/sessions, rien d'autre, et n'envoie rien nulle part."
+            "value": "Codex enregistre ses limites dans ses journaux de session pendant que vous l'utilisez. CocoNotch lit la fin de vos journaux les plus récents dans ~/.codex/sessions, n'en garde que ces chiffres et n'envoie rien nulle part."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex registra i suoi limiti nei log di sessione mentre lo usi. CocoNotch legge solo quei numeri da ~/.codex/sessions, nient'altro, e non invia nulla."
+            "value": "Codex registra i suoi limiti nei log di sessione mentre lo usi. CocoNotch legge la parte finale dei tuoi log più recenti in ~/.codex/sessions, ne tiene solo quei numeri e non invia nulla."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex は使用中に上限をセッションログに記録します。CocoNotch は ~/.codex/sessions からその数値だけを読み取り、ほかには何も読まず、どこにも送信しません。"
+            "value": "Codex は使用中に上限をセッションログに記録します。CocoNotch は ~/.codex/sessions にある最新のログの末尾を読み取り、その数値だけを保持し、どこにも送信しません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex는 사용하는 동안 한도를 세션 로그에 기록합니다. CocoNotch는 ~/.codex/sessions에서 그 숫자만 읽고 다른 것은 읽지 않으며, 아무 데도 보내지 않습니다."
+            "value": "Codex는 사용하는 동안 한도를 세션 로그에 기록합니다. CocoNotch는 ~/.codex/sessions에 있는 최근 로그의 끝부분을 읽고 그 숫자만 남기며, 아무 데도 보내지 않습니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Codex registra os limites nos logs de sessão enquanto você o usa. O CocoNotch lê só esses números de ~/.codex/sessions, nada mais, e não envia nada a lugar nenhum."
+            "value": "O Codex registra os limites nos logs de sessão enquanto você o usa. O CocoNotch lê o final dos seus logs mais recentes em ~/.codex/sessions, guarda só esses números e não envia nada a lugar nenhum."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 会在你使用时把限额记录在会话日志中。CocoNotch 只从 ~/.codex/sessions 读取这些数字，不读取其他内容，也不发送任何内容。"
+            "value": "Codex 会在你使用时把限额记录在会话日志中。CocoNotch 会读取 ~/.codex/sessions 中最新日志的末尾，只保留这些数字，不发送任何内容。"
           }
         }
       }
@@ -8329,54 +8329,54 @@
         }
       }
     },
-    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies from password managers are never saved; add other apps you copy secrets from under Ignored apps.": {
+    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies an app marks as private, as most password managers do, are never saved; add any other app you copy secrets from under Ignored apps.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Verlauf liegt unverschlüsselt auf diesem Mac in einem Ordner, den nur dein Account lesen kann, und übersteht so einen Neustart. Kopien aus Passwortmanagern werden nie gespeichert; füge andere Apps, aus denen du Geheimnisse kopierst, unter Ignorierte Apps hinzu."
+            "value": "Der Verlauf liegt unverschlüsselt auf diesem Mac in einem Ordner, den nur dein Account lesen kann, und übersteht so einen Neustart. Kopien, die eine App als privat markiert, wie es die meisten Passwortmanager tun, werden nie gespeichert; füge jede andere App, aus der du Geheimnisse kopierst, unter Ignorierte Apps hinzu."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El historial se guarda en este Mac, sin cifrar, en una carpeta que solo tu cuenta puede leer, así que sobrevive a un reinicio. Las copias de gestores de contraseñas nunca se guardan; añade otras apps de las que copies secretos en Apps ignoradas."
+            "value": "El historial se guarda en este Mac, sin cifrar, en una carpeta que solo tu cuenta puede leer, así que sobrevive a un reinicio. Lo que una app marca como privado, como hacen la mayoría de los gestores de contraseñas, nunca se guarda; añade en Apps ignoradas cualquier otra app de la que copies secretos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'historique est conservé sur ce Mac, non chiffré, dans un dossier que seul votre compte peut lire, et survit donc à un redémarrage. Les copies des gestionnaires de mots de passe ne sont jamais enregistrées ; ajoutez les autres apps dont vous copiez des secrets dans Apps ignorées."
+            "value": "L'historique est conservé sur ce Mac, non chiffré, dans un dossier que seul votre compte peut lire, et survit donc à un redémarrage. Les copies qu'une app marque comme privées, comme le font la plupart des gestionnaires de mots de passe, ne sont jamais enregistrées ; ajoutez dans Apps ignorées toute autre app dont vous copiez des secrets."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "La cronologia resta su questo Mac, non cifrata, in una cartella leggibile solo dal tuo account, quindi sopravvive a un riavvio. Le copie dai gestori di password non vengono mai salvate; aggiungi in App ignorate le altre app da cui copi dati riservati."
+            "value": "La cronologia resta su questo Mac, non cifrata, in una cartella leggibile solo dal tuo account, quindi sopravvive a un riavvio. Le copie che un'app contrassegna come private, come fa la maggior parte dei gestori di password, non vengono mai salvate; aggiungi in App ignorate qualsiasi altra app da cui copi dati riservati."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "履歴はこの Mac 上の、あなたのアカウントだけが読めるフォルダに暗号化せずに保存されるため、再起動後も残ります。パスワードマネージャからのコピーは保存されません。秘密情報をコピーするほかのアプリは「除外するアプリ」に追加してください。"
+            "value": "履歴はこの Mac 上の、あなたのアカウントだけが読めるフォルダに暗号化せずに保存されるため、再起動後も残ります。アプリがプライベートとしてマークしたコピーは保存されません（ほとんどのパスワードマネージャはマークします）。秘密情報をコピーするほかのアプリは「除外するアプリ」に追加してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기록은 이 Mac에서 내 계정만 읽을 수 있는 폴더에 암호화되지 않은 상태로 보관되어 재시동 후에도 남습니다. 암호 관리자에서 복사한 내용은 저장되지 않습니다. 비밀 정보를 복사하는 다른 앱은 무시할 앱에 추가하세요."
+            "value": "기록은 이 Mac에서 내 계정만 읽을 수 있는 폴더에 암호화되지 않은 상태로 보관되어 재시동 후에도 남습니다. 앱이 비공개로 표시한 복사본은 저장되지 않습니다(대부분의 암호 관리자가 이렇게 표시합니다). 비밀 정보를 복사하는 다른 앱은 무시할 앱에 추가하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O histórico fica neste Mac, sem criptografia, em uma pasta que só sua conta pode ler, então ele sobrevive a uma reinicialização. Cópias de gerenciadores de senhas nunca são salvas; adicione outros apps de onde você copia segredos em Apps ignorados."
+            "value": "O histórico fica neste Mac, sem criptografia, em uma pasta que só sua conta pode ler, então ele sobrevive a uma reinicialização. Cópias que um app marca como privadas, como faz a maioria dos gerenciadores de senhas, nunca são salvas; adicione em Apps ignorados qualquer outro app de onde você copia segredos."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "历史记录以未加密形式保存在这台 Mac 上一个只有你的账户能读取的文件夹中，因此重新启动后仍会保留。来自密码管理器的拷贝从不保存；请将你会从中拷贝机密信息的其他应用添加到“忽略的应用”中。"
+            "value": "历史记录以未加密形式保存在这台 Mac 上一个只有你的账户能读取的文件夹中，因此重新启动后仍会保留。应用标记为私密的拷贝内容（大多数密码管理器都会这样做）从不保存；请将你会从中拷贝机密信息的其他应用添加到“忽略的应用”中。"
           }
         }
       }

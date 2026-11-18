@@ -512,7 +512,7 @@ private struct ClipboardSettings: View {
                 Text("History")
             } footer: {
                 Text(
-                    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies from password managers are never saved; add other apps you copy secrets from under Ignored apps."
+                    "History is kept on this Mac, unencrypted, in a folder only your account can read, so it survives a restart. Copies an app marks as private, as most password managers do, are never saved; add any other app you copy secrets from under Ignored apps."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

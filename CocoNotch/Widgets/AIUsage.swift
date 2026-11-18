@@ -625,7 +625,7 @@ private struct AIUsageSettings: View {
                 Text("Codex")
             } footer: {
                 Text(
-                    "Codex records its limits in its session logs while you use it. CocoNotch reads only those numbers from ~/.codex/sessions, nothing else, and sends nothing anywhere."
+                    "Codex records its limits in its session logs while you use it. CocoNotch reads the end of your latest logs in ~/.codex/sessions, keeps only those numbers, and sends nothing anywhere."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
