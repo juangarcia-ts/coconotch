@@ -253,15 +253,15 @@ public enum ClaudeUsageProblem: Equatable, Sendable {
 public func getClaudeUsageProblemMessage(_ problem: ClaudeUsageProblem) -> String {
     switch problem {
     case .notConnected:
-        "See your Claude Code limits here. Connect, and CocoNotch reads your Claude Code login the same way Claude Code does."
+        "See your Claude Code limits here. Enable it, and CocoNotch reads your Claude Code login the same way Claude Code does."
     case .codexNotFound:
         "No Codex sessions found on this Mac. Use Codex once, then its limits show up here."
     case .accessDeclined:
-        "macOS declined access to Claude Code's login in the Keychain. Connect again to retry."
+        "macOS declined access to Claude Code's login in the Keychain. Enable it again to retry."
     case .keychainLocked:
         "Your keychain is locked. Unlock your Mac, and usage loads again on its own."
     case .keychainError(let status):
-        "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try connecting again."
+        "macOS wouldn't share Claude Code's login with CocoNotch (Keychain error \(status)). Try enabling it again."
     case .notSignedIn: "Claude Code isn't signed in on this Mac. Run `claude` and sign in, then try again."
     case .loginExpired: "Your Claude Code login has expired. Open Claude Code once to refresh it, then try again."
     case .network: "Usage couldn't be loaded. Check your connection and try again."

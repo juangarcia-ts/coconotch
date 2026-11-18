@@ -16,7 +16,7 @@ extension NotchWidget {
 private let providerKey = "aiUsage.provider"
 private let showsClaudeKey = "aiUsage.showsClaude"
 private let showsCodexKey = "aiUsage.showsCodex"
-// Only set from the Connect button, so the Keychain prompt never appears unasked.
+// Only set from the Enable button, so the Keychain prompt never appears unasked.
 private let isClaudeConnectedKey = "aiUsage.isClaudeConnected"
 private let hiddenKindsKey = "aiUsage.hiddenKinds"
 private let showsRemainingKey = "aiUsage.showsRemaining"
@@ -486,7 +486,7 @@ private struct UsageProblemView: View {
         WidgetPrompt(systemImage: NotchWidget.aiUsage.systemImage, message: getClaudeUsageProblemMessage(problem)) {
             switch problem {
             case .notConnected, .accessDeclined, .keychainError:
-                Button("Connect Claude Code") { store.connectClaude() }
+                Button("Enable Claude Code Usage") { store.connectClaude() }
             case .notSignedIn, .loginExpired, .network, .unexpectedResponse, .codexNotFound, .keychainLocked:
                 Button("Try Again", systemImage: "arrow.clockwise") { store.refresh() }
             }
@@ -587,11 +587,11 @@ private struct AIUsageSettings: View {
                         ProviderLogo(provider: .claude, size: 14)
                     }
                 }
-                LabeledContent("Claude Code login") {
+                LabeledContent("Read Claude Code's login") {
                     if isClaudeConnected {
-                        Button("Disconnect") { store.disconnectClaude() }
+                        Button("Disable") { store.disconnectClaude() }
                     } else {
-                        Button("Connect") { store.connectClaude() }
+                        Button("Enable") { store.connectClaude() }
                     }
                 }
                 .disabled(!showsClaude)

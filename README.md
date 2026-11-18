@@ -76,7 +76,7 @@ CocoNotch has no account and no analytics. It only goes online for:
 
 - **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
 - **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
-- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Connect. Codex limits come from its local session logs.
+- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs.
 - **Updates**: checking for and installing new releases from GitHub.
 
 ## Build
