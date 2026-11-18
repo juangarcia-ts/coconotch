@@ -98,3 +98,30 @@ private let sampleLog = """
     #expect(pruneDismissedHeadsUpKeys([claude, expired, noReset], now: now) == [claude, noReset])
     #expect(pruneDismissedHeadsUpKeys([claude], now: now + 3600).isEmpty)
 }
+
+@Test func picksIdleLimitByNextReset() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let candidates: [(provider: AIProvider, limit: UsageLimit)] = [
+        (.claude, UsageLimit(kind: "session", percent: 12, resetsAt: now + 3600)),
+        (.claude, UsageLimit(kind: "weekly_all", percent: 38, resetsAt: now + 3 * 86_400)),
+        (.codex, UsageLimit(kind: "codex_primary", percent: 0)),
+    ]
+    #expect(getIdleProviderLimit(candidates, showsFullest: false, now: now)?.limit.kind == "session")
+    #expect(getIdleProviderLimit(candidates, showsFullest: true, now: now)?.limit.kind == "weekly_all")
+    #expect(getIdleProviderLimit([candidates[2]], showsFullest: false, now: now)?.limit.kind == "codex_primary")
+    let staleSession: (provider: AIProvider, limit: UsageLimit) = (
+        .claude, UsageLimit(kind: "session", percent: 12, resetsAt: now - 60)
+    )
+    #expect(
+        getIdleProviderLimit([staleSession, candidates[1]], showsFullest: false, now: now)?.limit.kind == "weekly_all")
+}
+
+@Test func expiredClaudeLimitNoLongerWarns() {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let stale = resetExpiredLimits([UsageLimit(kind: "session", percent: 92, resetsAt: now - 60)], now: now)
+    #expect(stale.first?.percent == 0)
+    #expect(
+        stale.first.flatMap {
+            getUsageActivityPriority($0, showsHeadsUp: true, threshold: 80, isDismissed: false, showsIdle: true)
+        } == .low)
+}

@@ -170,13 +170,26 @@ public func getUsageBarFraction(_ percent: Int, showsRemaining: Bool) -> Double 
 public func formatResetTime(_ resetsAt: Date?, now: Date) -> String? {
     guard let resetsAt else { return nil }
     let seconds = resetsAt.timeIntervalSince(now)
-    guard seconds > 0 else { return "Resetting now" }
+    guard let short = formatShortResetTime(resetsAt, now: now) else { return "Resetting now" }
+    return seconds < 24 * 3600 ? "Resets in \(short)" : "Resets \(short)"
+}
+
+/// "2h 15m" within a day, otherwise "Sat 15:00", for the closed notch. Nil once it has passed.
+public func formatShortResetTime(_ resetsAt: Date?, now: Date) -> String? {
+    guard let resetsAt else { return nil }
+    let seconds = resetsAt.timeIntervalSince(now)
+    guard seconds > 0 else { return nil }
     if seconds < 24 * 3600 {
         let minutes = Int((seconds / 60).rounded(.up))
-        return "Resets in "
-            + Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+        return Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .narrow))
     }
-    return "Resets " + resetsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    return resetsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+}
+
+/// "38% · 2h 15m" for the closed notch, or just the percent when the reset is hidden or unknown.
+public func formatUsageNotchLabel(_ limit: UsageLimit, showsReset: Bool, now: Date) -> String {
+    let reset = showsReset ? formatShortResetTime(limit.resetsAt, now: now) : nil
+    return ["\(limit.percent)%", reset].compactMap { $0 }.joined(separator: " · ")
 }
 
 /// The fullest shown limit, for the Home card and the heads-up.

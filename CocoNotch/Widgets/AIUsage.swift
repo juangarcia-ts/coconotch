@@ -24,6 +24,8 @@ private let refreshMinutesKey = "aiUsage.refreshMinutes"
 private let showsHeadsUpKey = "aiUsage.showsHeadsUp"
 private let headsUpThresholdKey = "aiUsage.headsUpThreshold"
 private let showsIdleKey = "aiUsage.showsIdle"
+private let showsNotchResetKey = "aiUsage.showsNotchReset"
+private let idleShowsFullestKey = "aiUsage.idleShowsFullest"
 private let defaultRefreshMinutes = 5
 private let defaultHeadsUpThreshold = 80
 private let headsUpActivityID = "aiUsage.headsUp"
@@ -103,6 +105,8 @@ final class AIUsageStore {
     private var updatedAt: Date?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    // Picks the next limit once the shown one resets, without waiting for the next fetch.
+    @ObservationIgnored private var resetTask: Task<Void, Never>?
     /// The heads-up showing in the closed notch, if any, as a `makeUsageHeadsUpKey`.
     private(set) var headsUpKey: String?
     /// Whose limit the heads-up is about, so the tab offers Dismiss only on that provider.
@@ -224,12 +228,13 @@ final class AIUsageStore {
         }
     }
 
-    /// The limits to show for a provider: Claude's chosen kinds, or Codex's snapshot with reset windows at zero.
+    /// The limits to show for a provider, with reset windows at zero: Claude's chosen kinds, or Codex's snapshot.
     func getLimits(for provider: AIProvider, now: Date) -> [UsageLimit] {
         switch provider {
         case .claude:
             getVisibleLimits(
-                claudeLimits, hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
+                resetExpiredLimits(claudeLimits, now: now),
+                hiddenKinds: decodeIDSet(UserDefaults.standard.string(forKey: hiddenKindsKey) ?? ""))
         case .codex:
             resetExpiredLimits(codexUsage?.limits ?? [], now: now)
         }
@@ -247,6 +252,7 @@ final class AIUsageStore {
     }
 
     func updateHeadsUp() {
+        resetTask?.cancel()
         let now = Date.now
         dismissedHeadsUpKeys = pruneDismissedHeadsUpKeys(dismissedHeadsUpKeys, now: now)
         let shown = getShownProviders(
@@ -274,6 +280,23 @@ final class AIUsageStore {
         let isHeadsUp = priority > .low
         headsUpKey = isHeadsUp ? key : nil
         headsUpProvider = isHeadsUp ? provider : nil
+        let display =
+            isHeadsUp
+            ? (provider: provider, limit: limit)
+            : getIdleProviderLimit(
+                candidates, showsFullest: readDefault(idleShowsFullestKey, default: false), now: now)
+                ?? (provider: provider, limit: limit)
+        postActivity(display.provider, display.limit, priority: priority, isHeadsUp: isHeadsUp)
+        if let resetsAt = display.limit.resetsAt, resetsAt > now {
+            resetTask = Task { [weak self] in
+                guard (try? await Task.sleep(for: .seconds(resetsAt.timeIntervalSince(now)))) != nil else { return }
+                self?.updateHeadsUp()
+            }
+        }
+    }
+
+    private func postActivity(_ provider: AIProvider, _ limit: UsageLimit, priority: ActivityPriority, isHeadsUp: Bool)
+    {
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -288,7 +311,11 @@ final class AIUsageStore {
                         }
                     )
                 },
-                makeTrailing: { AnyView(Text("\(limit.percent)%").monospacedDigit()) },
+                makeTrailing: {
+                    AnyView(
+                        UsageNotchTrailing(limit: limit, showsReset: readDefault(showsNotchResetKey, default: true))
+                    )
+                },
                 makeAlert: isHeadsUp ? { AnyView(UsageHeadsUpAlert(provider: provider, limit: limit)) } : nil
             )
         )
@@ -473,6 +500,19 @@ private struct UsageProblemView: View {
     }
 }
 
+/// The percent in the closed notch, then when the limit resets, ticking each minute.
+private struct UsageNotchTrailing: View {
+    let limit: UsageLimit
+    let showsReset: Bool
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            Text(formatUsageNotchLabel(limit, showsReset: showsReset, now: context.date))
+                .monospacedDigit()
+        }
+    }
+}
+
 /// Drops down under the heads-up when it first appears, saying which limit and when it resets.
 private struct UsageHeadsUpAlert: View {
     let provider: AIProvider
@@ -539,6 +579,8 @@ private struct AIUsageSettings: View {
     @AppStorage(showsHeadsUpKey) private var showsHeadsUp = true
     @AppStorage(headsUpThresholdKey) private var headsUpThreshold = defaultHeadsUpThreshold
     @AppStorage(showsIdleKey) private var showsIdle = true
+    @AppStorage(showsNotchResetKey) private var showsNotchReset = true
+    @AppStorage(idleShowsFullestKey) private var idleShowsFullest = false
     private let store = AIUsageStore.shared
 
     var body: some View {
@@ -604,6 +646,12 @@ private struct AIUsageSettings: View {
                 }
                 .disabled(!showsHeadsUp)
                 Toggle("Show usage in the closed notch when nothing else is", isOn: $showsIdle)
+                Picker("Then show", selection: $idleShowsFullest) {
+                    Text("The next limit to reset").tag(false)
+                    Text("The fullest limit").tag(true)
+                }
+                .disabled(!showsIdle)
+                Toggle("Show when the limit resets in the closed notch", isOn: $showsNotchReset)
             }
         }
         .formStyle(.grouped)
@@ -614,6 +662,8 @@ private struct AIUsageSettings: View {
         .onChange(of: showsHeadsUp) { store.updateHeadsUp() }
         .onChange(of: headsUpThreshold) { store.updateHeadsUp() }
         .onChange(of: showsIdle) { store.updateHeadsUp() }
+        .onChange(of: showsNotchReset) { store.updateHeadsUp() }
+        .onChange(of: idleShowsFullest) { store.updateHeadsUp() }
     }
 
     // Stores hidden kinds rather than shown ones, so limits Claude adds later appear by default.
