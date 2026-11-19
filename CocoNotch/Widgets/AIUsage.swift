@@ -106,14 +106,16 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
         let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile, isPretty: true),
         writeKeychain(newCredentials, service: claudeCredentialsService)
     else { return false }
-    guard (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil else {
-        // Puts the old login back, so the Keychain and ~/.claude.json never name different accounts.
-        if !writeKeychain(credentials, service: claudeCredentialsService) {
-            UserDefaults.standard.set(true, forKey: isLoginMismatchedKey)
-        }
-        return false
-    }
-    UserDefaults.standard.set(false, forKey: isLoginMismatchedKey)
+    let isConfigWritten = (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil
+    // Puts the old login back when the config can't follow, so the Keychain and ~/.claude.json name the same account.
+    let isRestored = isConfigWritten || writeKeychain(credentials, service: claudeCredentialsService)
+    let defaults = UserDefaults.standard
+    defaults.set(
+        isLoginMismatched(
+            wasMismatched: defaults.bool(forKey: isLoginMismatchedKey), isConfigWritten: isConfigWritten,
+            isRestored: isRestored),
+        forKey: isLoginMismatchedKey)
+    guard isConfigWritten else { return false }
     // The file holds the login's profile, so it stays readable only by you, as Claude Code leaves it.
     return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path))
         != nil

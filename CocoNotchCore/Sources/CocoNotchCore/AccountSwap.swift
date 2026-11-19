@@ -95,6 +95,13 @@ public func getClaudeAccount(credentials: Data, config: Data) -> SavedAccount? {
     )
 }
 
+/// Whether the Keychain and `~/.claude.json` may name different accounts after a switch, which writes the Keychain
+/// first: writing both fixes it, undoing the Keychain write leaves things as they were, and failing both causes it.
+public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRestored: Bool) -> Bool {
+    if isConfigWritten { return false }
+    return isRestored ? wasMismatched : true
+}
+
 /// The saved accounts with this one added, or replacing its older copy in place.
 public func upsertSavedAccount(_ accounts: [SavedAccount], _ account: SavedAccount) -> [SavedAccount] {
     guard let index = accounts.firstIndex(where: { $0.id == account.id }) else {

@@ -86,3 +86,13 @@ private func decode(_ data: Data?) throws -> [String: Any] {
     let pretty = try #require(replaceJSONValue(config, key: "numStartups", with: Data("4".utf8), isPretty: true))
     #expect(String(decoding: pretty, as: UTF8.self).contains("\n"))
 }
+
+@Test(arguments: [false, true])
+func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
+    // A switch that writes both clears it, including the retry after a failure.
+    #expect(!isLoginMismatched(wasMismatched: wasMismatched, isConfigWritten: true, isRestored: true))
+    // Undone, the old pair is back as it was.
+    #expect(isLoginMismatched(wasMismatched: wasMismatched, isConfigWritten: false, isRestored: true) == wasMismatched)
+    // Neither finished nor undone.
+    #expect(isLoginMismatched(wasMismatched: wasMismatched, isConfigWritten: false, isRestored: false))
+}
