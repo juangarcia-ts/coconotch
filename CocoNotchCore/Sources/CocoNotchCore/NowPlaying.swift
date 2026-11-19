@@ -86,9 +86,3 @@ public func getSliderFraction(_ value: Double, range: ClosedRange<Double>) -> Do
     guard span > 0 else { return 0 }
     return min(max((value - range.lowerBound) / span, 0), 1)
 }
-
-/// Whether the player now reports the value a slider sent. Within 2 (volume points or seconds) allows a player
-/// rounding the volume or a track playing on after a seek; a range-relative margin let a stale position through.
-public func isSliderValueReached(_ value: Double, sent: Double) -> Bool {
-    abs(value - sent) <= 2
-}

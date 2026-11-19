@@ -52,6 +52,8 @@ final class MusicStore {
     private(set) var readAt = Date.now
     /// A running player macOS won't let CocoNotch control, so the views can say where to allow it.
     private(set) var deniedPlayer: String?
+    /// Commands sent but not yet followed by a read, so a slider knows when the player's value includes them.
+    private(set) var pendingCommands = 0
     private let scriptRunner = ScriptRunner()
     private var isStarted = false
 
@@ -117,9 +119,11 @@ final class MusicStore {
 
     func send(_ command: String) {
         guard let player = nowPlaying?.player else { return }
+        pendingCommands += 1
         Task {
             _ = await scriptRunner.run("tell application \"\(player)\" to \(command)")
             await refresh()
+            pendingCommands -= 1
         }
     }
 
@@ -233,7 +237,7 @@ private struct ReleaseSlider: View {
     let range: ClosedRange<Double>
     let onRelease: (Double) -> Void
     @State private var draggedValue: Double?
-    /// The last value sent, shown until the player reports back so quick key presses build on each other.
+    /// The last value sent, shown until the player has run it so quick key presses build on each other.
     @State private var sentValue: Double?
 
     private let knobSize: CGFloat = 10
@@ -286,14 +290,9 @@ private struct ReleaseSlider: View {
             @unknown default: break
             }
         }
-        // A player read, not the seek bar's projected position, so only the player can confirm a sent value.
-        .onChange(of: MusicStore.shared.readAt) {
-            if let sentValue, isSliderValueReached(value, sent: sentValue) { self.sentValue = nil }
-        }
-        // Lets go of the sent value if the command failed and the player never reports a change.
-        .task(id: sentValue) {
-            guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
-            sentValue = nil
+        // At zero every command has run and the player was read after it, so its value is current, even after a failure.
+        .onChange(of: MusicStore.shared.pendingCommands) { _, count in
+            if count == 0 { sentValue = nil }
         }
     }
 

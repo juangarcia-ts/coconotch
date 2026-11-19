@@ -67,10 +67,3 @@ func rejectsNothingPlaying(output: String) {
     #expect(getSliderFraction(300, range: 0...240) == 1)
     #expect(getSliderFraction(5, range: 0...0) == 0)
 }
-
-@Test func waitsForThePlayerToReachTheSentValue() {
-    #expect(isSliderValueReached(54, sent: 55))
-    #expect(!isSliderValueReached(55, sent: 60))
-    #expect(isSliderValueReached(661, sent: 660))
-    #expect(!isSliderValueReached(601, sent: 660))
-}
