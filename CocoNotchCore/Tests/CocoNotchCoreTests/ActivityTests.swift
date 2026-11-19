@@ -93,7 +93,28 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
         makeActivity("next", widget: "meetings", priority: .low),
         makeActivity("usage", widget: "aiUsage", priority: .low),
     ]
-    #expect(getSplitPartner(ranked)?.id == "usage")
-    #expect(getSplitPartner(Array(ranked.prefix(2))) == nil)
-    #expect(getSplitPartner([]) == nil)
+    let sides = pickIslandSides(ranked, isSplit: true, rightWidgetID: nil)
+    #expect(sides.left?.id == "heads-up")
+    #expect(sides.right?.id == "usage")
+    #expect(pickIslandSides(Array(ranked.prefix(2)), isSplit: true, rightWidgetID: nil).right == nil)
+    #expect(pickIslandSides(ranked, isSplit: false, rightWidgetID: nil).right == nil)
+    #expect(pickIslandSides([], isSplit: true, rightWidgetID: nil).left == nil)
+}
+
+@Test func keepsThePinnedWidgetOnTheRight() {
+    let ranked = [
+        makeActivity("heads-up", widget: "meetings", priority: .urgent),
+        makeActivity("music", widget: "music", priority: .background),
+        makeActivity("usage", widget: "aiUsage", priority: .low),
+    ]
+    let sides = pickIslandSides(ranked, isSplit: true, rightWidgetID: "aiUsage")
+    #expect(sides.left?.id == "heads-up")
+    #expect(sides.right?.id == "usage")
+    // The pinned widget's activity moves right even when it ranks first.
+    let pinnedTop = pickIslandSides(ranked, isSplit: true, rightWidgetID: "meetings")
+    #expect(pinnedTop.left?.id == "music")
+    #expect(pinnedTop.right?.id == "heads-up")
+    // Alone, it spans both sides; absent, the right goes back to automatic.
+    #expect(pickIslandSides(Array(ranked.prefix(1)), isSplit: true, rightWidgetID: "meetings").left?.id == "heads-up")
+    #expect(pickIslandSides(ranked, isSplit: true, rightWidgetID: "timer").right?.id == "music")
 }

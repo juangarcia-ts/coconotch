@@ -79,9 +79,17 @@ public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
     return topActivity.widgetID
 }
 
-/// The activity for the right side of a split island: the next one from a different widget than the winner, so two
-/// meetings never take both sides. Quiet ones count, as a split notch has room for them.
-public func getSplitPartner(_ ranked: [ActivitySummary]) -> ActivitySummary? {
-    guard let top = ranked.first else { return nil }
-    return ranked.dropFirst().first { $0.widgetID != top.widgetID }
+/// The activities on each side of the camera. A split notch gives the right side to `rightWidgetID` whenever it has an
+/// activity, and otherwise to the next activity from another widget than the left's, so two meetings never take both
+/// sides. Quiet ones count, as a split notch has room for them. With nothing for the right, the left spans both sides.
+public func pickIslandSides(
+    _ ranked: [ActivitySummary], isSplit: Bool, rightWidgetID: String?
+) -> (left: ActivitySummary?, right: ActivitySummary?) {
+    guard isSplit else { return (ranked.first, nil) }
+    if let pinned = ranked.first(where: { $0.widgetID == rightWidgetID }) {
+        guard let left = ranked.first(where: { $0.widgetID != rightWidgetID }) else { return (pinned, nil) }
+        return (left, pinned)
+    }
+    let left = ranked.first
+    return (left, ranked.dropFirst().first { $0.widgetID != left?.widgetID })
 }

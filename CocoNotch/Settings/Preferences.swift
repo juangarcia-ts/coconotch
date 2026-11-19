@@ -16,10 +16,12 @@ enum PreferenceKey {
     static let notchDisplay = "behavior.notchDisplay"
     static let notchScale = "appearance.notchScale"
     static let showsActivities = "behavior.showsActivities"
-    /// A widget ID whose activity always wins the closed notch, or "" to rank them automatically.
+    /// A widget ID whose activity always takes the left of the closed notch, or "" to rank them automatically.
     static let preferredActivityWidget = "behavior.preferredActivityWidget"
     /// Splits the closed notch between the top two activities, one on each side of the camera.
     static let showsTwoActivities = "behavior.showsTwoActivities"
+    /// A widget ID whose activity always takes the right of a split notch, or "" for the next one automatically.
+    static let rightActivityWidget = "behavior.rightActivityWidget"
     static let staysOpenWhileTyping = "behavior.staysOpenWhileTyping"
     static let widgetShortcuts = "behavior.widgetShortcuts"
 }

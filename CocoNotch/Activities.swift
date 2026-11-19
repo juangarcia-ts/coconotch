@@ -56,14 +56,15 @@ struct ActivityIsland: View {
     let partner: NotchActivity?
     let notchSize: CGSize
     let otherCount: Int
-    let isAlerting: Bool
+    /// The top activity's alert while it shows, which may belong to either side.
+    let makeAlert: (() -> AnyView)?
 
     static let maxSideWidth: CGFloat = 140
 
     var body: some View {
         IslandStack {
             row
-            if isAlerting, let makeAlert = activity.makeAlert {
+            if let makeAlert {
                 makeAlert()
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)

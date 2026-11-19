@@ -25,6 +25,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
     @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
+    @AppStorage(PreferenceKey.rightActivityWidget) private var rightActivityWidgetID = ""
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
@@ -165,7 +166,11 @@ struct NotchView: View {
     }
 
     private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity], isAlerting: Bool) -> some View {
-        let island = isExpanded ? nil : activities.first
+        let sides = pickIslandSides(
+            activities.map(\.summary), isSplit: showsTwoActivities,
+            rightWidgetID: rightActivityWidgetID.isEmpty ? nil : rightActivityWidgetID)
+        let island = isExpanded ? nil : activities.first { $0.id == sides.left?.id }
+        let partner = activities.first { $0.id == sides.right?.id }
         let isAlerting = island != nil && isAlerting
         return ZStack(alignment: .top) {
             if !isExpanded {
@@ -181,17 +186,15 @@ struct NotchView: View {
                 expandedContent(activities: activities)
                     .transition(.opacity)
             } else if let island {
-                let partnerID = showsTwoActivities ? getSplitPartner(activities.map(\.summary))?.id : nil
-                let partner = activities.first { $0.id == partnerID }
                 ActivityIsland(
                     activity: island,
                     partner: partner,
                     notchSize: notchSize,
-                    otherCount: activities.dropFirst().filter {
-                        $0.id != partner?.id && isActivityNoteworthy($0.summary)
+                    otherCount: activities.filter {
+                        ![island.id, partner?.id].contains($0.id) && isActivityNoteworthy($0.summary)
                     }
                     .count,
-                    isAlerting: isAlerting
+                    makeAlert: isAlerting ? activities.first?.makeAlert : nil
                 )
                 .transition(.opacity)
             }
