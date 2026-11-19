@@ -45,3 +45,16 @@ func rejectsNothingPlaying(output: String) {
     let paused = NowPlaying(player: "Music", title: "A", artist: "", position: 10, isPlaying: false)
     #expect(getPlaybackPosition(paused, readAt: readAt, now: readAt.addingTimeInterval(5)) == 10)
 }
+
+@Test func mapsDragToSliderValue() {
+    #expect(getSliderValue(atX: 50, width: 200, range: 0...100) == 25)
+    #expect(getSliderValue(atX: -10, width: 200, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 300, width: 200, range: 0...100) == 100)
+    #expect(getSliderValue(atX: 10, width: 0, range: 0...100) == 0)
+}
+
+@Test func mapsValueToSliderFraction() {
+    #expect(getSliderFraction(60, range: 0...240) == 0.25)
+    #expect(getSliderFraction(300, range: 0...240) == 1)
+    #expect(getSliderFraction(5, range: 0...0) == 0)
+}

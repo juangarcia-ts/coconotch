@@ -227,22 +227,51 @@ private struct Artwork: View {
 
 /// A slider that holds its own value while dragged and reports it on release, so the once-a-second refresh doesn't
 /// pull the knob back mid-drag and the player gets one command per change.
+/// Drawn by hand because the system knob's size changes between macOS versions, and some show a full-size one.
 private struct ReleaseSlider: View {
     let value: Double
     let range: ClosedRange<Double>
     let onRelease: (Double) -> Void
     @State private var draggedValue: Double?
 
+    private let knobSize: CGFloat = 10
+
     var body: some View {
-        Slider(
-            value: Binding(get: { draggedValue ?? value }, set: { draggedValue = $0 }),
-            in: range
-        ) { isEditing in
-            guard !isEditing, let draggedValue else { return }
-            onRelease(draggedValue)
-            self.draggedValue = nil
+        let fraction = getSliderFraction(draggedValue ?? value, range: range)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary).frame(height: 3)
+                Capsule().fill(.tint).frame(width: width * fraction, height: 3)
+                Circle()
+                    .fill(.white)
+                    .shadow(radius: 1)
+                    .frame(width: knobSize, height: knobSize)
+                    .offset(x: (width - knobSize) * fraction)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { draggedValue = getSliderValue(atX: $0.location.x, width: width, range: range) }
+                    .onEnded { _ in
+                        guard let draggedValue else { return }
+                        onRelease(draggedValue)
+                        self.draggedValue = nil
+                    }
+            )
         }
-        .controlSize(.mini)
+        .frame(height: 14)
+        .accessibilityElement()
+        .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) / 20
+            switch direction {
+            case .increment: onRelease(min(value + step, range.upperBound))
+            case .decrement: onRelease(max(value - step, range.lowerBound))
+            @unknown default: break
+            }
+        }
     }
 }
 

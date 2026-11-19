@@ -64,3 +64,17 @@ public func getPlaybackPosition(_ nowPlaying: NowPlaying, readAt: Date, now: Dat
     let position = nowPlaying.position + now.timeIntervalSince(readAt)
     return nowPlaying.duration > 0 ? min(position, nowPlaying.duration) : position
 }
+
+/// The value under a drag at `x` along a slider `width` points wide, clamped to the range.
+public func getSliderValue(atX x: Double, width: Double, range: ClosedRange<Double>) -> Double {
+    guard width > 0 else { return range.lowerBound }
+    let fraction = min(max(x / width, 0), 1)
+    return range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+}
+
+/// How far along the range `value` is, from 0 to 1; 0 for an empty range.
+public func getSliderFraction(_ value: Double, range: ClosedRange<Double>) -> Double {
+    let span = range.upperBound - range.lowerBound
+    guard span > 0 else { return 0 }
+    return min(max((value - range.lowerBound) / span, 0), 1)
+}
