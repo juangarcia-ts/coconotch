@@ -92,6 +92,32 @@ public func getClaudeAccount(credentials: Data, config: Data) -> SavedAccount? {
     )
 }
 
+/// The active Claude Code login, as far as keeping a copy of it before it's replaced goes.
+public enum ActiveLogin: Equatable, Sendable {
+    case signedIn(SavedAccount)
+    /// Nothing to keep, so it's safe to replace.
+    case signedOut
+    /// A login may be there but couldn't be read, so it must not be replaced unsaved.
+    case unreadable
+
+    public var account: SavedAccount? {
+        if case .signedIn(let account) = self { account } else { nil }
+    }
+}
+
+/// Reads the active login from `security find-generic-password`'s exit code and output, and `~/.claude.json`. Only a
+/// missing Keychain item (44) or one without a Claude login counts as signed out; anything else unreadable is unknown.
+public func getActiveLogin(credentialsExitCode: Int32, credentials: Data?, config: Data?) -> ActiveLogin {
+    if credentialsExitCode == 44 { return .signedOut }
+    guard credentialsExitCode == 0, let credentials,
+        (try? JSONSerialization.jsonObject(with: credentials)) is [String: Any]
+    else { return .unreadable }
+    guard extractJSONValue(credentials, key: "claudeAiOauth") != nil else { return .signedOut }
+    // A login is there, so failing to name it from the config is unknown, not signed out.
+    return config.flatMap { getClaudeAccount(credentials: credentials, config: $0) }.map(ActiveLogin.signedIn)
+        ?? .unreadable
+}
+
 /// Whether the Keychain and `~/.claude.json` may name different accounts after a switch, which writes the Keychain
 /// first: writing both fixes it, undoing the Keychain write leaves things as they were, and failing both causes it.
 public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRestored: Bool) -> Bool {

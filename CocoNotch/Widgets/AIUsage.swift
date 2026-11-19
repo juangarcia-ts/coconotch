@@ -90,12 +90,15 @@ nonisolated private let claudeConfigURL = FileManager.default.homeDirectoryForCu
 // rewrites both, so a mixed pair is never saved over one account's backup.
 nonisolated private let isLoginMismatchedKey = "aiUsage.isLoginMismatched"
 
-nonisolated private func readActiveAccount() -> SavedAccount? {
-    guard !UserDefaults.standard.bool(forKey: isLoginMismatchedKey),
-        let credentials = readKeychain(service: claudeCredentialsService),
-        let config = try? Data(contentsOf: claudeConfigURL)
-    else { return nil }
-    return getClaudeAccount(credentials: credentials, config: config)
+nonisolated private func readActiveLogin() -> ActiveLogin {
+    // A mismatched pair isn't worth keeping and is safe to replace, so it counts as signed out until a switch fixes it.
+    guard !UserDefaults.standard.bool(forKey: isLoginMismatchedKey) else { return .signedOut }
+    let (status, output) = runSecurity([
+        "find-generic-password", "-s", claudeCredentialsService, "-a", NSUserName(), "-w",
+    ])
+    return getActiveLogin(
+        credentialsExitCode: status, credentials: decodeKeychainOutput(output),
+        config: try? Data(contentsOf: claudeConfigURL))
 }
 
 nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
@@ -155,6 +158,7 @@ private struct AccountSnapshot: Sendable {
     let version: Int
     let accounts: [SavedAccount]
     let activeID: String?
+    let isActiveUnreadable: Bool
     let didChange: Bool
 }
 
@@ -168,24 +172,29 @@ private actor AccountVault {
         -> AccountSnapshot?
     {
         guard let saved = readSavedAccounts() else { return nil }
-        let active = readActiveAccount()
-        let updated = change(saved, active)
+        let login = readActiveLogin()
+        let updated = change(saved, login.account)
         guard updated == saved || writeSavedAccounts(updated) else { return nil }
         version += 1
-        return AccountSnapshot(version: version, accounts: updated, activeID: active?.id, didChange: updated != saved)
+        return AccountSnapshot(
+            version: version, accounts: updated, activeID: login.account?.id, isActiveUnreadable: login == .unreadable,
+            didChange: updated != saved)
     }
 
     /// Saves the active login first: its refresh token has rotated since it was saved, and the old one no longer works.
     func switchTo(_ id: String) -> AccountSnapshot? {
-        guard let saved = readSavedAccounts() else { return nil }
-        let active = readActiveAccount()
+        // An unreadable login might be one that was never saved, so it isn't replaced.
+        let login = readActiveLogin()
+        guard let saved = readSavedAccounts(), login != .unreadable else { return nil }
+        let active = login.account
         let updated = active.map { upsertSavedAccount(saved, $0) } ?? saved
         // The copy just read, not the one the menu showed, whose token may have rotated since.
         guard let target = updated.first(where: { $0.id == id }), writeSavedAccounts(updated),
             active?.id == id || activateAccount(target)
         else { return nil }
         version += 1
-        return AccountSnapshot(version: version, accounts: updated, activeID: id, didChange: true)
+        return AccountSnapshot(
+            version: version, accounts: updated, activeID: id, isActiveUnreadable: false, didChange: true)
     }
 }
 
@@ -444,7 +453,9 @@ final class AIUsageStore {
         let snapshot = await AccountVault.shared.update { saved, active in
             active.map { upsertSavedAccount(saved, $0) } ?? saved
         }
-        return report(requiresActive && snapshot?.activeID == nil ? nil : snapshot)
+        // Signing in may go ahead signed out, but never past a login that couldn't be read and so wasn't saved.
+        let isSaved = snapshot.map { requiresActive ? $0.activeID != nil : !$0.isActiveUnreadable } ?? false
+        return report(isSaved ? snapshot : nil)
     }
 
     func switchAccount(to account: SavedAccount) {

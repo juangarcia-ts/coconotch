@@ -109,3 +109,18 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
     // Signing in while signed out: the first login to appear is the new account.
     #expect(shouldSaveActiveAccount([], activeID: "b", isSigningIn: true, signingInFromID: nil))
 }
+
+@Test func tellsSignedOutApartFromAnUnreadableLogin() throws {
+    let account = try #require(getClaudeAccount(credentials: credentials, config: config))
+    #expect(getActiveLogin(credentialsExitCode: 0, credentials: credentials, config: config) == .signedIn(account))
+    // Signed out: Claude Code has no Keychain item, or one without its login.
+    #expect(getActiveLogin(credentialsExitCode: 44, credentials: nil, config: nil) == .signedOut)
+    let noLogin = Data("{\"mcpOAuth\":{}}".utf8)
+    #expect(getActiveLogin(credentialsExitCode: 0, credentials: noLogin, config: config) == .signedOut)
+    // Unreadable: a locked or refused Keychain, garbled output, or a login whose config can't be read.
+    #expect(getActiveLogin(credentialsExitCode: 36, credentials: nil, config: config) == .unreadable)
+    #expect(getActiveLogin(credentialsExitCode: 51, credentials: nil, config: config) == .unreadable)
+    #expect(getActiveLogin(credentialsExitCode: 0, credentials: Data("nope".utf8), config: config) == .unreadable)
+    #expect(getActiveLogin(credentialsExitCode: 0, credentials: credentials, config: nil) == .unreadable)
+    #expect(getActiveLogin(credentialsExitCode: 0, credentials: credentials, config: Data("{}".utf8)) == .unreadable)
+}
