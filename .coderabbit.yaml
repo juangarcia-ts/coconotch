@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  tools:
+    # CI only runs scripts/check.sh, which runs locally before every push and already blocks merging.
+    github-checks:
+      enabled: false
