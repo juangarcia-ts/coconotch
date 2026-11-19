@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AIProvider: String, CaseIterable, Identifiable, Sendable {
+public enum AIProvider: String, CaseIterable, Codable, Identifiable, Sendable {
     case claude
     case codex
 

@@ -38,7 +38,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | **Meetings** | Your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off). |
 | **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
 | **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
-| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. |
+| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. Save several Claude Code or Codex logins and switch between them from the tab. |
 | **Timer** | A Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound. |
 | **Weather** | Current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F. |
 | **Time Zones** | Your local time plus any cities you add, one row each with a day-and-night timeline, "Tomorrow" or "Yesterday" when the date differs and custom labels. Drag any timeline to look ahead or back. Country flags are optional. |
@@ -78,7 +78,7 @@ CocoNotch has no account and no analytics. It only goes online for:
 
 - **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
 - **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
-- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs.
+- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs. Saved accounts for the switcher stay in your Keychain; switching rewrites Claude Code's login there and in `~/.claude.json`, or Codex's `~/.codex/auth.json`.
 - **Updates**: checking for and installing new releases from GitHub.
 
 ## Build

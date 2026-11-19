@@ -1978,6 +1978,58 @@
         }
       }
     },
+    "Accounts": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuentas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "账户"
+          }
+        }
+      }
+    },
     "Add App": {
       "localizations": {
         "de": {
@@ -5841,6 +5893,58 @@
         }
       }
     },
+    "Couldn't change accounts. Check that you're signed in, then try again.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto konnte nicht gewechselt werden. Prüfe, ob du angemeldet bist, und versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar de cuenta. Comprueba que has iniciado sesión y vuelve a intentarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de changer de compte. Vérifiez que vous êtes connecté, puis réessayez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile cambiare account. Controlla di aver effettuato l'accesso e riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを切り替えられませんでした。サインインしていることを確認して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정을 전환할 수 없습니다. 로그인되어 있는지 확인한 후 다시 시도하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível trocar de conta. Verifique se você está conectado e tente novamente."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法切换账户。请确认你已登录，然后重试。"
+          }
+        }
+      }
+    },
     "Current session": {
       "localizations": {
         "de": {
@@ -7701,6 +7805,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "预报"
+          }
+        }
+      }
+    },
+    "Forget": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vergessen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dimentica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "삭제"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esquecer"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除"
           }
         }
       }
@@ -14468,6 +14624,110 @@
         }
       }
     },
+    "Remember Current Account": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelles Konto merken"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recordar la cuenta actual"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mémoriser le compte actuel"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ricorda l'account attuale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のアカウントを保存"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재 계정 기억하기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lembrar a conta atual"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记住当前账户"
+          }
+        }
+      }
+    },
+    "Remember the account you're signed in with, sign in to another with claude /login or codex login, and remember that one too. Then switch between them from the AI Usage tab. Saved logins stay in your Keychain. Sessions already running keep their account until you restart them.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merke dir das Konto, mit dem du angemeldet bist, melde dich mit claude /login oder codex login bei einem anderen an und merke dir auch dieses. Dann wechselst du im Tab „KI-Nutzung“ zwischen ihnen. Gespeicherte Anmeldungen bleiben in deinem Schlüsselbund. Laufende Sitzungen behalten ihr Konto, bis du sie neu startest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuerda la cuenta con la que has iniciado sesión, inicia sesión en otra con claude /login o codex login y recuérdala también. Después cambia entre ellas desde la pestaña Uso de IA. Los inicios de sesión guardados se quedan en tu llavero. Las sesiones abiertas conservan su cuenta hasta que las reinicies."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mémorisez le compte avec lequel vous êtes connecté, connectez-vous à un autre avec claude /login ou codex login, puis mémorisez-le aussi. Passez ensuite de l'un à l'autre depuis l'onglet Utilisation de l'IA. Les connexions enregistrées restent dans votre trousseau. Les sessions en cours gardent leur compte jusqu'à leur redémarrage."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ricorda l'account con cui hai effettuato l'accesso, accedi a un altro con claude /login o codex login e ricorda anche quello. Poi passa dall'uno all'altro dalla scheda Utilizzo IA. Gli accessi salvati restano nel tuo portachiavi. Le sessioni in corso mantengono il proprio account finché non le riavvii."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインイン中のアカウントを保存し、claude /login または codex login で別のアカウントにサインインして、それも保存します。その後「AI使用量」タブで切り替えられます。保存したログインはキーチェーンに保管されます。実行中のセッションは再起動するまで元のアカウントのままです。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그인된 계정을 기억한 다음 claude /login 또는 codex login으로 다른 계정에 로그인하고 그 계정도 기억하세요. 그러면 AI 사용량 탭에서 계정을 전환할 수 있습니다. 저장된 로그인은 키체인에 보관됩니다. 실행 중인 세션은 다시 시작할 때까지 기존 계정을 유지합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lembre a conta com que você entrou, entre em outra com claude /login ou codex login e lembre essa também. Depois, troque entre elas na aba Uso de IA. Os logins salvos ficam nas suas Chaves. Sessões em andamento mantêm a conta delas até serem reiniciadas."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记住你当前登录的账户，用 claude /login 或 codex login 登录另一个账户，并同样记住它。然后在“AI 用量”标签页中切换。保存的登录信息保存在你的钥匙串中。正在运行的会话在重启前仍使用原账户。"
+          }
+        }
+      }
+    },
     "Remove": {
       "localizations": {
         "de": {
@@ -16852,6 +17112,58 @@
         }
       }
     },
+    "Show the account switcher": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontowechsel anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar el selector de cuentas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le sélecteur de comptes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra il selettore di account"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウント切り替えを表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 전환 표시"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar o seletor de contas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示账户切换器"
+          }
+        }
+      }
+    },
     "Show the next meeting in the closed notch when nothing else is": {
       "localizations": {
         "de": {
@@ -18148,6 +18460,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "支持 CocoNotch"
+          }
+        }
+      }
+    },
+    "Switch which account Claude Code or Codex signs in with. Running sessions keep theirs until restarted.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wechsle das Konto, mit dem Claude Code oder Codex angemeldet ist. Laufende Sitzungen behalten ihres bis zum Neustart."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia la cuenta con la que inicia sesión Claude Code o Codex. Las sesiones abiertas conservan la suya hasta que las reinicies."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changez le compte avec lequel Claude Code ou Codex se connecte. Les sessions en cours gardent le leur jusqu'à leur redémarrage."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia l'account con cui accede Claude Code o Codex. Le sessioni in corso mantengono il proprio finché non le riavvii."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code や Codex がサインインするアカウントを切り替えます。実行中のセッションは再起動するまで元のアカウントのままです。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code 또는 Codex가 로그인할 계정을 전환합니다. 실행 중인 세션은 다시 시작할 때까지 기존 계정을 유지합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Troque a conta com que o Claude Code ou o Codex entra. Sessões em andamento mantêm a delas até serem reiniciadas."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换 Claude Code 或 Codex 登录所用的账户。正在运行的会话在重启前仍使用原账户。"
           }
         }
       }
