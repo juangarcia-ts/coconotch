@@ -142,6 +142,9 @@ private struct IslandLayout: Layout {
     }
 
     private func getSideWidth(_ subviews: Subviews) -> CGFloat {
-        getIslandSideWidth(subviews.map { $0.sizeThatFits(.unspecified).width }, maxWidth: maxSideWidth)
+        getIslandSideWidth(
+            subviews.map { $0.sizeThatFits(.unspecified).width },
+            minWidths: subviews.map { $0.sizeThatFits(ProposedViewSize(width: 0, height: nil)).width },
+            maxWidth: maxSideWidth)
     }
 }

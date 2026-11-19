@@ -76,6 +76,11 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
     #expect(getIslandSideWidth(idealWidths.map { CGFloat($0) }, maxWidth: 140) == CGFloat(expected))
 }
 
+@Test func widensIslandSidesPastTheCapForTheirMinimum() {
+    #expect(getIslandSideWidth([300, 40], minWidths: [150, 20], maxWidth: 140) == 150)
+    #expect(getIslandSideWidth([300, 40], minWidths: [60, 20], maxWidth: 140) == 140)
+}
+
 @Test func switchesTabOnHoverOnlyAboveLowPriority() {
     #expect(getHoverWidgetID(makeActivity("music", widget: "music", priority: .background)) == "music")
     #expect(getHoverWidgetID(makeActivity("next", widget: "meetings", priority: .low)) == nil)

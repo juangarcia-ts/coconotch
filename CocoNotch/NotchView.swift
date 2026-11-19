@@ -183,7 +183,7 @@ struct NotchView: View {
                 shape.fill(Color(colorData: backgroundColorData).opacity(backgroundOpacity))
             }
             if isExpanded {
-                expandedContent(activities: activities)
+                expandedContent(activities: activities, rightWidgetID: sides.right?.widgetID)
                     .transition(.opacity)
             } else if let island {
                 ActivityIsland(
@@ -291,7 +291,7 @@ struct NotchView: View {
         (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
     }
 
-    private func expandedContent(activities: [NotchActivity]) -> some View {
+    private func expandedContent(activities: [NotchActivity], rightWidgetID: String?) -> some View {
         let housingInset = getCameraHousingInset(
             height: cameraHousingHeight, notchScale: getAppliedNotchScale(storedNotchScale))
         return VStack(spacing: 0) {
@@ -303,11 +303,13 @@ struct NotchView: View {
                     } label: {
                         WidgetIcon(widget: widget)
                             .frame(width: 40, height: notchSize.height - 6)
-                            // Marks widgets with a live activity, since the closed notch shows only one.
+                            // Marks widgets with a live activity, and the right side's, since hovering opens the left's.
                             .overlay(alignment: .topTrailing) {
-                                if activities.contains(where: {
-                                    $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
-                                }) {
+                                if widget.id == rightWidgetID
+                                    || activities.contains(where: {
+                                        $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
+                                    })
+                                {
                                     Circle()
                                         .fill(.orange)
                                         .frame(width: 6, height: 6)

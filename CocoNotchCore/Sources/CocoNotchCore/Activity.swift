@@ -63,9 +63,10 @@ public func makeAlertKey(_ activity: ActivitySummary, isSticky: Bool) -> String 
     "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)-\(isSticky)"
 }
 
-/// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.
-public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> CGFloat {
-    min(idealWidths.max() ?? 0, maxWidth)
+/// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate, but
+/// never below what a side can't shrink under, such as a countdown beside a title's first letters.
+public func getIslandSideWidth(_ idealWidths: [CGFloat], minWidths: [CGFloat] = [], maxWidth: CGFloat) -> CGFloat {
+    max(min(idealWidths.max() ?? 0, maxWidth), minWidths.max() ?? 0)
 }
 
 /// Whether an activity deserves notice beyond the closed notch: a tab switch on hover, a dot on its tab, a "+N".
