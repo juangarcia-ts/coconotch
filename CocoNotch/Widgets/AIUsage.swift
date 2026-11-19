@@ -277,6 +277,8 @@ final class AIUsageStore {
     /// Bumped by each sign-in, so a refresh that started before it can't end it.
     @ObservationIgnored private var signInGeneration = 0
     @ObservationIgnored private var accountsVersion = 0
+    /// Each saved account's last usage and when it was fetched, so switching back shows it without another request.
+    @ObservationIgnored private var usageByAccount: [String: (limits: [UsageLimit], fetchedAt: Date)] = [:]
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -369,11 +371,11 @@ final class AIUsageStore {
                 showClaude(.loginExpired)
                 return
             }
-            await fetchClaudeUsage(token: credentials.accessToken)
+            await fetchClaudeUsage(token: credentials.accessToken, accountID: activeAccountID)
         }
     }
 
-    private func fetchClaudeUsage(token: String) async {
+    private func fetchClaudeUsage(token: String, accountID: String?) async {
         guard let url = claudeUsageURL else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -385,7 +387,11 @@ final class AIUsageStore {
                 showClaude(problem)
                 return
             }
-            claudeLimits = try parseClaudeUsage(data)
+            let limits = try parseClaudeUsage(data)
+            if let accountID { usageByAccount[accountID] = (limits, .now) }
+            // A switch while this was loading already shows the other account's numbers.
+            guard accountID == activeAccountID else { return }
+            claudeLimits = limits
             claudeProblem = nil
         } catch is DecodingError {
             showClaude(.unexpectedResponse)
@@ -418,9 +424,9 @@ final class AIUsageStore {
         guard snapshot.version > accountsVersion else { return }
         accountsVersion = snapshot.version
         savedAccounts = snapshot.accounts
-        // Another account's numbers would otherwise stay up under this one's name until a fetch succeeds.
+        // Shows the new account's own last numbers, or none, never the previous account's under its name.
         if activeAccountID != nil, snapshot.activeID != activeAccountID {
-            claudeLimits = []
+            claudeLimits = snapshot.activeID.flatMap { usageByAccount[$0]?.limits } ?? []
             claudeProblem = nil
         }
         activeAccountID = snapshot.activeID
@@ -483,7 +489,13 @@ final class AIUsageStore {
 
     func switchAccount(to account: SavedAccount) {
         let id = account.id
-        Task { if report(await AccountVault.shared.switchTo(id)) { refresh() } }
+        Task {
+            guard report(await AccountVault.shared.switchTo(id)) else { return }
+            // Fetches only when this account's numbers are older than the refresh interval, so switching back and
+            // forth doesn't run into the usage service's rate limit.
+            let maxAge = TimeInterval(readDefault(refreshMinutesKey, default: defaultRefreshMinutes) * 60)
+            if isStale(updatedAt: usageByAccount[id]?.fetchedAt, now: .now, maxAge: maxAge) { refresh() }
+        }
     }
 
     func forgetAccount(_ account: SavedAccount) {

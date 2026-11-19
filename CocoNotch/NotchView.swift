@@ -127,6 +127,13 @@ struct NotchView: View {
             if isHovering, alertingKey != nil { return }
             if !isHovering || !expandsOnClick { setExpanded(isHovering) }
         }
+        // A menu's items can hang past the notch, so picking one leaves the pointer outside it. A menu opened from the
+        // open notch keeps it open, and taking the keyboard lets a click elsewhere close it, as the file picker does.
+        .onReceive(NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)) { _ in
+            guard isExpanded, isHovering else { return }
+            isHeldOpen = true
+            NSApp.windows.first { ObjectIdentifier($0) == panelID }?.makeKey()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
             if (notification.object as? NotchPanel).map(ObjectIdentifier.init) == panelID, isExpanded, !isHovering,
                 FilePicker.shared.openerID != panelID
