@@ -51,7 +51,7 @@ nonisolated private func readClaudeCredentials() -> CredentialsResult {
     return .found(credentials)
 }
 
-/// Runs /usr/bin/security; secrets go in through `input`, so they never show up in the process list.
+/// Runs /usr/bin/security; secrets go in through `input` where they fit, so they stay out of the process list.
 nonisolated private func runSecurity(_ arguments: [String], input: Data? = nil) -> (status: Int32, output: Data) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -81,7 +81,10 @@ nonisolated private func readKeychain(service: String) -> Data? {
 nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
     let hex = data.map { String(format: "%02x", $0) }.joined()
     let command = "add-generic-password -U -a \"\(NSUserName())\" -s \"\(service)\" -X \(hex)\n"
-    return runSecurity(["-i"], input: Data(command.utf8)).status == 0
+    // security -i reads 4096 bytes a line and runs the rest as another command, so longer ones go as arguments, as
+    // Claude Code writes the same item.
+    if command.utf8.count < 4096 { return runSecurity(["-i"], input: Data(command.utf8)).status == 0 }
+    return runSecurity(["add-generic-password", "-U", "-a", NSUserName(), "-s", service, "-X", hex]).status == 0
 }
 
 nonisolated private let claudeConfigURL = FileManager.default.homeDirectoryForCurrentUser.appending(
@@ -99,28 +102,67 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
         let config = try? Data(contentsOf: claudeConfigURL),
         let newCredentials = replaceJSONValue(credentials, key: "claudeAiOauth", with: account.login),
         let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile),
-        writeKeychain(newCredentials, service: claudeCredentialsService),
-        (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil
+        writeKeychain(newCredentials, service: claudeCredentialsService)
     else { return false }
+    guard (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil else {
+        // Puts the old login back, so the Keychain and ~/.claude.json never name different accounts.
+        _ = writeKeychain(credentials, service: claudeCredentialsService)
+        return false
+    }
     // The file holds the login's profile, so it stays readable only by you, as Claude Code leaves it.
     return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path))
         != nil
 }
 
-nonisolated private func readSavedAccounts() -> [SavedAccount] {
-    readKeychain(service: savedAccountsService).flatMap { try? JSONDecoder().decode([SavedAccount].self, from: $0) }
-        ?? []
+/// nil when the list can't be read, so a locked Keychain is never taken for an empty list and overwritten.
+nonisolated private func readSavedAccounts() -> [SavedAccount]? {
+    let (status, data) = runSecurity(["find-generic-password", "-s", savedAccountsService, "-a", NSUserName(), "-w"])
+    // errSecItemNotFound: nothing saved yet.
+    if status == 44 { return [] }
+    guard status == 0, let json = decodeKeychainOutput(data) else { return nil }
+    return try? JSONDecoder().decode([SavedAccount].self, from: json)
 }
 
 nonisolated private func writeSavedAccounts(_ accounts: [SavedAccount]) -> Bool {
     (try? JSONEncoder().encode(accounts)).map { writeKeychain($0, service: savedAccountsService) } ?? false
 }
 
-/// Saves the active login first: its refresh token has rotated since it was saved, and the old one no longer works.
-nonisolated private func swapAccount(to account: SavedAccount, saved: [SavedAccount]) -> [SavedAccount]? {
-    let updated = readActiveAccount().map { upsertSavedAccount(saved, $0) } ?? saved
-    guard writeSavedAccounts(updated), activateAccount(account) else { return nil }
-    return updated
+private struct AccountSnapshot: Sendable {
+    let version: Int
+    let accounts: [SavedAccount]
+    let activeID: String?
+    let didChange: Bool
+}
+
+/// Runs every change to the saved accounts one at a time, each on a fresh read, so two quick changes can't overwrite
+/// each other. The version lets the store skip a result that a later change has already replaced.
+private actor AccountVault {
+    static let shared = AccountVault()
+    private var version = 0
+
+    func update(_ change: @Sendable (_ saved: [SavedAccount], _ active: SavedAccount?) -> [SavedAccount])
+        -> AccountSnapshot?
+    {
+        guard let saved = readSavedAccounts() else { return nil }
+        let active = readActiveAccount()
+        let updated = change(saved, active)
+        guard updated == saved || writeSavedAccounts(updated) else { return nil }
+        version += 1
+        return AccountSnapshot(version: version, accounts: updated, activeID: active?.id, didChange: updated != saved)
+    }
+
+    /// Saves the active login first: its refresh token has rotated since it was saved, and the old one no longer works.
+    func switchTo(_ id: String) -> AccountSnapshot? {
+        guard let saved = readSavedAccounts() else { return nil }
+        let active = readActiveAccount()
+        let updated = active.map { upsertSavedAccount(saved, $0) } ?? saved
+        // The copy just read, not the one the menu showed, whose token may have rotated since.
+        guard let target = updated.first(where: { $0.id == id }), writeSavedAccounts(updated),
+            active?.id == id || activateAccount(target)
+        else { return nil }
+        version += 1
+        return AccountSnapshot(version: version, accounts: updated, activeID: id, didChange: true)
+    }
 }
 
 /// The newest Codex rate-limit snapshot, from the most recently written session logs. Nothing leaves the Mac.
@@ -178,6 +220,7 @@ final class AIUsageStore {
     private(set) var activeAccountID: String?
     private(set) var isAccountSwitchFailed = false
     @ObservationIgnored private var isAddingAccount = false
+    @ObservationIgnored private var accountsVersion = 0
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -295,22 +338,36 @@ final class AIUsageStore {
         }
     }
 
-    /// Claude Code's login is read only once its usage is enabled, so the Keychain is never touched unasked.
+    /// Claude Code's login is read only once its usage is on and enabled, so the Keychain is never touched unasked.
     private func loadAccounts() async {
-        guard UserDefaults.standard.bool(forKey: isClaudeConnectedKey) else { return }
+        guard readDefault(showsClaudeKey, default: true), UserDefaults.standard.bool(forKey: isClaudeConnectedKey)
+        else { return }
         let isAdding = isAddingAccount
-        let (saved, activeID, didAdd) = await Task.detached { () -> ([SavedAccount], String?, Bool) in
-            let saved = readSavedAccounts()
-            guard let active = readActiveAccount() else { return (saved, nil, false) }
+        let snapshot = await AccountVault.shared.update { saved, active in
             // After Add Account, the login you make next is saved without a trip back to the menu.
-            guard isAdding, !saved.contains(where: { $0.id == active.id }) else { return (saved, active.id, false) }
-            let updated = upsertSavedAccount(saved, active)
-            return writeSavedAccounts(updated) ? (updated, active.id, true) : (saved, active.id, false)
-        }.value
-        guard !Task.isCancelled else { return }
-        if didAdd { isAddingAccount = false }
-        savedAccounts = saved
-        activeAccountID = activeID
+            guard isAdding, let active, !saved.contains(where: { $0.id == active.id }) else { return saved }
+            return upsertSavedAccount(saved, active)
+        }
+        guard let snapshot else { return }
+        if snapshot.didChange { isAddingAccount = false }
+        publish(snapshot)
+    }
+
+    /// Shows the newest result, so one change finishing after a later one can't bring back the older list.
+    private func publish(_ snapshot: AccountSnapshot) {
+        guard snapshot.version > accountsVersion else { return }
+        accountsVersion = snapshot.version
+        savedAccounts = snapshot.accounts
+        activeAccountID = snapshot.activeID
+        updateHeadsUp()
+    }
+
+    /// nil means the change failed, which the menu says.
+    @discardableResult private func report(_ snapshot: AccountSnapshot?) -> Bool {
+        isAccountSwitchFailed = snapshot == nil
+        guard let snapshot else { return false }
+        publish(snapshot)
+        return true
     }
 
     /// Saves the current login, then opens Terminal to sign in to another one.
@@ -333,53 +390,27 @@ final class AIUsageStore {
     }
 
     func setAlias(_ alias: String, for account: SavedAccount) {
-        let updated = setAccountAlias(savedAccounts, account, alias: alias)
-        guard updated != savedAccounts else { return }
-        savedAccounts = updated
-        updateHeadsUp()
-        Task.detached { _ = writeSavedAccounts(updated) }
+        guard setAccountAlias(savedAccounts, account, alias: alias) != savedAccounts else { return }
+        Task { report(await AccountVault.shared.update { saved, _ in setAccountAlias(saved, account, alias: alias) }) }
     }
 
     func rememberActiveAccount() {
-        let saved = savedAccounts
         Task {
-            guard
-                let (updated, id) = await Task.detached(operation: { () -> ([SavedAccount], String)? in
-                    guard let active = readActiveAccount() else { return nil }
-                    let updated = upsertSavedAccount(saved, active)
-                    return writeSavedAccounts(updated) ? (updated, active.id) : nil
-                }).value
-            else {
-                isAccountSwitchFailed = true
-                return
+            let snapshot = await AccountVault.shared.update { saved, active in
+                active.map { upsertSavedAccount(saved, $0) } ?? saved
             }
-            isAccountSwitchFailed = false
-            savedAccounts = updated
-            activeAccountID = id
-            updateHeadsUp()
+            report(snapshot?.activeID == nil ? nil : snapshot)
         }
     }
 
     func switchAccount(to account: SavedAccount) {
-        let saved = savedAccounts
-        Task {
-            guard let updated = await Task.detached(operation: { swapAccount(to: account, saved: saved) }).value
-            else {
-                isAccountSwitchFailed = true
-                return
-            }
-            isAccountSwitchFailed = false
-            savedAccounts = updated
-            activeAccountID = account.id
-            refresh()
-        }
+        let id = account.id
+        Task { if report(await AccountVault.shared.switchTo(id)) { refresh() } }
     }
 
     func forgetAccount(_ account: SavedAccount) {
-        let remaining = savedAccounts.filter { $0 != account }
-        savedAccounts = remaining
-        updateHeadsUp()
-        Task.detached { _ = writeSavedAccounts(remaining) }
+        let id = account.id
+        Task { report(await AccountVault.shared.update { saved, _ in saved.filter { $0.id != id } }) }
     }
 
     /// The limits to show for a provider, with reset windows at zero: Claude's chosen kinds, or Codex's snapshot.
@@ -646,13 +677,13 @@ private struct AccountMenu: View {
                     ))
             }
             if !saved.isEmpty { Divider() }
+            Button("Add Account…") { store.addAccount() }
             if saved.contains(where: { $0.id == activeID }) {
                 Button("Set Alias…") { showSettings(.widget(NotchWidget.aiUsage.id)) }
             } else {
                 Button("Remember Current Account") { store.rememberActiveAccount() }
                     .disabled(activeID == nil)
             }
-            Button("Add Account…") { store.addAccount() }
             if !saved.isEmpty {
                 Menu("Forget") {
                     ForEach(saved) { account in

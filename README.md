@@ -73,6 +73,8 @@ The AI Usage tab can keep several Claude Code logins and switch between them, fo
 
 If you signed in to an account another way, choose **Remember Current Account** in the menu to save it.
 
+The **Accounts** menu is on by default. To hide it, turn off **Show the account switcher** in **Settings → Widgets → AI Usage → Claude Code Accounts**.
+
 To name an account, choose **Set Alias…** in the **Accounts** menu, or go to **Settings → Widgets → AI Usage → Claude Code Accounts**. Double-click the account or use ✎, type an alias like "Work" and press Return. The menu shows the alias, and so does the closed notch in place of "Claude" (turn that off with **Show the alias in the closed notch**). The ⊖ button forgets an account.
 
 Good to know:
