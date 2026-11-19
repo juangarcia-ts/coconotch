@@ -156,7 +156,7 @@ jobs:
             homepage "https://github.com/$GITHUB_REPOSITORY"
 
             auto_updates true
-            depends_on macos: ">= :sequoia"
+            depends_on macos: :sequoia
 
             app "CocoNotch.app"
 
