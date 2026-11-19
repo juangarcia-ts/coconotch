@@ -67,3 +67,46 @@ func rejectsNothingPlaying(output: String) {
     #expect(getSliderFraction(300, range: 0...240) == 1)
     #expect(getSliderFraction(5, range: 0...0) == 0)
 }
+
+@Test func buildsStepsOnTheSentValueUntilEveryCommandSettles() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(sent.getStepped(from: 50, steps: 1, range: 0...100))
+    commands.start()
+    // The player still reports 50 while both commands run.
+    sent.send(sent.getStepped(from: 50, steps: 1, range: 0...100))
+    #expect(sent.value == 60)
+    commands.finish()
+    sent.settle(commands)
+    #expect(commands.settled == 0)
+    #expect(sent.value == 60)
+    commands.finish()
+    sent.settle(commands)
+    #expect(commands.settled == 1)
+    #expect(sent.value == nil)
+}
+
+@Test func keepsTheSentValueWhenANewerCommandStartsBeforeTheSettleIsSeen() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(55)
+    commands.finish()
+    commands.start()
+    sent.send(60)
+    sent.settle(commands)
+    #expect(sent.value == 60)
+}
+
+@Test func fallsBackToThePlayerAfterAFailedCommand() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(55)
+    // A failed command still finishes, after a read that shows the player unchanged.
+    commands.finish()
+    sent.settle(commands)
+    #expect(sent.value == nil)
+    #expect(sent.getStepped(from: 50, steps: 1, range: 0...100) == 55)
+}

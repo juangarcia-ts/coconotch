@@ -52,10 +52,8 @@ final class MusicStore {
     private(set) var readAt = Date.now
     /// A running player macOS won't let CocoNotch control, so the views can say where to allow it.
     private(set) var deniedPlayer: String?
-    @ObservationIgnored private(set) var pendingCommands = 0
-    /// Bumped each time the last command sent has run and been read back, so a slider knows the player's value
-    /// includes it. Only grows, so a view sees the change even when a whole command finishes between two updates.
-    private(set) var commandsSettled = 0
+    /// So a slider knows when the player's value includes what it sent.
+    private(set) var commands = PlayerCommands()
     private let scriptRunner = ScriptRunner()
     private var isStarted = false
 
@@ -121,12 +119,11 @@ final class MusicStore {
 
     func send(_ command: String) {
         guard let player = nowPlaying?.player else { return }
-        pendingCommands += 1
+        commands.start()
         Task {
             _ = await scriptRunner.run("tell application \"\(player)\" to \(command)")
             await refresh()
-            pendingCommands -= 1
-            if pendingCommands == 0 { commandsSettled += 1 }
+            commands.finish()
         }
     }
 
@@ -240,13 +237,12 @@ private struct ReleaseSlider: View {
     let range: ClosedRange<Double>
     let onRelease: (Double) -> Void
     @State private var draggedValue: Double?
-    /// The last value sent, shown until the player has run it so quick key presses build on each other.
-    @State private var sentValue: Double?
+    @State private var sent = SentSliderValue()
 
     private let knobSize: CGFloat = 10
 
     var body: some View {
-        let fraction = getSliderFraction(draggedValue ?? sentValue ?? value, range: range)
+        let fraction = getSliderFraction(draggedValue ?? sent.value ?? value, range: range)
         GeometryReader { geometry in
             let width = geometry.size.width
             let knobX = (width - knobSize) * fraction
@@ -293,20 +289,16 @@ private struct ReleaseSlider: View {
             @unknown default: break
             }
         }
-        // Every command has run and the player was read after it, so its value is current, even after a failure.
-        .onChange(of: MusicStore.shared.commandsSettled) {
-            // A newer command may have started since; its own settle clears the value then.
-            if MusicStore.shared.pendingCommands == 0 { sentValue = nil }
-        }
+        .onChange(of: MusicStore.shared.commands.settled) { sent.settle(MusicStore.shared.commands) }
     }
 
     private func send(_ newValue: Double) {
-        sentValue = newValue
+        sent.send(newValue)
         onRelease(newValue)
     }
 
     private func step(_ steps: Int) {
-        send(getSteppedSliderValue(sentValue ?? value, steps: steps, range: range))
+        send(sent.getStepped(from: value, steps: steps, range: range))
     }
 }
 

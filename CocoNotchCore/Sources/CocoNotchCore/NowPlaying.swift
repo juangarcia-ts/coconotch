@@ -86,3 +86,39 @@ public func getSliderFraction(_ value: Double, range: ClosedRange<Double>) -> Do
     guard span > 0 else { return 0 }
     return min(max((value - range.lowerBound) / span, 0), 1)
 }
+
+/// Commands sent to a player and not yet read back. `settled` only grows, bumped when the last one finishes, so a view
+/// sees it change even when a whole command runs between two updates.
+public struct PlayerCommands: Equatable, Sendable {
+    public private(set) var pending = 0
+    public private(set) var settled = 0
+
+    public init() {}
+
+    public mutating func start() { pending += 1 }
+
+    /// Called once the command ran and the player was read again, whether or not the command worked.
+    public mutating func finish() {
+        pending -= 1
+        if pending == 0 { settled += 1 }
+    }
+}
+
+/// The value a slider last sent, shown and stepped from until the player has run every command, so quick steps build
+/// on each other instead of on a reading that's about to change.
+public struct SentSliderValue: Equatable, Sendable {
+    public private(set) var value: Double?
+
+    public init() {}
+
+    public mutating func send(_ newValue: Double) { value = newValue }
+
+    public func getStepped(from reported: Double, steps: Int, range: ClosedRange<Double>) -> Double {
+        getSteppedSliderValue(value ?? reported, steps: steps, range: range)
+    }
+
+    /// Keeps the value while a newer command is still pending; that command's own settle clears it.
+    public mutating func settle(_ commands: PlayerCommands) {
+        if commands.pending == 0 { value = nil }
+    }
+}
