@@ -89,8 +89,13 @@ nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
 
 nonisolated private let claudeConfigURL = FileManager.default.homeDirectoryForCurrentUser.appending(
     path: ".claude.json")
+// Set while the Keychain and ~/.claude.json may name different accounts, and kept across restarts until a switch
+// rewrites both, so a mixed pair is never saved over one account's backup.
+nonisolated private let isLoginMismatchedKey = "aiUsage.isLoginMismatched"
+
 nonisolated private func readActiveAccount() -> SavedAccount? {
-    guard let credentials = readKeychain(service: claudeCredentialsService),
+    guard !UserDefaults.standard.bool(forKey: isLoginMismatchedKey),
+        let credentials = readKeychain(service: claudeCredentialsService),
         let config = try? Data(contentsOf: claudeConfigURL)
     else { return nil }
     return getClaudeAccount(credentials: credentials, config: config)
@@ -106,9 +111,12 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
     else { return false }
     guard (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil else {
         // Puts the old login back, so the Keychain and ~/.claude.json never name different accounts.
-        _ = writeKeychain(credentials, service: claudeCredentialsService)
+        if !writeKeychain(credentials, service: claudeCredentialsService) {
+            UserDefaults.standard.set(true, forKey: isLoginMismatchedKey)
+        }
         return false
     }
+    UserDefaults.standard.set(false, forKey: isLoginMismatchedKey)
     // The file holds the login's profile, so it stays readable only by you, as Claude Code leaves it.
     return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path))
         != nil
