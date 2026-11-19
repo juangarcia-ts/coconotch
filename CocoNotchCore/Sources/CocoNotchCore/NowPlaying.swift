@@ -86,3 +86,9 @@ public func getSliderFraction(_ value: Double, range: ClosedRange<Double>) -> Do
     guard span > 0 else { return 0 }
     return min(max((value - range.lowerBound) / span, 0), 1)
 }
+
+/// Whether the player now reports the value a slider sent, within half a step, since a player may round the volume
+/// and the position keeps moving after a seek.
+public func isSliderValueReached(_ value: Double, sent: Double, range: ClosedRange<Double>) -> Bool {
+    abs(value - sent) < (range.upperBound - range.lowerBound) / 40
+}

@@ -286,7 +286,9 @@ private struct ReleaseSlider: View {
             @unknown default: break
             }
         }
-        .onChange(of: value) { sentValue = nil }
+        .onChange(of: value) {
+            if let sentValue, isSliderValueReached(value, sent: sentValue, range: range) { self.sentValue = nil }
+        }
         // Lets go of the sent value if the command failed and the player never reports a change.
         .task(id: sentValue) {
             guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
