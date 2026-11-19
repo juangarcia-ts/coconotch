@@ -142,7 +142,8 @@ final class MusicStore {
                 priority: .background,
                 sortDate: .distantFuture,
                 makeLeading: { AnyView(IslandTrack()) },
-                makeTrailing: { AnyView(IslandProgress()) }
+                makeTrailing: { AnyView(IslandProgress()) },
+                makeCompact: { AnyView(IslandCompact()) }
             )
         )
     }
@@ -169,6 +170,17 @@ private struct IslandTrack: View {
         HStack(spacing: 6) {
             Artwork(url: MusicStore.shared.nowPlaying?.artworkURL, size: 18)
             Text(MusicStore.shared.nowPlaying?.title ?? "")
+        }
+    }
+}
+
+private struct IslandCompact: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Artwork(url: MusicStore.shared.nowPlaying?.artworkURL, size: 18)
+            Image(systemName: "waveform")
+                .symbolEffect(.variableColor.iterative, isActive: MusicStore.shared.nowPlaying?.isPlaying == true)
+                .foregroundStyle(.secondary)
         }
     }
 }

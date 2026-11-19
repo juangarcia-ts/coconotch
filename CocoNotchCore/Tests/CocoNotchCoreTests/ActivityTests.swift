@@ -86,3 +86,14 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
     #expect(isActivityNoteworthy(makeActivity("music", widget: "music", priority: .background)))
     #expect(!isActivityNoteworthy(makeActivity("usage", widget: "aiUsage", priority: .low)))
 }
+
+@Test func pairsTheWinnerWithTheNextActivityFromAnotherWidget() {
+    let ranked = [
+        makeActivity("heads-up", widget: "meetings", priority: .urgent),
+        makeActivity("next", widget: "meetings", priority: .low),
+        makeActivity("usage", widget: "aiUsage", priority: .low),
+    ]
+    #expect(getSplitPartner(ranked)?.id == "usage")
+    #expect(getSplitPartner(Array(ranked.prefix(2))) == nil)
+    #expect(getSplitPartner([]) == nil)
+}

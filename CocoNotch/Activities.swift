@@ -12,6 +12,8 @@ struct NotchActivity: Identifiable {
     let sortDate: Date
     let makeLeading: () -> AnyView
     let makeTrailing: () -> AnyView
+    /// One side's worth, shown when the island splits between two activities: an icon and a short value.
+    let makeCompact: () -> AnyView
     /// A bigger view shown under the island for a few seconds when the activity appears or its priority rises.
     var makeAlert: (() -> AnyView)?
     /// Keeps the alert open until the activity goes away or changes, instead of folding it back after a few seconds.
@@ -50,6 +52,8 @@ final class ActivityCenter {
 /// The closed notch widened to show an activity on both sides of the camera.
 struct ActivityIsland: View {
     let activity: NotchActivity
+    /// Takes the right side when set, each activity showing its compact view.
+    let partner: NotchActivity?
     let notchSize: CGSize
     let otherCount: Int
     let isAlerting: Bool
@@ -70,11 +74,11 @@ struct ActivityIsland: View {
 
     private var row: some View {
         IslandLayout(gapWidth: notchSize.width, maxSideWidth: Self.maxSideWidth) {
-            activity.makeLeading()
+            (partner == nil ? activity.makeLeading() : activity.makeCompact())
                 .lineLimit(1)
                 .padding(.leading, 14)
             HStack(spacing: 6) {
-                activity.makeTrailing()
+                (partner?.makeCompact() ?? activity.makeTrailing())
                     .lineLimit(1)
                 if otherCount > 0 {
                     Text("+\(otherCount)")

@@ -153,6 +153,14 @@ final class MeetingsStore {
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
+                makeCompact: {
+                    AnyView(
+                        HStack(spacing: 5) {
+                            Image(systemName: "calendar").foregroundStyle(.orange)
+                            HeadsUpCountdown(meeting: meeting)
+                        }
+                    )
+                },
                 makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) },
                 isAlertSticky: sticks && priority == .urgent
             )
@@ -172,7 +180,15 @@ final class MeetingsStore {
                 priority: .low,
                 sortDate: meeting.start,
                 makeLeading: { AnyView(NextMeetingTitle(meeting: meeting)) },
-                makeTrailing: { AnyView(NextMeetingCountdown(meeting: meeting)) }
+                makeTrailing: { AnyView(NextMeetingCountdown(meeting: meeting)) },
+                makeCompact: {
+                    AnyView(
+                        HStack(spacing: 5) {
+                            Image(systemName: "calendar").foregroundStyle(.secondary)
+                            NextMeetingCountdown(meeting: meeting)
+                        }
+                    )
+                }
             )
         )
     }

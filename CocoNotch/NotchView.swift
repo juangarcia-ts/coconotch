@@ -24,6 +24,7 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
+    @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
@@ -180,10 +181,16 @@ struct NotchView: View {
                 expandedContent(activities: activities)
                     .transition(.opacity)
             } else if let island {
+                let partnerID = showsTwoActivities ? getSplitPartner(activities.map(\.summary))?.id : nil
+                let partner = activities.first { $0.id == partnerID }
                 ActivityIsland(
                     activity: island,
+                    partner: partner,
                     notchSize: notchSize,
-                    otherCount: activities.dropFirst().filter { isActivityNoteworthy($0.summary) }.count,
+                    otherCount: activities.dropFirst().filter {
+                        $0.id != partner?.id && isActivityNoteworthy($0.summary)
+                    }
+                    .count,
                     isAlerting: isAlerting
                 )
                 .transition(.opacity)

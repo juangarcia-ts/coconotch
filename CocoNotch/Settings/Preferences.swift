@@ -18,6 +18,8 @@ enum PreferenceKey {
     static let showsActivities = "behavior.showsActivities"
     /// A widget ID whose activity always wins the closed notch, or "" to rank them automatically.
     static let preferredActivityWidget = "behavior.preferredActivityWidget"
+    /// Splits the closed notch between the top two activities, one on each side of the camera.
+    static let showsTwoActivities = "behavior.showsTwoActivities"
     static let staysOpenWhileTyping = "behavior.staysOpenWhileTyping"
     static let widgetShortcuts = "behavior.widgetShortcuts"
 }

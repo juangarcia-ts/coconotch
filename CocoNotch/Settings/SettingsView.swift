@@ -147,6 +147,7 @@ private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
+    @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
@@ -207,6 +208,8 @@ private struct GeneralSettings: View {
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
             Toggle("Show live activities in the closed notch", isOn: $showsActivities)
+            Toggle("Show two activities side by side", isOn: $showsTwoActivities)
+                .disabled(!showsActivities)
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.

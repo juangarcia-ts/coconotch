@@ -78,3 +78,10 @@ public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
     guard let topActivity, isActivityNoteworthy(topActivity) else { return nil }
     return topActivity.widgetID
 }
+
+/// The activity for the right side of a split island: the next one from a different widget than the winner, so two
+/// meetings never take both sides. Quiet ones count, as a split notch has room for them.
+public func getSplitPartner(_ ranked: [ActivitySummary]) -> ActivitySummary? {
+    guard let top = ranked.first else { return nil }
+    return ranked.dropFirst().first { $0.widgetID != top.widgetID }
+}
