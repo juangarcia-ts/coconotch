@@ -325,6 +325,14 @@ final class AIUsageStore {
                         UsageNotchTrailing(limit: limit, showsReset: readDefault(showsNotchResetKey, default: true))
                     )
                 },
+                makeCompact: {
+                    AnyView(
+                        HStack(spacing: 5) {
+                            ProviderLogo(provider: provider, size: 13)
+                            UsageNotchTrailing(limit: limit, showsReset: readDefault(showsNotchResetKey, default: true))
+                        }
+                    )
+                },
                 makeAlert: isHeadsUp ? { AnyView(UsageHeadsUpAlert(provider: provider, limit: limit)) } : nil
             )
         )

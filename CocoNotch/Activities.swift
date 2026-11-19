@@ -12,6 +12,8 @@ struct NotchActivity: Identifiable {
     let sortDate: Date
     let makeLeading: () -> AnyView
     let makeTrailing: () -> AnyView
+    /// One side's worth, shown when the island splits between two activities: an icon and a short value.
+    let makeCompact: () -> AnyView
     /// A bigger view shown under the island for a few seconds when the activity appears or its priority rises.
     var makeAlert: (() -> AnyView)?
     /// Keeps the alert open until the activity goes away or changes, instead of folding it back after a few seconds.
@@ -50,16 +52,19 @@ final class ActivityCenter {
 /// The closed notch widened to show an activity on both sides of the camera.
 struct ActivityIsland: View {
     let activity: NotchActivity
+    /// Takes the right side when set, each activity showing its compact view.
+    let partner: NotchActivity?
     let notchSize: CGSize
     let otherCount: Int
-    let isAlerting: Bool
+    /// The top activity's alert while it shows, which may belong to either side.
+    let makeAlert: (() -> AnyView)?
 
     static let maxSideWidth: CGFloat = 140
 
     var body: some View {
         IslandStack {
             row
-            if isAlerting, let makeAlert = activity.makeAlert {
+            if let makeAlert {
                 makeAlert()
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -70,11 +75,11 @@ struct ActivityIsland: View {
 
     private var row: some View {
         IslandLayout(gapWidth: notchSize.width, maxSideWidth: Self.maxSideWidth) {
-            activity.makeLeading()
+            (partner == nil ? activity.makeLeading() : activity.makeCompact())
                 .lineLimit(1)
                 .padding(.leading, 14)
             HStack(spacing: 6) {
-                activity.makeTrailing()
+                (partner?.makeCompact() ?? activity.makeTrailing())
                     .lineLimit(1)
                 if otherCount > 0 {
                     Text("+\(otherCount)")
@@ -137,6 +142,9 @@ private struct IslandLayout: Layout {
     }
 
     private func getSideWidth(_ subviews: Subviews) -> CGFloat {
-        getIslandSideWidth(subviews.map { $0.sizeThatFits(.unspecified).width }, maxWidth: maxSideWidth)
+        getIslandSideWidth(
+            subviews.map { $0.sizeThatFits(.unspecified).width },
+            minWidths: subviews.map { $0.sizeThatFits(ProposedViewSize(width: 0, height: nil)).width },
+            maxWidth: maxSideWidth)
     }
 }

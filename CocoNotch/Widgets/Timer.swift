@@ -197,6 +197,7 @@ final class TimerStore {
                 sortDate: .now,
                 makeLeading: { AnyView(Label(message, systemImage: "checkmark.circle.fill")) },
                 makeTrailing: { AnyView(Image(systemName: mode.systemImage)) },
+                makeCompact: { AnyView(Label(message, systemImage: "checkmark.circle.fill")) },
                 makeAlert: { AnyView(Text(message)) }
             )
         )
@@ -249,6 +250,14 @@ final class TimerStore {
                 },
                 makeTrailing: {
                     AnyView(ClockText(clock: clock, duration: mode == .stopwatch ? nil : duration))
+                },
+                makeCompact: {
+                    AnyView(
+                        HStack(spacing: 5) {
+                            Image(systemName: clock.isRunning ? mode.systemImage : "pause.fill")
+                            ClockText(clock: clock, duration: mode == .stopwatch ? nil : duration)
+                        }
+                    )
                 }
             )
         )

@@ -3021,6 +3021,110 @@
         }
       }
     },
+    "Automatic shows the most urgent activity: a meeting that's starting or a finished timer, then heads-ups and running timers, then music, then quiet ones like your next meeting. Ties go to the widget higher in the list below.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch zeigt die dringendste Aktivität: ein beginnendes Meeting oder einen abgelaufenen Timer, dann Hinweise und laufende Timer, dann Musik, dann ruhige wie dein nächstes Meeting. Bei Gleichstand gewinnt das Widget weiter oben in der Liste unten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático muestra la actividad más urgente: una reunión que empieza o un temporizador terminado, luego avisos y temporizadores en marcha, luego música y luego las tranquilas, como tu próxima reunión. En caso de empate gana el widget más arriba en la lista de abajo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique affiche l'activité la plus urgente : une réunion qui commence ou un minuteur terminé, puis les alertes et les minuteurs en cours, puis la musique, puis les plus discrètes comme ta prochaine réunion. En cas d'égalité, le widget le plus haut dans la liste ci-dessous l'emporte."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatico mostra l'attività più urgente: una riunione che inizia o un timer finito, poi gli avvisi e i timer in corso, poi la musica, poi quelle tranquille come la tua prossima riunione. In caso di parità vince il widget più in alto nell'elenco sotto."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動では最も緊急のアクティビティを表示します：開始する会議や終了したタイマー、次に通知と実行中のタイマー、次に音楽、最後に次の会議などの控えめなもの。同じ場合は下のリストで上にあるウィジェットが優先されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자동은 가장 긴급한 활동을 표시합니다: 시작하는 회의나 끝난 타이머, 그다음 알림과 실행 중인 타이머, 그다음 음악, 마지막으로 다음 회의 같은 조용한 활동. 같으면 아래 목록에서 더 위에 있는 위젯이 우선합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático mostra a atividade mais urgente: uma reunião começando ou um timer concluído, depois avisos e timers em andamento, depois música e depois as discretas, como sua próxima reunião. Em caso de empate, vence o widget mais acima na lista abaixo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动会显示最紧急的活动：即将开始的会议或已结束的计时器，其次是提醒和正在运行的计时器，然后是音乐，最后是下一场会议等安静的活动。优先级相同时，下方列表中靠上的小组件优先。"
+          }
+        }
+      }
+    },
+    "Automatic shows the next activity from another widget. A widget picked here keeps the right side whenever it has an activity.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch zeigt die nächste Aktivität eines anderen Widgets. Ein hier gewähltes Widget behält die rechte Seite, sobald es eine Aktivität hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático muestra la siguiente actividad de otro widget. Un widget elegido aquí mantiene el lado derecho siempre que tenga una actividad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique affiche l'activité suivante d'un autre widget. Un widget choisi ici garde le côté droit dès qu'il a une activité."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatico mostra l'attività successiva di un altro widget. Un widget scelto qui tiene il lato destro ogni volta che ha un'attività."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動では別のウィジェットの次のアクティビティを表示します。ここで選んだウィジェットは、アクティビティがあるときは常に右側に表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자동은 다른 위젯의 다음 활동을 표시합니다. 여기서 고른 위젯은 활동이 있을 때마다 오른쪽을 유지합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático mostra a próxima atividade de outro widget. Um widget escolhido aqui fica com o lado direito sempre que tiver uma atividade."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动会显示另一个小组件的下一个活动。在此选择的小组件只要有活动就会固定在右侧。"
+          }
+        }
+      }
+    },
     "Automatically check for updates": {
       "localizations": {
         "de": {
@@ -9837,6 +9941,58 @@
         }
       }
     },
+    "Left of the camera": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Links von der Kamera"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A la izquierda de la cámara"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À gauche de la caméra"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A sinistra della fotocamera"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラの左側"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "카메라 왼쪽"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À esquerda da câmera"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "摄像头左侧"
+          }
+        }
+      }
+    },
     "Loading the forecast…": {
       "localizations": {
         "de": {
@@ -13480,58 +13636,6 @@
     "Pomodoro": {
       "shouldTranslate": false
     },
-    "Preferred activity": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bevorzugte Aktivität"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actividad preferida"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activité préférée"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Attività preferita"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "優先するアクティビティ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "선호하는 활동"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Atividade preferida"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "首选活动"
-          }
-        }
-      }
-    },
     "Press keys…": {
       "localizations": {
         "de": {
@@ -15184,6 +15288,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新启动 CocoNotch 以使用新语言。"
+          }
+        }
+      }
+    },
+    "Right of the camera": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechts von der Kamera"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A la derecha de la cámara"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À droite de la caméra"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A destra della fotocamera"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラの右側"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "카메라 오른쪽"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À direita da câmera"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "摄像头右侧"
           }
         }
       }
@@ -17216,6 +17372,58 @@
         }
       }
     },
+    "Show two activities side by side": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwei Aktivitäten nebeneinander anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar dos actividades una al lado de la otra"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher deux activités côte à côte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra due attività affiancate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2つのアクティビティを並べて表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "두 활동을 나란히 표시"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar duas atividades lado a lado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "并排显示两个活动"
+          }
+        }
+      }
+    },
     "Show usage as": {
       "localizations": {
         "de": {
@@ -18568,58 +18776,6 @@
         }
       }
     },
-    "The closed notch shows this widget's activity first. Automatic picks the most urgent one.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die geschlossene Notch zeigt zuerst die Aktivität dieses Widgets. Automatisch wählt die dringendste."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El notch cerrado muestra primero la actividad de este widget. Automático elige la más urgente."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'encoche fermée affiche d'abord l'activité de ce widget. Automatique choisit la plus urgente."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il notch chiuso mostra prima l'attività di questo widget. Automatico sceglie la più urgente."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じたノッチにはこのウィジェットのアクティビティが優先して表示されます。「自動」では最も緊急なものが選ばれます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "닫힌 노치는 이 위젯의 활동을 먼저 표시합니다. 자동은 가장 급한 것을 고릅니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O notch fechado mostra primeiro a atividade deste widget. Automático escolhe a mais urgente."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "收起的刘海会优先显示此小组件的活动。“自动”会选择最紧急的一个。"
-          }
-        }
-      }
-    },
     "The fullest limit": {
       "localizations": {
         "de": {
@@ -19344,6 +19500,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "请在“设置”→“AI 用量”中打开 Claude 或 Codex。"
+          }
+        }
+      }
+    },
+    "Turn on Show two activities side by side in General to use the right side.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktiviere „Zwei Aktivitäten nebeneinander anzeigen“ unter Allgemein, um die rechte Seite zu nutzen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa «Mostrar dos actividades una al lado de la otra» en General para usar el lado derecho."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active « Afficher deux activités côte à côte » dans Général pour utiliser le côté droit."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attiva «Mostra due attività affiancate» in Generali per usare il lato destro."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右側を使うには、一般で「2つのアクティビティを並べて表示」をオンにしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오른쪽을 사용하려면 일반에서 '두 활동을 나란히 표시'를 켜세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ative “Mostrar duas atividades lado a lado” em Geral para usar o lado direito."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在“通用”中打开“并排显示两个活动”即可使用右侧。"
           }
         }
       }
