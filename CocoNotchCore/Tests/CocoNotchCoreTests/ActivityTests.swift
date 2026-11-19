@@ -100,6 +100,17 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
     #expect(countHiddenActivities(activities, shownIDs: ["heads-up", "other-meeting", "music"]) == 0)
 }
 
+@Test func marksTheShownWidgetHoverDoesNotOpen() {
+    let heads = makeActivity("heads-up", widget: "meetings", priority: .normal)
+    let usage = makeActivity("usage", widget: "aiUsage", priority: .low)
+    let ranked = [heads, usage]
+    // Hovering opens Meetings, so quiet AI Usage gets the dot on either side.
+    #expect(getMarkedWidgetIDs(ranked, sides: [heads, usage]) == ["meetings", "aiUsage"])
+    #expect(getMarkedWidgetIDs(ranked, sides: [usage, heads]) == ["meetings", "aiUsage"])
+    // Alone, a quiet activity stays unmarked.
+    #expect(getMarkedWidgetIDs([usage], sides: [usage, nil]).isEmpty)
+}
+
 @Test func treatsLowPriorityActivitiesAsNotNoteworthy() {
     #expect(isActivityNoteworthy(makeActivity("music", widget: "music", priority: .background)))
     #expect(!isActivityNoteworthy(makeActivity("usage", widget: "aiUsage", priority: .low)))

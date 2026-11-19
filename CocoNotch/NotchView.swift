@@ -183,8 +183,10 @@ struct NotchView: View {
                 shape.fill(Color(colorData: backgroundColorData).opacity(backgroundOpacity))
             }
             if isExpanded {
-                expandedContent(activities: activities, rightWidgetID: sides.right?.widgetID)
-                    .transition(.opacity)
+                expandedContent(
+                    markedWidgetIDs: getMarkedWidgetIDs(activities.map(\.summary), sides: [sides.left, sides.right])
+                )
+                .transition(.opacity)
             } else if let island {
                 ActivityIsland(
                     activity: island,
@@ -288,7 +290,7 @@ struct NotchView: View {
         (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
     }
 
-    private func expandedContent(activities: [NotchActivity], rightWidgetID: String?) -> some View {
+    private func expandedContent(markedWidgetIDs: Set<String>) -> some View {
         let housingInset = getCameraHousingInset(
             height: cameraHousingHeight, notchScale: getAppliedNotchScale(storedNotchScale))
         return VStack(spacing: 0) {
@@ -300,13 +302,9 @@ struct NotchView: View {
                     } label: {
                         WidgetIcon(widget: widget)
                             .frame(width: 40, height: notchSize.height - 6)
-                            // Marks widgets with a live activity, and the right side's, since hovering opens the left's.
+                            // Marks widgets with a live activity, since hovering the closed notch opens only one.
                             .overlay(alignment: .topTrailing) {
-                                if widget.id == rightWidgetID
-                                    || activities.contains(where: {
-                                        $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
-                                    })
-                                {
+                                if markedWidgetIDs.contains(widget.id) {
                                     Circle()
                                         .fill(.orange)
                                         .frame(width: 6, height: 6)

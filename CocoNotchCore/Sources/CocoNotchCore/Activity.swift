@@ -74,6 +74,17 @@ public func countHiddenActivities(_ activities: [ActivitySummary], shownIDs: [St
     activities.filter { !shownIDs.contains($0.id) && isActivityNoteworthy($0) }.count
 }
 
+/// The widgets whose tabs get a dot: any with a noteworthy activity, plus, in a split notch, a shown side's widget
+/// that hovering doesn't open, so it can still be found. Hovering opens the top-ranked activity's widget.
+public func getMarkedWidgetIDs(_ ranked: [ActivitySummary], sides: [ActivitySummary?]) -> Set<String> {
+    var ids = Set(ranked.filter(isActivityNoteworthy).map(\.widgetID))
+    let shown = sides.compactMap { $0 }
+    guard shown.count > 1 else { return ids }
+    let hoverWidgetID = getHoverWidgetID(ranked.first)
+    ids.formUnion(shown.map(\.widgetID).filter { $0 != hoverWidgetID })
+    return ids
+}
+
 /// Whether an activity deserves notice beyond the closed notch: a tab switch on hover, a dot on its tab, a "+N".
 public func isActivityNoteworthy(_ activity: ActivitySummary) -> Bool {
     activity.priority > .low
