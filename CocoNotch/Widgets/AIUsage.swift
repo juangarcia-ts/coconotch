@@ -186,6 +186,11 @@ private actor AccountVault {
     static let shared = AccountVault()
     private var version = 0
 
+    /// Runs a read between changes and returns the version it ran at, so a caller can tell whether a switch came after.
+    func read<Value: Sendable>(_ body: @Sendable () -> Value) -> (value: Value, version: Int) {
+        (body(), version)
+    }
+
     func update(_ change: @Sendable (_ saved: [SavedAccount], _ active: SavedAccount?) -> [SavedAccount])
         -> AccountSnapshot?
     {
@@ -338,7 +343,12 @@ final class AIUsageStore {
             codexUsage = nil
         }
         // Before usage, so signing in to another account clears the old numbers rather than the new ones.
-        if readDefault(showsAccountsKey, default: true) { await loadAccounts() }
+        if readDefault(showsAccountsKey, default: true) {
+            await loadAccounts()
+        } else {
+            // Untracked, the active account could change unseen, so usage isn't filed under one.
+            activeAccountID = nil
+        }
         if !readDefault(showsClaudeKey, default: true) {
             claudeLimits = []
         } else if !UserDefaults.standard.bool(forKey: isClaudeConnectedKey) {
@@ -359,8 +369,11 @@ final class AIUsageStore {
     }
 
     private func loadClaude() async {
-        let result = await Task.detached { readClaudeCredentials() }.value
+        let (result, version) = await AccountVault.shared.read { readClaudeCredentials() }
         guard !Task.isCancelled else { return }
+        // Read with no account change since the last one shown, the credentials are that account's. Otherwise a switch
+        // overtook the read, and its numbers are neither filed nor shown under the account now active.
+        let accountID = version == accountsVersion ? activeAccountID : nil
         switch result {
         case .failed(let problem):
             // Only a refusal disconnects; a locked keychain, say while the Mac sleeps, passes on its own.
@@ -371,7 +384,7 @@ final class AIUsageStore {
                 showClaude(.loginExpired)
                 return
             }
-            await fetchClaudeUsage(token: credentials.accessToken, accountID: activeAccountID)
+            await fetchClaudeUsage(token: credentials.accessToken, accountID: accountID)
         }
     }
 
