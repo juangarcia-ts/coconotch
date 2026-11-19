@@ -52,8 +52,10 @@ final class MusicStore {
     private(set) var readAt = Date.now
     /// A running player macOS won't let CocoNotch control, so the views can say where to allow it.
     private(set) var deniedPlayer: String?
-    /// Commands sent but not yet followed by a read, so a slider knows when the player's value includes them.
-    private(set) var pendingCommands = 0
+    @ObservationIgnored private var pendingCommands = 0
+    /// Bumped each time the last command sent has run and been read back, so a slider knows the player's value
+    /// includes it. Only grows, so a view sees the change even when a whole command finishes between two updates.
+    private(set) var commandsSettled = 0
     private let scriptRunner = ScriptRunner()
     private var isStarted = false
 
@@ -124,6 +126,7 @@ final class MusicStore {
             _ = await scriptRunner.run("tell application \"\(player)\" to \(command)")
             await refresh()
             pendingCommands -= 1
+            if pendingCommands == 0 { commandsSettled += 1 }
         }
     }
 
@@ -290,10 +293,8 @@ private struct ReleaseSlider: View {
             @unknown default: break
             }
         }
-        // At zero every command has run and the player was read after it, so its value is current, even after a failure.
-        .onChange(of: MusicStore.shared.pendingCommands) { _, count in
-            if count == 0 { sentValue = nil }
-        }
+        // Every command has run and the player was read after it, so its value is current, even after a failure.
+        .onChange(of: MusicStore.shared.commandsSettled) { sentValue = nil }
     }
 
     private func send(_ newValue: Double) {
