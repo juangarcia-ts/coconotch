@@ -147,6 +147,7 @@ private struct GeneralSettings: View {
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
+    @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
     @State private var launchAtLoginError: String?
     @State private var checksForUpdates = false
@@ -207,6 +208,8 @@ private struct GeneralSettings: View {
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
             Toggle("Show live activities in the closed notch", isOn: $showsActivities)
+            Toggle("Show two activities side by side", isOn: $showsTwoActivities)
+                .disabled(!showsActivities)
             Toggle(
                 "Launch at login",
                 // Pending approval counts as on, so the user can still switch it off and withdraw the request.
@@ -346,21 +349,43 @@ private struct AppearanceSettings: View {
 private struct WidgetsSettings: View {
     @AppStorage(PreferenceKey.widgetPreferences) private var storedWidgetPreferences = ""
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
+    @AppStorage(PreferenceKey.rightActivityWidget) private var rightActivityWidgetID = ""
+    @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
     @AppStorage(PreferenceKey.showsHome) private var showsHome = true
     // Edited locally and saved on every change, so dragging doesn't decode the stored list on each frame.
     @State private var preferences: [WidgetPreference] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker("Preferred activity", selection: $preferredActivityWidgetID) {
+            Picker("Left of the camera", selection: $preferredActivityWidgetID) {
                 Text("Automatic").tag("")
                 ForEach(NotchWidget.all) { widget in
                     Text(widget.title).tag(widget.id)
                 }
             }
-            Text("The closed notch shows this widget's activity first. Automatic picks the most urgent one.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(
+                "Automatic shows the most urgent activity: a meeting that's starting or a finished timer, then heads-ups and running timers, then music, then quiet ones like your next meeting. Ties go to the widget higher in the list below."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            Picker("Right of the camera", selection: $rightActivityWidgetID) {
+                Text("Automatic").tag("")
+                ForEach(NotchWidget.all) { widget in
+                    Text(widget.title).tag(widget.id)
+                }
+            }
+            .disabled(!showsTwoActivities)
+            Group {
+                if showsTwoActivities {
+                    Text(
+                        "Automatic shows the next activity from another widget. A widget picked here keeps the right side whenever it has an activity."
+                    )
+                } else {
+                    Text("Turn on Show two activities side by side in General to use the right side.")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
             Divider()
             Text("Drag to reorder. The notch shows the widgets that are on, in this order.")
                 .font(.caption)

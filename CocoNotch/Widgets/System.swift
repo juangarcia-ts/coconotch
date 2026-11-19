@@ -233,7 +233,14 @@ final class SystemStore {
                 makeLeading: {
                     AnyView(Label("Low battery", systemImage: "battery.25percent").foregroundStyle(.red))
                 },
-                makeTrailing: { AnyView(Text("\(battery.percent)%").monospacedDigit()) }
+                makeTrailing: { AnyView(Text("\(battery.percent)%").monospacedDigit()) },
+                makeCompact: {
+                    AnyView(
+                        Label("\(battery.percent)%", systemImage: "battery.25percent")
+                            .foregroundStyle(.red)
+                            .monospacedDigit()
+                    )
+                }
             )
         )
     }

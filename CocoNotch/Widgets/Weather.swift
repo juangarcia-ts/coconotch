@@ -226,7 +226,14 @@ final class WeatherStore: NSObject, CLLocationManagerDelegate {
                             .symbolRenderingMode(.multicolor)
                     )
                 },
-                makeTrailing: { AnyView(Text("\(hour.precipitationProbability)%").monospacedDigit()) }
+                makeTrailing: { AnyView(Text("\(hour.precipitationProbability)%").monospacedDigit()) },
+                makeCompact: {
+                    AnyView(
+                        Label("\(hour.precipitationProbability)%", systemImage: "umbrella.fill")
+                            .symbolRenderingMode(.multicolor)
+                            .monospacedDigit()
+                    )
+                }
             )
         )
     }

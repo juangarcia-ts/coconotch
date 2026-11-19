@@ -51,14 +51,14 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 
 Hover (or click) the notch to expand it. Each widget is a tab, and ⌘1…⌘0, then ⌥⌘1…⌥⌘0, switch between them once the notch has focus. Shortcuts you record in Settings open the notch, or a single widget, from any app.
 
-The closed notch shows live activities, like a meeting about to start or the song that's playing.
+The closed notch shows live activities, like a meeting about to start or the song that's playing. When two widgets have one, it splits: the top activity on the left of the camera and the next on the right, such as the song and your Pomodoro (you can turn this off).
 
 Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
 
-- **General**: the app's language, open on hover or click, which displays show the notch, live activities, launch at login, automatic update checks and a reset to defaults (privacy permissions stay as they are).
+- **General**: the app's language, open on hover or click, which displays show the notch, live activities and whether they split the notch two ways, launch at login, automatic update checks and a reset to defaults (privacy permissions stay as they are).
 - **Shortcuts**: a system-wide shortcut to open or close the notch, one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
-- **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity the closed notch shows first, plus a tab with each widget's options.
+- **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity takes the left or right of the camera in the closed notch (Automatic explains how it picks), plus a tab with each widget's options.
 
 CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German, Japanese, Simplified Chinese and Korean, and follows your Mac's language. To use a different one for CocoNotch only, pick it in Settings → General → Language and restart CocoNotch.
 

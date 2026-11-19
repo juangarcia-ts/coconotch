@@ -24,6 +24,8 @@ struct NotchView: View {
     @AppStorage(PreferenceKey.notchScale) private var storedNotchScale = 1.0
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.preferredActivityWidget) private var preferredActivityWidgetID = ""
+    @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
+    @AppStorage(PreferenceKey.rightActivityWidget) private var rightActivityWidgetID = ""
     @AppStorage(PreferenceKey.staysOpenWhileTyping) private var staysOpenWhileTyping = true
     @AppStorage(shelfOpensOnDragHoverKey) private var opensOnDragHover = true
     @AppStorage(PreferenceKey.widgetShortcuts) private var widgetShortcuts = WidgetShortcutsMode.visible
@@ -164,7 +166,11 @@ struct NotchView: View {
     }
 
     private func panel(shape: UnevenRoundedRectangle, activities: [NotchActivity], isAlerting: Bool) -> some View {
-        let island = isExpanded ? nil : activities.first
+        let sides = pickIslandSides(
+            activities.map(\.summary), isSplit: showsTwoActivities,
+            rightWidgetID: rightActivityWidgetID.isEmpty ? nil : rightActivityWidgetID)
+        let island = isExpanded ? nil : activities.first { $0.id == sides.left?.id }
+        let partner = activities.first { $0.id == sides.right?.id }
         let isAlerting = island != nil && isAlerting
         return ZStack(alignment: .top) {
             if !isExpanded {
@@ -177,14 +183,17 @@ struct NotchView: View {
                 shape.fill(Color(colorData: backgroundColorData).opacity(backgroundOpacity))
             }
             if isExpanded {
-                expandedContent(activities: activities)
-                    .transition(.opacity)
+                expandedContent(
+                    markedWidgetIDs: getMarkedWidgetIDs(activities.map(\.summary), sides: [sides.left, sides.right])
+                )
+                .transition(.opacity)
             } else if let island {
                 ActivityIsland(
                     activity: island,
+                    partner: partner,
                     notchSize: notchSize,
-                    otherCount: activities.dropFirst().filter { isActivityNoteworthy($0.summary) }.count,
-                    isAlerting: isAlerting
+                    otherCount: countHiddenActivities(activities.map(\.summary), shownIDs: [island.id, partner?.id]),
+                    makeAlert: isAlerting ? activities.first?.makeAlert : nil
                 )
                 .transition(.opacity)
             }
@@ -281,7 +290,7 @@ struct NotchView: View {
         (NSApp.keyWindow as? NotchPanel)?.firstResponder is NSTextView
     }
 
-    private func expandedContent(activities: [NotchActivity]) -> some View {
+    private func expandedContent(markedWidgetIDs: Set<String>) -> some View {
         let housingInset = getCameraHousingInset(
             height: cameraHousingHeight, notchScale: getAppliedNotchScale(storedNotchScale))
         return VStack(spacing: 0) {
@@ -293,11 +302,9 @@ struct NotchView: View {
                     } label: {
                         WidgetIcon(widget: widget)
                             .frame(width: 40, height: notchSize.height - 6)
-                            // Marks widgets with a live activity, since the closed notch shows only one.
+                            // Marks widgets with a live activity, since hovering the closed notch opens only one.
                             .overlay(alignment: .topTrailing) {
-                                if activities.contains(where: {
-                                    $0.widgetID == widget.id && isActivityNoteworthy($0.summary)
-                                }) {
+                                if markedWidgetIDs.contains(widget.id) {
                                     Circle()
                                         .fill(.orange)
                                         .frame(width: 6, height: 6)

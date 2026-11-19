@@ -17,6 +17,8 @@ extension NotchWidget {
 private let hidesAllDayKey = "meetings.hidesAllDay"
 private let hidesDeclinedKey = "meetings.hidesDeclined"
 private let hiddenCalendarIDsKey = "meetings.hiddenCalendarIDs"
+/// Enough for the calendar icon and the first few letters of a title in a split notch.
+private let compactTitleMinWidth: CGFloat = 50
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
 private let headsUpSticksKey = "meetings.headsUpSticks"
@@ -153,6 +155,15 @@ final class MeetingsStore {
                 sortDate: meeting.start,
                 makeLeading: { AnyView(HeadsUpTitle(meeting: meeting)) },
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
+                makeCompact: {
+                    AnyView(
+                        // The countdown keeps its width; the title takes what's left, but always its first letters.
+                        HStack(spacing: 5) {
+                            HeadsUpTitle(meeting: meeting).frame(minWidth: compactTitleMinWidth, alignment: .leading)
+                            HeadsUpCountdown(meeting: meeting).fixedSize().layoutPriority(1)
+                        }
+                    )
+                },
                 makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) },
                 isAlertSticky: sticks && priority == .urgent
             )
@@ -172,7 +183,16 @@ final class MeetingsStore {
                 priority: .low,
                 sortDate: meeting.start,
                 makeLeading: { AnyView(NextMeetingTitle(meeting: meeting)) },
-                makeTrailing: { AnyView(NextMeetingCountdown(meeting: meeting)) }
+                makeTrailing: { AnyView(NextMeetingCountdown(meeting: meeting)) },
+                makeCompact: {
+                    AnyView(
+                        HStack(spacing: 5) {
+                            NextMeetingTitle(meeting: meeting).frame(
+                                minWidth: compactTitleMinWidth, alignment: .leading)
+                            NextMeetingCountdown(meeting: meeting).fixedSize().layoutPriority(1)
+                        }
+                    )
+                }
             )
         )
     }

@@ -63,9 +63,26 @@ public func makeAlertKey(_ activity: ActivitySummary, isSticky: Bool) -> String 
     "\(activity.id)-\(activity.priority.rawValue)-\(activity.sortDate.timeIntervalSince1970)-\(isSticky)"
 }
 
-/// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate.
-public func getIslandSideWidth(_ idealWidths: [CGFloat], maxWidth: CGFloat) -> CGFloat {
-    min(idealWidths.max() ?? 0, maxWidth)
+/// The width of each side of the closed-notch island: the wider side's content, capped so long titles truncate, but
+/// never below what a side can't shrink under, such as a countdown beside a title's first letters.
+public func getIslandSideWidth(_ idealWidths: [CGFloat], minWidths: [CGFloat] = [], maxWidth: CGFloat) -> CGFloat {
+    max(min(idealWidths.max() ?? 0, maxWidth), minWidths.max() ?? 0)
+}
+
+/// The "+N" beside the island: noteworthy activities on neither side.
+public func countHiddenActivities(_ activities: [ActivitySummary], shownIDs: [String?]) -> Int {
+    activities.filter { !shownIDs.contains($0.id) && isActivityNoteworthy($0) }.count
+}
+
+/// The widgets whose tabs get a dot: any with a noteworthy activity, plus, in a split notch, a shown side's widget
+/// that hovering doesn't open, so it can still be found. Hovering opens the top-ranked activity's widget.
+public func getMarkedWidgetIDs(_ ranked: [ActivitySummary], sides: [ActivitySummary?]) -> Set<String> {
+    var ids = Set(ranked.filter(isActivityNoteworthy).map(\.widgetID))
+    let shown = sides.compactMap { $0 }
+    guard shown.count > 1 else { return ids }
+    let hoverWidgetID = getHoverWidgetID(ranked.first)
+    ids.formUnion(shown.map(\.widgetID).filter { $0 != hoverWidgetID })
+    return ids
 }
 
 /// Whether an activity deserves notice beyond the closed notch: a tab switch on hover, a dot on its tab, a "+N".
@@ -77,4 +94,19 @@ public func isActivityNoteworthy(_ activity: ActivitySummary) -> Bool {
 public func getHoverWidgetID(_ topActivity: ActivitySummary?) -> String? {
     guard let topActivity, isActivityNoteworthy(topActivity) else { return nil }
     return topActivity.widgetID
+}
+
+/// The activities on each side of the camera. A split notch gives the right side to `rightWidgetID` whenever it has an
+/// activity, and otherwise to the next activity from another widget than the left's, so two meetings never take both
+/// sides. Quiet ones count, as a split notch has room for them. With nothing for the right, the left spans both sides.
+public func pickIslandSides(
+    _ ranked: [ActivitySummary], isSplit: Bool, rightWidgetID: String?
+) -> (left: ActivitySummary?, right: ActivitySummary?) {
+    guard isSplit else { return (ranked.first, nil) }
+    if let pinned = ranked.first(where: { $0.widgetID == rightWidgetID }) {
+        guard let left = ranked.first(where: { $0.widgetID != rightWidgetID }) else { return (pinned, nil) }
+        return (left, pinned)
+    }
+    let left = ranked.first
+    return (left, ranked.dropFirst().first { $0.widgetID != left?.widgetID })
 }
