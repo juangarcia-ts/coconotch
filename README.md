@@ -80,7 +80,7 @@ To name an account, choose **Set Alias…** in the **Accounts** menu, or go to *
 Good to know:
 
 - Claude Code sessions that are already running keep their account until you restart them.
-- Saved logins stay in your Keychain under `CocoNotch-saved-accounts`. Before each switch, CocoNotch saves the current login again, because its token changes as you use it.
+- Saved logins stay in your Keychain under `CocoNotch Saved Accounts`. Before each switch, CocoNotch saves the current login again, because its token changes as you use it.
 - Switching changes Claude Code's login in the Keychain and the account in `~/.claude.json`.
 
 ## Permissions

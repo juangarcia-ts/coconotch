@@ -1,4 +1,5 @@
 import CocoNotchCore
+import Security
 import SwiftUI
 
 extension NotchWidget {
@@ -51,7 +52,7 @@ nonisolated private func readClaudeCredentials() -> CredentialsResult {
     return .found(credentials)
 }
 
-/// Runs /usr/bin/security; secrets go in through `input` where they fit, so they stay out of the process list.
+/// Runs /usr/bin/security; secrets go in through `input`, so they never show up in the process list.
 nonisolated private func runSecurity(_ arguments: [String], input: Data? = nil) -> (status: Int32, output: Data) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -79,12 +80,8 @@ nonisolated private func readKeychain(service: String) -> Data? {
 }
 
 nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
-    let hex = data.map { String(format: "%02x", $0) }.joined()
-    let command = "add-generic-password -U -a \"\(NSUserName())\" -s \"\(service)\" -X \(hex)\n"
-    // security -i reads 4096 bytes a line and runs the rest as another command, so longer ones go as arguments, as
-    // Claude Code writes the same item.
-    if command.utf8.count < 4096 { return runSecurity(["-i"], input: Data(command.utf8)).status == 0 }
-    return runSecurity(["add-generic-password", "-U", "-a", NSUserName(), "-s", service, "-X", hex]).status == 0
+    guard let command = makeKeychainWriteCommand(data, service: service, account: NSUserName()) else { return false }
+    return runSecurity(["-i"], input: Data(command.utf8)).status == 0
 }
 
 nonisolated private let claudeConfigURL = FileManager.default.homeDirectoryForCurrentUser.appending(
@@ -106,7 +103,7 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
     guard let credentials = readKeychain(service: claudeCredentialsService),
         let config = try? Data(contentsOf: claudeConfigURL),
         let newCredentials = replaceJSONValue(credentials, key: "claudeAiOauth", with: account.login),
-        let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile),
+        let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile, isPretty: true),
         writeKeychain(newCredentials, service: claudeCredentialsService)
     else { return false }
     guard (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil else {
@@ -122,17 +119,34 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
         != nil
 }
 
+// CocoNotch's own item, so it goes through the Security framework: no line limit, and no process to see the value.
+nonisolated private func makeSavedAccountsQuery() -> [String: Any] {
+    [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: savedAccountsService,
+        kSecAttrAccount as String: NSUserName(),
+    ]
+}
+
 /// nil when the list can't be read, so a locked Keychain is never taken for an empty list and overwritten.
 nonisolated private func readSavedAccounts() -> [SavedAccount]? {
-    let (status, data) = runSecurity(["find-generic-password", "-s", savedAccountsService, "-a", NSUserName(), "-w"])
-    // errSecItemNotFound: nothing saved yet.
-    if status == 44 { return [] }
-    guard status == 0, let json = decodeKeychainOutput(data) else { return nil }
-    return try? JSONDecoder().decode([SavedAccount].self, from: json)
+    var query = makeSavedAccountsQuery()
+    query[kSecReturnData as String] = true
+    var result: AnyObject?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    if status == errSecItemNotFound { return [] }
+    guard status == errSecSuccess, let data = result as? Data else { return nil }
+    return try? JSONDecoder().decode([SavedAccount].self, from: data)
 }
 
 nonisolated private func writeSavedAccounts(_ accounts: [SavedAccount]) -> Bool {
-    (try? JSONEncoder().encode(accounts)).map { writeKeychain($0, service: savedAccountsService) } ?? false
+    guard let data = try? JSONEncoder().encode(accounts) else { return false }
+    let query = makeSavedAccountsQuery()
+    let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+    guard status == errSecItemNotFound else { return status == errSecSuccess }
+    var item = query
+    item[kSecValueData as String] = data
+    return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
 }
 
 private struct AccountSnapshot: Sendable {

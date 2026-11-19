@@ -1,7 +1,7 @@
 import Foundation
 
 /// The Keychain item CocoNotch keeps saved logins in, so they're encrypted like the ones they were copied from.
-public let savedAccountsService = "CocoNotch-saved-accounts"
+public let savedAccountsService = "CocoNotch Saved Accounts"
 
 /// A Claude Code login copied aside so it can be put back later, in Claude Code's own JSON.
 public struct SavedAccount: Codable, Equatable, Identifiable, Sendable {
@@ -51,13 +51,26 @@ public func extractJSONValue(_ data: Data, key: String) -> Data? {
     return try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed])
 }
 
-/// The document with one top-level key replaced, leaving every other key as it was.
-public func replaceJSONValue(_ data: Data, key: String, with value: Data) -> Data? {
+/// The document with one top-level key replaced, leaving every other key as it was. Compact unless `isPretty`, since a
+/// Keychain value must fit on one `security -i` line.
+public func replaceJSONValue(_ data: Data, key: String, with value: Data, isPretty: Bool = false) -> Data? {
     guard var object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let newValue = try? JSONSerialization.jsonObject(with: value, options: [.fragmentsAllowed])
     else { return nil }
     object[key] = newValue
-    return try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+    return try? JSONSerialization.data(
+        withJSONObject: object, options: isPretty ? [.prettyPrinted, .sortedKeys] : [.sortedKeys])
+}
+
+/// The `security -i` line that stores `value` as a generic password, quoted so it never appears in the process list;
+/// nil when it can't go whole, since that input reads 4096 bytes a line and runs anything past it as another command.
+public func makeKeychainWriteCommand(_ value: Data, service: String, account: String) -> String? {
+    guard let text = String(data: value, encoding: .utf8), !text.contains(where: \.isNewline) else { return nil }
+    let quote = { (string: String) in
+        "\"" + string.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+    let command = "add-generic-password -U -a \(quote(account)) -s \(quote(service)) -w \(quote(text))\n"
+    return command.utf8.count < 4096 ? command : nil
 }
 
 private struct ClaudeProfile: Decodable {

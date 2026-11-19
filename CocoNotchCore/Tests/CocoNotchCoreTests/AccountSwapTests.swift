@@ -65,3 +65,24 @@ private func decode(_ data: Data?) throws -> [String: Any] {
     #expect(decodeKeychainOutput(Data("abc".utf8)) == nil)
     #expect(decodeKeychainOutput(Data("zz".utf8)) == nil)
 }
+
+@Test func quotesKeychainValuesForSecurityInput() throws {
+    let command = try #require(
+        makeKeychainWriteCommand(Data(#"{"a":"q\"b\\c"}"#.utf8), service: "Claude Code-credentials", account: "me"))
+    #expect(
+        command == #"add-generic-password -U -a "me" -s "Claude Code-credentials" -w "{\"a\":\"q\\\"b\\\\c\"}""# + "\n")
+}
+
+@Test func refusesKeychainValuesThatWouldBeCutOff() {
+    let long = Data(("{\"a\":\"" + String(repeating: "x", count: 4100) + "\"}").utf8)
+    #expect(makeKeychainWriteCommand(long, service: "s", account: "a") == nil)
+    #expect(makeKeychainWriteCommand(Data("{\n}".utf8), service: "s", account: "a") == nil)
+    #expect(makeKeychainWriteCommand(Data([0xFF]), service: "s", account: "a") == nil)
+}
+
+@Test func writesKeychainJSONOnOneLine() throws {
+    let replaced = try #require(replaceJSONValue(credentials, key: "claudeAiOauth", with: Data("{\"b\":1}".utf8)))
+    #expect(!String(decoding: replaced, as: UTF8.self).contains("\n"))
+    let pretty = try #require(replaceJSONValue(config, key: "numStartups", with: Data("4".utf8), isPretty: true))
+    #expect(String(decoding: pretty, as: UTF8.self).contains("\n"))
+}
