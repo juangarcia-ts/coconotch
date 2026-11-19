@@ -67,11 +67,9 @@ CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German,
 The AI Usage tab can keep several Claude Code logins and switch between them, for example a personal and a work subscription.
 
 1. Click **Enable** next to **Read Claude Code's login** in **Settings → Widgets → AI Usage**.
-2. In the AI Usage tab, open the **Accounts** menu on the Claude page and choose **Add Account…**. CocoNotch saves the account you're signed in with and opens Terminal running `claude /login`.
-3. Sign in to the other account there. CocoNotch saves it too the next time it refreshes, for example when you open the notch.
+2. In the AI Usage tab, open the **Accounts** menu on the Claude page and choose **Add Account → Remember Current Account** to save the account you're signed in with.
+3. To add another, choose **Add Account → Sign In to Another Account…**. CocoNotch saves your current login, then opens Terminal running `claude /login`. Sign in there, and CocoNotch saves the new account the next time it refreshes, for example when you open the notch.
 4. Pick an account in the **Accounts** menu to switch to it.
-
-If you signed in to an account another way, choose **Remember Current Account** in the menu to save it.
 
 The **Accounts** menu is on by default. To hide it, turn off **Show the account switcher** in **Settings → Widgets → AI Usage → Claude Code Accounts**.
 

@@ -243,7 +243,8 @@ final class AIUsageStore {
     private(set) var savedAccounts: [SavedAccount] = []
     private(set) var activeAccountID: String?
     private(set) var isAccountSwitchFailed = false
-    @ObservationIgnored private var isAddingAccount = false
+    /// The account you were signed in with when Sign In to Another Account started; nil once the new one is saved.
+    @ObservationIgnored private var signingInFromID: String?
     @ObservationIgnored private var accountsVersion = 0
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
@@ -367,14 +368,15 @@ final class AIUsageStore {
     private func loadAccounts() async {
         guard readDefault(showsClaudeKey, default: true), UserDefaults.standard.bool(forKey: isClaudeConnectedKey)
         else { return }
-        let isAdding = isAddingAccount
+        let fromID = signingInFromID
         let snapshot = await AccountVault.shared.update { saved, active in
-            // After Add Account, the login you make next is saved without a trip back to the menu.
-            guard isAdding, let active, !saved.contains(where: { $0.id == active.id }) else { return saved }
+            guard let active, shouldSaveActiveAccount(saved, activeID: active.id, signingInFromID: fromID) else {
+                return saved
+            }
             return upsertSavedAccount(saved, active)
         }
         guard let snapshot else { return }
-        if snapshot.didChange { isAddingAccount = false }
+        if let fromID, let activeID = snapshot.activeID, activeID != fromID { signingInFromID = nil }
         publish(snapshot)
     }
 
@@ -400,12 +402,12 @@ final class AIUsageStore {
         return true
     }
 
-    /// Saves the current login, then opens Terminal to sign in to another one.
-    func addAccount() {
+    /// Saves the current login, then opens Terminal to sign in to another one, which the next refresh saves too.
+    func signInToAnotherAccount() {
         Task {
             // Signing in replaces the current login, so Terminal opens only once a copy of it is safely saved.
             guard await saveActiveAccount() else { return }
-            isAddingAccount = true
+            signingInFromID = activeAccountID
             let script = FileManager.default.temporaryDirectory.appending(path: "claude-login.command")
             // A login shell, so `claude` is on the PATH the way it is in your own terminal.
             guard (try? Data("#!/bin/zsh -l\nclaude /login\n".utf8).write(to: script)) != nil,
@@ -720,12 +722,14 @@ private struct AccountMenu: View {
                     ))
             }
             if !saved.isEmpty { Divider() }
-            Button("Add Account…") { store.addAccount() }
-            if saved.contains(where: { $0.id == activeID }) {
-                Button("Set Alias…") { showSettings(.widget(NotchWidget.aiUsage.id)) }
-            } else {
+            let isActiveSaved = saved.contains { $0.id == activeID }
+            Menu("Add Account") {
                 Button("Remember Current Account") { store.rememberActiveAccount() }
-                    .disabled(activeID == nil)
+                    .disabled(activeID == nil || isActiveSaved)
+                Button("Sign In to Another Account…") { store.signInToAnotherAccount() }
+            }
+            if isActiveSaved {
+                Button("Set Alias…") { showSettings(.widget(NotchWidget.aiUsage.id)) }
             }
             if !saved.isEmpty {
                 Menu("Forget") {

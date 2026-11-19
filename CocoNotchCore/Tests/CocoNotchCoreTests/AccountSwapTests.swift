@@ -30,7 +30,7 @@ private func decode(_ data: Data?) throws -> [String: Any] {
 @Test func readsTheActiveClaudeAccount() throws {
     let account = try #require(getClaudeAccount(credentials: credentials, config: config))
     #expect(account.id == "acc/org")
-    #expect(account.label == "me@example.com · Team")
+    #expect(account.label == "me@example.com")
     #expect(try decode(account.login)["refreshToken"] as? String == "r1")
     #expect(try decode(account.profile)["emailAddress"] as? String == "me@example.com")
     #expect(getClaudeAccount(credentials: credentials, config: Data("{\"numStartups\":3}".utf8)) == nil)
@@ -95,4 +95,15 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
     #expect(isLoginMismatched(wasMismatched: wasMismatched, isConfigWritten: false, isRestored: true) == wasMismatched)
     // Neither finished nor undone.
     #expect(isLoginMismatched(wasMismatched: wasMismatched, isConfigWritten: false, isRestored: false))
+}
+
+@Test func savesTheActiveLoginOnRefreshOnlyWhenItBelongs() {
+    let saved = [SavedAccount(id: "a", label: "a@example.com", login: Data(), profile: Data())]
+    // Already saved: kept current.
+    #expect(shouldSaveActiveAccount(saved, activeID: "a", signingInFromID: nil))
+    // Never saved and not signing in: left alone.
+    #expect(!shouldSaveActiveAccount(saved, activeID: "b", signingInFromID: nil))
+    // Signing in from "a": "b" is the new account; still "a" means you haven't signed in yet.
+    #expect(shouldSaveActiveAccount(saved, activeID: "b", signingInFromID: "a"))
+    #expect(!shouldSaveActiveAccount([], activeID: "a", signingInFromID: "a"))
 }

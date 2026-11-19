@@ -77,7 +77,6 @@ private struct ClaudeProfile: Decodable {
     let accountUuid: String
     let organizationUuid: String?
     let emailAddress: String?
-    let organizationName: String?
 }
 
 /// The active Claude Code login, from its Keychain item and `~/.claude.json`; nil when it isn't signed in.
@@ -86,10 +85,8 @@ public func getClaudeAccount(credentials: Data, config: Data) -> SavedAccount? {
         let profileData = extractJSONValue(config, key: "oauthAccount"),
         let profile = try? JSONDecoder().decode(ClaudeProfile.self, from: profileData)
     else { return nil }
-    // One email can belong to a personal and a team organization, each with its own limits.
-    let label = [profile.emailAddress ?? profile.accountUuid, profile.organizationName]
-        .compactMap { $0 }
-        .joined(separator: " · ")
+    let label = profile.emailAddress ?? profile.accountUuid
+    // One email can belong to a personal and a team organization, each with its own limits, so the id keeps both.
     return SavedAccount(
         id: "\(profile.accountUuid)/\(profile.organizationUuid ?? "")", label: label, login: login, profile: profileData
     )
@@ -100,6 +97,13 @@ public func getClaudeAccount(credentials: Data, config: Data) -> SavedAccount? {
 public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRestored: Bool) -> Bool {
     if isConfigWritten { return false }
     return isRestored ? wasMismatched : true
+}
+
+/// Whether a refresh saves the active login: always when it was saved before, which keeps its token and label current,
+/// and once you've started signing in to another account from `signingInFromID`, as soon as a different one shows up.
+public func shouldSaveActiveAccount(_ saved: [SavedAccount], activeID: String, signingInFromID: String?) -> Bool {
+    if saved.contains(where: { $0.id == activeID }) { return true }
+    return signingInFromID.map { $0 != activeID } ?? false
 }
 
 /// The saved accounts with this one added, or replacing its older copy in place.

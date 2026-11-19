@@ -2030,54 +2030,54 @@
         }
       }
     },
-    "Add Account…": {
+    "Add Account": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Konto hinzufügen…"
+            "value": "Konto hinzufügen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadir cuenta…"
+            "value": "Añadir cuenta"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajouter un compte…"
+            "value": "Ajouter un compte"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aggiungi account…"
+            "value": "Aggiungi account"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アカウントを追加…"
+            "value": "アカウントを追加"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "계정 추가…"
+            "value": "계정 추가"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adicionar conta…"
+            "value": "Adicionar conta"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加账户…"
+            "value": "添加账户"
           }
         }
       }
@@ -18356,6 +18356,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示音乐或 Spotify 中正在播放的内容。macOS 会询问一次是否允许 CocoNotch 控制它们。"
+          }
+        }
+      }
+    },
+    "Sign In to Another Account…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei anderem Konto anmelden…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sesión en otra cuenta…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecter à un autre compte…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accedi a un altro account…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のアカウントにサインイン…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 계정에 로그인…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrar em outra conta…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录另一个账户…"
           }
         }
       }
