@@ -45,3 +45,68 @@ func rejectsNothingPlaying(output: String) {
     let paused = NowPlaying(player: "Music", title: "A", artist: "", position: 10, isPlaying: false)
     #expect(getPlaybackPosition(paused, readAt: readAt, now: readAt.addingTimeInterval(5)) == 10)
 }
+
+@Test func mapsDragToSliderValue() {
+    #expect(getSliderValue(atX: 5, width: 210, knobSize: 10, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 55, width: 210, knobSize: 10, range: 0...100) == 25)
+    #expect(getSliderValue(atX: 205, width: 210, knobSize: 10, range: 0...100) == 100)
+    #expect(getSliderValue(atX: -10, width: 210, knobSize: 10, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 300, width: 210, knobSize: 10, range: 0...100) == 100)
+    #expect(getSliderValue(atX: 5, width: 8, knobSize: 10, range: 0...100) == 0)
+}
+
+@Test func stepsSliderValueWithinRange() {
+    #expect(getSteppedSliderValue(50, steps: 1, range: 0...100) == 55)
+    #expect(getSteppedSliderValue(50, steps: -2, range: 0...100) == 40)
+    #expect(getSteppedSliderValue(98, steps: 1, range: 0...100) == 100)
+    #expect(getSteppedSliderValue(2, steps: -1, range: 0...100) == 0)
+}
+
+@Test func mapsValueToSliderFraction() {
+    #expect(getSliderFraction(60, range: 0...240) == 0.25)
+    #expect(getSliderFraction(300, range: 0...240) == 1)
+    #expect(getSliderFraction(5, range: 0...0) == 0)
+}
+
+@Test func buildsStepsOnTheSentValueUntilEveryCommandSettles() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(sent.getStepped(from: 50, steps: 1, range: 0...100))
+    commands.start()
+    // The player still reports 50 while both commands run.
+    sent.send(sent.getStepped(from: 50, steps: 1, range: 0...100))
+    #expect(sent.value == 60)
+    commands.finish()
+    sent.settle(commands)
+    #expect(commands.settled == 0)
+    #expect(sent.value == 60)
+    commands.finish()
+    sent.settle(commands)
+    #expect(commands.settled == 1)
+    #expect(sent.value == nil)
+}
+
+@Test func keepsTheSentValueWhenANewerCommandStartsBeforeTheSettleIsSeen() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(55)
+    commands.finish()
+    commands.start()
+    sent.send(60)
+    sent.settle(commands)
+    #expect(sent.value == 60)
+}
+
+@Test func fallsBackToThePlayerAfterAFailedCommand() {
+    var commands = PlayerCommands()
+    var sent = SentSliderValue()
+    commands.start()
+    sent.send(55)
+    // A failed command still finishes, after a read that shows the player unchanged.
+    commands.finish()
+    sent.settle(commands)
+    #expect(sent.value == nil)
+    #expect(sent.getStepped(from: 50, steps: 1, range: 0...100) == 55)
+}

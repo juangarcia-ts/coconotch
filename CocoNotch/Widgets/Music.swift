@@ -52,6 +52,8 @@ final class MusicStore {
     private(set) var readAt = Date.now
     /// A running player macOS won't let CocoNotch control, so the views can say where to allow it.
     private(set) var deniedPlayer: String?
+    /// So a slider knows when the player's value includes what it sent.
+    private(set) var commands = PlayerCommands()
     private let scriptRunner = ScriptRunner()
     private var isStarted = false
 
@@ -117,9 +119,11 @@ final class MusicStore {
 
     func send(_ command: String) {
         guard let player = nowPlaying?.player else { return }
+        commands.start()
         Task {
             _ = await scriptRunner.run("tell application \"\(player)\" to \(command)")
             await refresh()
+            commands.finish()
         }
     }
 
@@ -227,22 +231,74 @@ private struct Artwork: View {
 
 /// A slider that holds its own value while dragged and reports it on release, so the once-a-second refresh doesn't
 /// pull the knob back mid-drag and the player gets one command per change.
+/// Drawn by hand because the system knob's size changes between macOS versions, and some show a full-size one.
 private struct ReleaseSlider: View {
     let value: Double
     let range: ClosedRange<Double>
     let onRelease: (Double) -> Void
     @State private var draggedValue: Double?
+    @State private var sent = SentSliderValue()
+
+    private let knobSize: CGFloat = 10
 
     var body: some View {
-        Slider(
-            value: Binding(get: { draggedValue ?? value }, set: { draggedValue = $0 }),
-            in: range
-        ) { isEditing in
-            guard !isEditing, let draggedValue else { return }
-            onRelease(draggedValue)
-            self.draggedValue = nil
+        let fraction = getSliderFraction(draggedValue ?? sent.value ?? value, range: range)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let knobX = (width - knobSize) * fraction
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary).frame(height: 3)
+                Capsule().fill(.tint).frame(width: knobX + knobSize / 2, height: 3)
+                Circle()
+                    .fill(.white)
+                    .shadow(radius: 1)
+                    .frame(width: knobSize, height: knobSize)
+                    .offset(x: knobX)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged {
+                        draggedValue = getSliderValue(
+                            atX: $0.location.x, width: width, knobSize: knobSize, range: range)
+                    }
+                    .onEnded { _ in
+                        guard let draggedValue else { return }
+                        send(draggedValue)
+                        self.draggedValue = nil
+                    }
+            )
         }
-        .controlSize(.mini)
+        .frame(height: 14)
+        .focusable(interactions: .activate)
+        .onKeyPress(.leftArrow) {
+            step(-1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            step(1)
+            return .handled
+        }
+        .accessibilityElement()
+        .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: step(1)
+            case .decrement: step(-1)
+            @unknown default: break
+            }
+        }
+        .onChange(of: MusicStore.shared.commands.settled) { sent.settle(MusicStore.shared.commands) }
+    }
+
+    private func send(_ newValue: Double) {
+        sent.send(newValue)
+        onRelease(newValue)
+    }
+
+    private func step(_ steps: Int) {
+        send(sent.getStepped(from: value, steps: steps, range: range))
     }
 }
 
