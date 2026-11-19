@@ -279,6 +279,8 @@ final class AIUsageStore {
         } else {
             codexUsage = nil
         }
+        // Before usage, so signing in to another account clears the old numbers rather than the new ones.
+        if readDefault(showsAccountsKey, default: true) { await loadAccounts() }
         if !readDefault(showsClaudeKey, default: true) {
             claudeLimits = []
         } else if !UserDefaults.standard.bool(forKey: isClaudeConnectedKey) {
@@ -286,7 +288,6 @@ final class AIUsageStore {
         } else {
             await loadClaude()
         }
-        if readDefault(showsAccountsKey, default: true) { await loadAccounts() }
         guard !Task.isCancelled else { return }
         updatedAt = .now
         updateHeadsUp()
@@ -358,6 +359,11 @@ final class AIUsageStore {
         guard snapshot.version > accountsVersion else { return }
         accountsVersion = snapshot.version
         savedAccounts = snapshot.accounts
+        // Another account's numbers would otherwise stay up under this one's name until a fetch succeeds.
+        if activeAccountID != nil, snapshot.activeID != activeAccountID {
+            claudeLimits = []
+            claudeProblem = nil
+        }
         activeAccountID = snapshot.activeID
         updateHeadsUp()
     }
@@ -372,14 +378,17 @@ final class AIUsageStore {
 
     /// Saves the current login, then opens Terminal to sign in to another one.
     func addAccount() {
-        isAddingAccount = true
-        rememberActiveAccount()
-        let script = FileManager.default.temporaryDirectory.appending(path: "claude-login.command")
-        // A login shell, so `claude` is on the PATH the way it is in your own terminal.
-        guard (try? Data("#!/bin/zsh -l\nclaude /login\n".utf8).write(to: script)) != nil,
-            (try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)) != nil
-        else { return }
-        NSWorkspace.shared.open(script)
+        Task {
+            // Signing in replaces the current login, so Terminal opens only once a copy of it is safely saved.
+            guard await saveActiveAccount() else { return }
+            isAddingAccount = true
+            let script = FileManager.default.temporaryDirectory.appending(path: "claude-login.command")
+            // A login shell, so `claude` is on the PATH the way it is in your own terminal.
+            guard (try? Data("#!/bin/zsh -l\nclaude /login\n".utf8).write(to: script)) != nil,
+                (try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)) != nil
+            else { return }
+            NSWorkspace.shared.open(script)
+        }
     }
 
     func reloadAccounts() {
@@ -395,12 +404,14 @@ final class AIUsageStore {
     }
 
     func rememberActiveAccount() {
-        Task {
-            let snapshot = await AccountVault.shared.update { saved, active in
-                active.map { upsertSavedAccount(saved, $0) } ?? saved
-            }
-            report(snapshot?.activeID == nil ? nil : snapshot)
+        Task { await saveActiveAccount() }
+    }
+
+    @discardableResult private func saveActiveAccount() async -> Bool {
+        let snapshot = await AccountVault.shared.update { saved, active in
+            active.map { upsertSavedAccount(saved, $0) } ?? saved
         }
+        return report(snapshot?.activeID == nil ? nil : snapshot)
     }
 
     func switchAccount(to account: SavedAccount) {
