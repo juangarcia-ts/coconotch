@@ -190,10 +190,7 @@ struct NotchView: View {
                     activity: island,
                     partner: partner,
                     notchSize: notchSize,
-                    otherCount: activities.filter {
-                        ![island.id, partner?.id].contains($0.id) && isActivityNoteworthy($0.summary)
-                    }
-                    .count,
+                    otherCount: countHiddenActivities(activities.map(\.summary), shownIDs: [island.id, partner?.id]),
                     makeAlert: isAlerting ? activities.first?.makeAlert : nil
                 )
                 .transition(.opacity)

@@ -69,6 +69,11 @@ public func getIslandSideWidth(_ idealWidths: [CGFloat], minWidths: [CGFloat] = 
     max(min(idealWidths.max() ?? 0, maxWidth), minWidths.max() ?? 0)
 }
 
+/// The "+N" beside the island: noteworthy activities on neither side.
+public func countHiddenActivities(_ activities: [ActivitySummary], shownIDs: [String?]) -> Int {
+    activities.filter { !shownIDs.contains($0.id) && isActivityNoteworthy($0) }.count
+}
+
 /// Whether an activity deserves notice beyond the closed notch: a tab switch on hover, a dot on its tab, a "+N".
 public func isActivityNoteworthy(_ activity: ActivitySummary) -> Bool {
     activity.priority > .low

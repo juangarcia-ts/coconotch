@@ -87,6 +87,19 @@ func sizesIslandSides(idealWidths: [Double], expected: Double) {
     #expect(getHoverWidgetID(nil) == nil)
 }
 
+@Test func countsOnlyNoteworthyActivitiesOnNeitherSide() {
+    let activities = [
+        makeActivity("heads-up", widget: "meetings", priority: .urgent),
+        makeActivity("other-meeting", widget: "meetings", priority: .normal),
+        makeActivity("music", widget: "music", priority: .background),
+        makeActivity("usage", widget: "aiUsage", priority: .low),
+    ]
+    #expect(countHiddenActivities(activities, shownIDs: ["heads-up", "music"]) == 1)
+    #expect(countHiddenActivities(activities, shownIDs: ["music", "heads-up"]) == 1)
+    #expect(countHiddenActivities(activities, shownIDs: ["heads-up", nil]) == 2)
+    #expect(countHiddenActivities(activities, shownIDs: ["heads-up", "other-meeting", "music"]) == 0)
+}
+
 @Test func treatsLowPriorityActivitiesAsNotNoteworthy() {
     #expect(isActivityNoteworthy(makeActivity("music", widget: "music", priority: .background)))
     #expect(!isActivityNoteworthy(makeActivity("usage", widget: "aiUsage", priority: .low)))
