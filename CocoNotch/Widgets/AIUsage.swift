@@ -393,23 +393,25 @@ final class AIUsageStore {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        // A switch while this was loading already shows the other account, so neither its numbers nor its errors land
+        // there.
+        let isShown = { accountID == self.activeAccountID }
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard !Task.isCancelled else { return }
             if let problem = getClaudeUsageProblem(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0) {
-                showClaude(problem)
+                if isShown() { showClaude(problem) }
                 return
             }
             let limits = try parseClaudeUsage(data)
             if let accountID { usageByAccount[accountID] = (limits, .now) }
-            // A switch while this was loading already shows the other account's numbers.
-            guard accountID == activeAccountID else { return }
+            guard isShown() else { return }
             claudeLimits = limits
             claudeProblem = nil
         } catch is DecodingError {
-            showClaude(.unexpectedResponse)
+            if isShown() { showClaude(.unexpectedResponse) }
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, isShown() else { return }
             showClaude(.network)
         }
     }
@@ -442,7 +444,8 @@ final class AIUsageStore {
             claudeLimits = snapshot.activeID.flatMap { usageByAccount[$0]?.limits } ?? []
             claudeProblem = nil
         }
-        activeAccountID = snapshot.activeID
+        // With the switcher off the active account isn't tracked, so a reload finishing late can't bring one back.
+        activeAccountID = readDefault(showsAccountsKey, default: true) ? snapshot.activeID : nil
         updateHeadsUp()
     }
 
