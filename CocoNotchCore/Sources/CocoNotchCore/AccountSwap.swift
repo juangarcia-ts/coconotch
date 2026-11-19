@@ -118,6 +118,17 @@ public func getActiveLogin(credentialsExitCode: Int32, credentials: Data?, confi
         ?? .unreadable
 }
 
+private func getJSONObject(_ data: Data?, key: String) -> NSObject? {
+    data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?[key] as? NSObject
+}
+
+/// Whether two reads of Claude Code's Keychain item and `~/.claude.json` found the same login and profile. Signing in
+/// writes the two separately, so a read between them would pair one account's tokens with another's profile.
+public func isSameLogin(credentials: Data?, credentialsAgain: Data?, config: Data?, configAgain: Data?) -> Bool {
+    getJSONObject(credentials, key: "claudeAiOauth") == getJSONObject(credentialsAgain, key: "claudeAiOauth")
+        && getJSONObject(config, key: "oauthAccount") == getJSONObject(configAgain, key: "oauthAccount")
+}
+
 /// Whether the Keychain and `~/.claude.json` may name different accounts after a switch, which writes the Keychain
 /// first: writing both fixes it, undoing the Keychain write leaves things as they were, and failing both causes it.
 public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRestored: Bool) -> Bool {

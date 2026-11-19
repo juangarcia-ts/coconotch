@@ -93,12 +93,23 @@ nonisolated private let isLoginMismatchedKey = "aiUsage.isLoginMismatched"
 nonisolated private func readActiveLogin() -> ActiveLogin {
     // A mismatched pair isn't worth keeping and is safe to replace, so it counts as signed out until a switch fixes it.
     guard !UserDefaults.standard.bool(forKey: isLoginMismatchedKey) else { return .signedOut }
-    let (status, output) = runSecurity([
-        "find-generic-password", "-s", claudeCredentialsService, "-a", NSUserName(), "-w",
-    ])
-    return getActiveLogin(
-        credentialsExitCode: status, credentials: decodeKeychainOutput(output),
-        config: try? Data(contentsOf: claudeConfigURL))
+    let readSources = { () -> (status: Int32, credentials: Data?, config: Data?) in
+        let (status, output) = runSecurity([
+            "find-generic-password", "-s", claudeCredentialsService, "-a", NSUserName(), "-w",
+        ])
+        return (status, decodeKeychainOutput(output), try? Data(contentsOf: claudeConfigURL))
+    }
+    // Read twice, interleaved, so a `claude /login` writing between the Keychain and the config shows up as a change.
+    // ponytail: a read landing wholly inside Claude Code's own gap between the two writes still slips through.
+    let first = readSources()
+    let second = readSources()
+    guard
+        first.status == second.status,
+        isSameLogin(
+            credentials: first.credentials, credentialsAgain: second.credentials, config: first.config,
+            configAgain: second.config)
+    else { return .unreadable }
+    return getActiveLogin(credentialsExitCode: first.status, credentials: first.credentials, config: first.config)
 }
 
 nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {

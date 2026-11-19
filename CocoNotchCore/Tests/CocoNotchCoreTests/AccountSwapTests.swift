@@ -124,3 +124,21 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
     #expect(getActiveLogin(credentialsExitCode: 0, credentials: credentials, config: nil) == .unreadable)
     #expect(getActiveLogin(credentialsExitCode: 0, credentials: credentials, config: Data("{}".utf8)) == .unreadable)
 }
+
+@Test func trustsOnlyALoginThatHeldStillBetweenReads() {
+    let otherLogin = Data("{\"claudeAiOauth\":{\"accessToken\":\"b\"}}".utf8)
+    let otherProfile = Data("{\"oauthAccount\":{\"accountUuid\":\"other\"}}".utf8)
+    let busierConfig = Data(
+        "{\"numStartups\":4,\"oauthAccount\":{\"accountUuid\":\"acc\",\"organizationUuid\":\"org\",\"emailAddress\":\"me@example.com\",\"organizationName\":\"Team\"}}"
+            .utf8)
+    #expect(isSameLogin(credentials: credentials, credentialsAgain: credentials, config: config, configAgain: config))
+    // Claude Code rewrites other keys all the time; only the login and profile count.
+    #expect(
+        isSameLogin(credentials: credentials, credentialsAgain: credentials, config: config, configAgain: busierConfig))
+    // Signing in changed the tokens or the profile between the reads.
+    #expect(!isSameLogin(credentials: credentials, credentialsAgain: otherLogin, config: config, configAgain: config))
+    #expect(
+        !isSameLogin(credentials: credentials, credentialsAgain: credentials, config: config, configAgain: otherProfile)
+    )
+    #expect(isSameLogin(credentials: nil, credentialsAgain: nil, config: nil, configAgain: nil))
+}
