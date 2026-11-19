@@ -286,7 +286,8 @@ private struct ReleaseSlider: View {
             @unknown default: break
             }
         }
-        .onChange(of: value) {
+        // A player read, not the seek bar's projected position, so only the player can confirm a sent value.
+        .onChange(of: MusicStore.shared.readAt) {
             if let sentValue, isSliderValueReached(value, sent: sentValue) { self.sentValue = nil }
         }
         // Lets go of the sent value if the command failed and the player never reports a change.
