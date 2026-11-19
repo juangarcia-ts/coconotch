@@ -65,11 +65,19 @@ public func getPlaybackPosition(_ nowPlaying: NowPlaying, readAt: Date, now: Dat
     return nowPlaying.duration > 0 ? min(position, nowPlaying.duration) : position
 }
 
-/// The value under a drag at `x` along a slider `width` points wide, clamped to the range.
-public func getSliderValue(atX x: Double, width: Double, range: ClosedRange<Double>) -> Double {
-    guard width > 0 else { return range.lowerBound }
-    let fraction = min(max(x / width, 0), 1)
+/// The value under a drag at `x` along a slider `width` points wide, clamped to the range. The knob's center can only
+/// travel between half a knob from each end, so that stretch maps to the whole range.
+public func getSliderValue(atX x: Double, width: Double, knobSize: Double, range: ClosedRange<Double>) -> Double {
+    let travel = width - knobSize
+    guard travel > 0 else { return range.lowerBound }
+    let fraction = min(max((x - knobSize / 2) / travel, 0), 1)
     return range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+}
+
+/// `value` moved by `steps` twentieths of the range, clamped to it.
+public func getSteppedSliderValue(_ value: Double, steps: Int, range: ClosedRange<Double>) -> Double {
+    let step = (range.upperBound - range.lowerBound) / 20
+    return min(max(value + Double(steps) * step, range.lowerBound), range.upperBound)
 }
 
 /// How far along the range `value` is, from 0 to 1; 0 for an empty range.

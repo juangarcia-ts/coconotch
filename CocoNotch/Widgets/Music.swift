@@ -233,45 +233,74 @@ private struct ReleaseSlider: View {
     let range: ClosedRange<Double>
     let onRelease: (Double) -> Void
     @State private var draggedValue: Double?
+    /// The last value sent, shown until the player reports back so quick key presses build on each other.
+    @State private var sentValue: Double?
 
     private let knobSize: CGFloat = 10
 
     var body: some View {
-        let fraction = getSliderFraction(draggedValue ?? value, range: range)
+        let fraction = getSliderFraction(draggedValue ?? sentValue ?? value, range: range)
         GeometryReader { geometry in
             let width = geometry.size.width
+            let knobX = (width - knobSize) * fraction
             ZStack(alignment: .leading) {
                 Capsule().fill(.quaternary).frame(height: 3)
-                Capsule().fill(.tint).frame(width: width * fraction, height: 3)
+                Capsule().fill(.tint).frame(width: knobX + knobSize / 2, height: 3)
                 Circle()
                     .fill(.white)
                     .shadow(radius: 1)
                     .frame(width: knobSize, height: knobSize)
-                    .offset(x: (width - knobSize) * fraction)
+                    .offset(x: knobX)
             }
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { draggedValue = getSliderValue(atX: $0.location.x, width: width, range: range) }
+                    .onChanged {
+                        draggedValue = getSliderValue(
+                            atX: $0.location.x, width: width, knobSize: knobSize, range: range)
+                    }
                     .onEnded { _ in
                         guard let draggedValue else { return }
-                        onRelease(draggedValue)
+                        send(draggedValue)
                         self.draggedValue = nil
                     }
             )
         }
         .frame(height: 14)
+        .focusable(interactions: .activate)
+        .onKeyPress(.leftArrow) {
+            step(-1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            step(1)
+            return .handled
+        }
         .accessibilityElement()
         .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
         .accessibilityAdjustableAction { direction in
-            let step = (range.upperBound - range.lowerBound) / 20
             switch direction {
-            case .increment: onRelease(min(value + step, range.upperBound))
-            case .decrement: onRelease(max(value - step, range.lowerBound))
+            case .increment: step(1)
+            case .decrement: step(-1)
             @unknown default: break
             }
         }
+        .onChange(of: value) { sentValue = nil }
+        // Lets go of the sent value if the command failed and the player never reports a change.
+        .task(id: sentValue) {
+            guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
+            sentValue = nil
+        }
+    }
+
+    private func send(_ newValue: Double) {
+        sentValue = newValue
+        onRelease(newValue)
+    }
+
+    private func step(_ steps: Int) {
+        send(getSteppedSliderValue(sentValue ?? value, steps: steps, range: range))
     }
 }
 

@@ -47,10 +47,19 @@ func rejectsNothingPlaying(output: String) {
 }
 
 @Test func mapsDragToSliderValue() {
-    #expect(getSliderValue(atX: 50, width: 200, range: 0...100) == 25)
-    #expect(getSliderValue(atX: -10, width: 200, range: 0...100) == 0)
-    #expect(getSliderValue(atX: 300, width: 200, range: 0...100) == 100)
-    #expect(getSliderValue(atX: 10, width: 0, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 5, width: 210, knobSize: 10, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 55, width: 210, knobSize: 10, range: 0...100) == 25)
+    #expect(getSliderValue(atX: 205, width: 210, knobSize: 10, range: 0...100) == 100)
+    #expect(getSliderValue(atX: -10, width: 210, knobSize: 10, range: 0...100) == 0)
+    #expect(getSliderValue(atX: 300, width: 210, knobSize: 10, range: 0...100) == 100)
+    #expect(getSliderValue(atX: 5, width: 8, knobSize: 10, range: 0...100) == 0)
+}
+
+@Test func stepsSliderValueWithinRange() {
+    #expect(getSteppedSliderValue(50, steps: 1, range: 0...100) == 55)
+    #expect(getSteppedSliderValue(50, steps: -2, range: 0...100) == 40)
+    #expect(getSteppedSliderValue(98, steps: 1, range: 0...100) == 100)
+    #expect(getSteppedSliderValue(2, steps: -1, range: 0...100) == 0)
 }
 
 @Test func mapsValueToSliderFraction() {
