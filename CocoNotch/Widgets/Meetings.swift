@@ -155,9 +155,10 @@ final class MeetingsStore {
                 makeTrailing: { AnyView(HeadsUpCountdown(meeting: meeting)) },
                 makeCompact: {
                     AnyView(
+                        // The countdown keeps its width; the title takes what's left and truncates.
                         HStack(spacing: 5) {
-                            Image(systemName: "calendar").foregroundStyle(.orange)
-                            HeadsUpCountdown(meeting: meeting)
+                            HeadsUpTitle(meeting: meeting)
+                            HeadsUpCountdown(meeting: meeting).fixedSize().layoutPriority(1)
                         }
                     )
                 },
@@ -184,8 +185,8 @@ final class MeetingsStore {
                 makeCompact: {
                     AnyView(
                         HStack(spacing: 5) {
-                            Image(systemName: "calendar").foregroundStyle(.secondary)
-                            NextMeetingCountdown(meeting: meeting)
+                            NextMeetingTitle(meeting: meeting)
+                            NextMeetingCountdown(meeting: meeting).fixedSize().layoutPriority(1)
                         }
                     )
                 }
