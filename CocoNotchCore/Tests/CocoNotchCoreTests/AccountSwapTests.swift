@@ -99,15 +99,25 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
 
 @Test func savesTheActiveLoginOnRefreshOnlyWhenItBelongs() {
     let saved = [SavedAccount(id: "a", label: "a@example.com", login: Data(), profile: Data())]
-    // Already saved: kept current.
-    #expect(shouldSaveActiveAccount(saved, activeID: "a", isSigningIn: false, signingInFromID: nil))
-    // Never saved and not signing in: left alone.
+    // Not signing in: a refresh saves nothing, saved or not.
+    #expect(!shouldSaveActiveAccount(saved, activeID: "a", isSigningIn: false, signingInFromID: nil))
     #expect(!shouldSaveActiveAccount(saved, activeID: "b", isSigningIn: false, signingInFromID: nil))
     // Signing in from "a": "b" is the new account; still "a" means you haven't signed in yet.
     #expect(shouldSaveActiveAccount(saved, activeID: "b", isSigningIn: true, signingInFromID: "a"))
-    #expect(!shouldSaveActiveAccount([], activeID: "a", isSigningIn: true, signingInFromID: "a"))
+    #expect(!shouldSaveActiveAccount(saved, activeID: "a", isSigningIn: true, signingInFromID: "a"))
     // Signing in while signed out: the first login to appear is the new account.
     #expect(shouldSaveActiveAccount([], activeID: "b", isSigningIn: true, signingInFromID: nil))
+}
+
+/// `claude /login` from "a" to "b" writes the tokens and the profile separately; a refresh between the two sees one
+/// account's tokens under the other's profile, whose id is what these checks get.
+@Test func neverSavesAHalfwayLoginOverASavedCopy() {
+    let a = SavedAccount(id: "a", label: "a@example.com", login: Data(), profile: Data())
+    let b = SavedAccount(id: "b", label: "b@example.com", login: Data(), profile: Data())
+    // New tokens, old profile: it reads as "a", the account you started from, so a's copy is left alone.
+    #expect(!shouldSaveActiveAccount([a], activeID: "a", isSigningIn: true, signingInFromID: "a"))
+    // Old tokens, new profile, "b" already saved: b's copy is left alone too.
+    #expect(!shouldSaveActiveAccount([a, b], activeID: "b", isSigningIn: true, signingInFromID: "a"))
 }
 
 @Test func tellsSignedOutApartFromAnUnreadableLogin() throws {
