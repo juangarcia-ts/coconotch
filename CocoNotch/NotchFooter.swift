@@ -28,6 +28,11 @@ struct NotchFooter: View {
                     }
                 }
             }
+            #if DEBUG
+                // Release builds come from CI in the Release configuration, so this marks a local build.
+                Text("Development version")
+                    .foregroundStyle(.yellow)
+            #endif
             Spacer()
             if let coffeeURL {
                 FooterLink(help: "Support CocoNotch") {
