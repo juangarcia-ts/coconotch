@@ -37,26 +37,31 @@ private func decode(_ data: Data?) throws -> [String: Any] {
     #expect(getClaudeAccount(credentials: Data("{\"mcpOAuth\":{}}".utf8), config: config) == nil)
 }
 
-@Test func labelsCodexSignInsByEmailAndKeysBySuffix() throws {
-    let payload = Data("{\"email\":\"me@example.com\"}".utf8).base64EncodedString()
-        .replacingOccurrences(of: "=", with: "")
-    let signIn = Data("{\"tokens\":{\"id_token\":\"h.\(payload).s\",\"account_id\":\"acct-1\"}}".utf8)
-    let account = try #require(getCodexAccount(auth: signIn))
-    #expect(account.id == "acct-1")
-    #expect(account.label == "me@example.com")
-    #expect(account.login == signIn)
-
-    let key = try #require(getCodexAccount(auth: Data("{\"OPENAI_API_KEY\":\"sk-abcdef1234\"}".utf8)))
-    #expect(key.id == "key-1234")
-    #expect(key.label == "sk-…1234")
-    #expect(getCodexAccount(auth: Data("{\"OPENAI_API_KEY\":null,\"tokens\":null}".utf8)) == nil)
+@Test func savingAnAccountAgainReplacesItsOldCopy() {
+    let first = SavedAccount(id: "a", label: "A", login: Data("1".utf8), profile: Data())
+    let second = SavedAccount(id: "b", label: "B", login: Data("2".utf8), profile: Data())
+    let refreshed = SavedAccount(id: "a", label: "A", login: Data("3".utf8), profile: Data())
+    let saved = [first, second].reduce([], upsertSavedAccount)
+    #expect(upsertSavedAccount(saved, refreshed) == [refreshed, second])
 }
 
-@Test func savingAnAccountAgainReplacesItsOldCopy() {
-    let first = SavedAccount(provider: .claude, id: "a", label: "A", login: Data("1".utf8), profile: nil)
-    let second = SavedAccount(provider: .claude, id: "b", label: "B", login: Data("2".utf8), profile: nil)
-    let refreshed = SavedAccount(provider: .claude, id: "a", label: "A", login: Data("3".utf8), profile: nil)
-    let codex = SavedAccount(provider: .codex, id: "a", label: "A", login: Data("4".utf8), profile: nil)
-    let saved = [first, second, codex].reduce([], upsertSavedAccount)
-    #expect(upsertSavedAccount(saved, refreshed) == [refreshed, second, codex])
+@Test func keepsTheAliasWhenTheLoginIsSavedAgain() {
+    let work = SavedAccount(id: "a", label: "me@example.com", login: Data("1".utf8), profile: Data())
+    let named = setAccountAlias([work], work, alias: "  Work ")
+    #expect(named.first?.name == "Work")
+    let refreshed = SavedAccount(
+        id: "a", label: "me@example.com", login: Data("2".utf8), profile: Data())
+    let resaved = upsertSavedAccount(named, refreshed)
+    #expect(resaved.first?.alias == "Work")
+    #expect(resaved.first?.login == Data("2".utf8))
+    #expect(setAccountAlias(resaved, work, alias: " ").first?.name == "me@example.com")
+}
+
+@Test func readsKeychainOutputPrintedAsHex() {
+    let json = Data("[{\"label\":\"me · Team\"}]".utf8)
+    let hex = Data((json.map { String(format: "%02x", $0) }.joined() + "\n").utf8)
+    #expect(decodeKeychainOutput(hex) == json)
+    #expect(decodeKeychainOutput(Data("{\"a\":1}\n".utf8)) == Data("{\"a\":1}".utf8))
+    #expect(decodeKeychainOutput(Data("abc".utf8)) == nil)
+    #expect(decodeKeychainOutput(Data("zz".utf8)) == nil)
 }

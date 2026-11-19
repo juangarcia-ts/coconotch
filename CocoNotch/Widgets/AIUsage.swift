@@ -27,6 +27,7 @@ private let showsIdleKey = "aiUsage.showsIdle"
 private let showsNotchResetKey = "aiUsage.showsNotchReset"
 private let idleShowsFullestKey = "aiUsage.idleShowsFullest"
 private let showsAccountsKey = "aiUsage.showsAccounts"
+private let showsNotchAliasKey = "aiUsage.showsNotchAlias"
 private let defaultRefreshMinutes = 5
 private let defaultHeadsUpThreshold = 80
 private let headsUpActivityID = "aiUsage.headsUp"
@@ -44,7 +45,9 @@ private enum CredentialsResult: Sendable {
 nonisolated private func readClaudeCredentials() -> CredentialsResult {
     let (status, data) = runSecurity(["find-generic-password", "-s", claudeCredentialsService, "-w"])
     if let problem = getCredentialsProblem(exitCode: status) { return .failed(problem) }
-    guard let credentials = parseClaudeCredentials(data) else { return .failed(.notSignedIn) }
+    guard let credentials = decodeKeychainOutput(data).flatMap(parseClaudeCredentials) else {
+        return .failed(.notSignedIn)
+    }
     return .found(credentials)
 }
 
@@ -72,7 +75,7 @@ nonisolated private func runSecurity(_ arguments: [String], input: Data? = nil) 
 
 nonisolated private func readKeychain(service: String) -> Data? {
     let (status, data) = runSecurity(["find-generic-password", "-s", service, "-a", NSUserName(), "-w"])
-    return status == 0 ? data : nil
+    return status == 0 ? decodeKeychainOutput(data) : nil
 }
 
 nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
@@ -83,42 +86,25 @@ nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
 
 nonisolated private let claudeConfigURL = FileManager.default.homeDirectoryForCurrentUser.appending(
     path: ".claude.json")
-nonisolated private let codexAuthURL = FileManager.default.homeDirectoryForCurrentUser.appending(
-    path: ".codex/auth.json")
-
-/// Writes atomically and keeps the file private, since both files hold logins.
-nonisolated private func writeLoginFile(_ data: Data, to url: URL) -> Bool {
-    guard (try? data.write(to: url, options: .atomic)) != nil else { return false }
-    return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)) != nil
-}
-
-nonisolated private func readActiveAccount(_ provider: AIProvider) -> SavedAccount? {
-    switch provider {
-    case .claude:
-        guard let credentials = readKeychain(service: claudeCredentialsService),
-            let config = try? Data(contentsOf: claudeConfigURL)
-        else { return nil }
-        return getClaudeAccount(credentials: credentials, config: config)
-    case .codex:
-        return (try? Data(contentsOf: codexAuthURL)).flatMap { getCodexAccount(auth: $0) }
-    }
+nonisolated private func readActiveAccount() -> SavedAccount? {
+    guard let credentials = readKeychain(service: claudeCredentialsService),
+        let config = try? Data(contentsOf: claudeConfigURL)
+    else { return nil }
+    return getClaudeAccount(credentials: credentials, config: config)
 }
 
 nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
-    switch account.provider {
-    case .claude:
-        // ponytail: Claude Code may write ~/.claude.json at the same moment; a lock would need its cooperation.
-        guard let profile = account.profile,
-            let credentials = readKeychain(service: claudeCredentialsService),
-            let config = try? Data(contentsOf: claudeConfigURL),
-            let newCredentials = replaceJSONValue(credentials, key: "claudeAiOauth", with: account.login),
-            let newConfig = replaceJSONValue(config, key: "oauthAccount", with: profile)
-        else { return false }
-        return writeKeychain(newCredentials, service: claudeCredentialsService)
-            && writeLoginFile(newConfig, to: claudeConfigURL)
-    case .codex:
-        return writeLoginFile(account.login, to: codexAuthURL)
-    }
+    // ponytail: Claude Code may write ~/.claude.json at the same moment; a lock would need its cooperation.
+    guard let credentials = readKeychain(service: claudeCredentialsService),
+        let config = try? Data(contentsOf: claudeConfigURL),
+        let newCredentials = replaceJSONValue(credentials, key: "claudeAiOauth", with: account.login),
+        let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile),
+        writeKeychain(newCredentials, service: claudeCredentialsService),
+        (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil
+    else { return false }
+    // The file holds the login's profile, so it stays readable only by you, as Claude Code leaves it.
+    return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path))
+        != nil
 }
 
 nonisolated private func readSavedAccounts() -> [SavedAccount] {
@@ -132,7 +118,7 @@ nonisolated private func writeSavedAccounts(_ accounts: [SavedAccount]) -> Bool 
 
 /// Saves the active login first: its refresh token has rotated since it was saved, and the old one no longer works.
 nonisolated private func swapAccount(to account: SavedAccount, saved: [SavedAccount]) -> [SavedAccount]? {
-    let updated = readActiveAccount(account.provider).map { upsertSavedAccount(saved, $0) } ?? saved
+    let updated = readActiveAccount().map { upsertSavedAccount(saved, $0) } ?? saved
     guard writeSavedAccounts(updated), activateAccount(account) else { return nil }
     return updated
 }
@@ -189,8 +175,9 @@ final class AIUsageStore {
     private(set) var headsUpProvider: AIProvider?
     @ObservationIgnored private var dismissedHeadsUps: [String: UsageLimit] = [:]
     private(set) var savedAccounts: [SavedAccount] = []
-    private(set) var activeAccountIDs: [AIProvider: String] = [:]
+    private(set) var activeAccountID: String?
     private(set) var isAccountSwitchFailed = false
+    @ObservationIgnored private var isAddingAccount = false
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
     func restart() {
@@ -310,21 +297,55 @@ final class AIUsageStore {
 
     /// Claude Code's login is read only once its usage is enabled, so the Keychain is never touched unasked.
     private func loadAccounts() async {
-        let readsClaude = UserDefaults.standard.bool(forKey: isClaudeConnectedKey)
-        let (saved, claude, codex) = await Task.detached {
-            (readSavedAccounts(), readsClaude ? readActiveAccount(.claude)?.id : nil, readActiveAccount(.codex)?.id)
+        guard UserDefaults.standard.bool(forKey: isClaudeConnectedKey) else { return }
+        let isAdding = isAddingAccount
+        let (saved, activeID, didAdd) = await Task.detached { () -> ([SavedAccount], String?, Bool) in
+            let saved = readSavedAccounts()
+            guard let active = readActiveAccount() else { return (saved, nil, false) }
+            // After Add Account, the login you make next is saved without a trip back to the menu.
+            guard isAdding, !saved.contains(where: { $0.id == active.id }) else { return (saved, active.id, false) }
+            let updated = upsertSavedAccount(saved, active)
+            return writeSavedAccounts(updated) ? (updated, active.id, true) : (saved, active.id, false)
         }.value
         guard !Task.isCancelled else { return }
+        if didAdd { isAddingAccount = false }
         savedAccounts = saved
-        activeAccountIDs = [.claude: claude, .codex: codex].compactMapValues { $0 }
+        activeAccountID = activeID
     }
 
-    func rememberActiveAccount(_ provider: AIProvider) {
+    /// Saves the current login, then opens Terminal to sign in to another one.
+    func addAccount() {
+        isAddingAccount = true
+        rememberActiveAccount()
+        let script = FileManager.default.temporaryDirectory.appending(path: "claude-login.command")
+        // A login shell, so `claude` is on the PATH the way it is in your own terminal.
+        guard (try? Data("#!/bin/zsh -l\nclaude /login\n".utf8).write(to: script)) != nil,
+            (try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)) != nil
+        else { return }
+        NSWorkspace.shared.open(script)
+    }
+
+    func reloadAccounts() {
+        Task {
+            await loadAccounts()
+            updateHeadsUp()
+        }
+    }
+
+    func setAlias(_ alias: String, for account: SavedAccount) {
+        let updated = setAccountAlias(savedAccounts, account, alias: alias)
+        guard updated != savedAccounts else { return }
+        savedAccounts = updated
+        updateHeadsUp()
+        Task.detached { _ = writeSavedAccounts(updated) }
+    }
+
+    func rememberActiveAccount() {
         let saved = savedAccounts
         Task {
             guard
                 let (updated, id) = await Task.detached(operation: { () -> ([SavedAccount], String)? in
-                    guard let active = readActiveAccount(provider) else { return nil }
+                    guard let active = readActiveAccount() else { return nil }
                     let updated = upsertSavedAccount(saved, active)
                     return writeSavedAccounts(updated) ? (updated, active.id) : nil
                 }).value
@@ -334,7 +355,8 @@ final class AIUsageStore {
             }
             isAccountSwitchFailed = false
             savedAccounts = updated
-            activeAccountIDs[provider] = id
+            activeAccountID = id
+            updateHeadsUp()
         }
     }
 
@@ -348,7 +370,7 @@ final class AIUsageStore {
             }
             isAccountSwitchFailed = false
             savedAccounts = updated
-            activeAccountIDs[account.provider] = account.id
+            activeAccountID = account.id
             refresh()
         }
     }
@@ -356,6 +378,7 @@ final class AIUsageStore {
     func forgetAccount(_ account: SavedAccount) {
         let remaining = savedAccounts.filter { $0 != account }
         savedAccounts = remaining
+        updateHeadsUp()
         Task.detached { _ = writeSavedAccounts(remaining) }
     }
 
@@ -439,6 +462,9 @@ final class AIUsageStore {
 
     private func postActivity(_ provider: AIProvider, _ limit: UsageLimit, priority: ActivityPriority, isHeadsUp: Bool)
     {
+        let alias =
+            provider == .claude && readDefault(showsNotchAliasKey, default: true)
+            ? savedAccounts.first { $0.id == activeAccountID }?.alias : nil
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -449,7 +475,7 @@ final class AIUsageStore {
                     AnyView(
                         HStack(spacing: 5) {
                             ProviderLogo(provider: provider, size: 13)
-                            Text(getProviderName(provider))
+                            Text(alias ?? getProviderName(provider))
                         }
                     )
                 },
@@ -526,7 +552,7 @@ private struct AIUsageView: View {
                             }
                         }
                         Spacer()
-                        if showsAccounts { AccountMenu(provider: provider) }
+                        if showsAccounts && provider == .claude { AccountMenu() }
                         if store.headsUpProvider == provider {
                             Button("Dismiss", systemImage: "bell.slash") { store.dismissHeadsUp() }
                                 .buttonStyle(.bordered)
@@ -598,47 +624,60 @@ private struct ProviderButton: View {
     }
 }
 
-/// Switches the provider's login between the ones saved from it.
+/// Switches Claude Code's login between the saved ones.
 private struct AccountMenu: View {
-    let provider: AIProvider
     @AppStorage(isClaudeConnectedKey) private var isClaudeConnected = false
+    @Environment(\.showSettings) private var showSettings
     private let store = AIUsageStore.shared
 
     var body: some View {
-        let saved = store.savedAccounts.filter { $0.provider == provider }
-        let activeID = store.activeAccountIDs[provider]
+        let saved = store.savedAccounts
+        let activeID = store.activeAccountID
         Menu {
             if store.isAccountSwitchFailed {
                 Text("Couldn't change accounts. Check that you're signed in, then try again.")
             }
             ForEach(saved) { account in
                 Toggle(
-                    account.label,
+                    account.name,
                     isOn: Binding(
                         get: { account.id == activeID },
                         set: { _ in if account.id != activeID { store.switchAccount(to: account) } }
                     ))
             }
             if !saved.isEmpty { Divider() }
-            Button("Remember Current Account") { store.rememberActiveAccount(provider) }
-                .disabled(activeID == nil)
+            if saved.contains(where: { $0.id == activeID }) {
+                Button("Set Alias…") { showSettings(.widget(NotchWidget.aiUsage.id)) }
+            } else {
+                Button("Remember Current Account") { store.rememberActiveAccount() }
+                    .disabled(activeID == nil)
+            }
+            Button("Add Account…") { store.addAccount() }
             if !saved.isEmpty {
                 Menu("Forget") {
                     ForEach(saved) { account in
-                        Button(account.label) { store.forgetAccount(account) }
+                        Button(account.name) { store.forgetAccount(account) }
                     }
                 }
             }
         } label: {
-            Label(
-                saved.first { $0.id == activeID }?.label ?? String(localized: "Accounts"),
-                systemImage: "person.crop.circle")
+            // Drawn by hand: a borderless menu pads its label, so it wouldn't line up with the bars below.
+            HStack(spacing: 4) {
+                Image(systemName: "person.crop.circle")
+                Text(saved.first { $0.id == activeID }?.name ?? String(localized: "Accounts"))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+            .font(.callout.weight(.medium))
+            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
         .fixedSize()
-        .frame(maxWidth: 160)
-        .disabled(provider == .claude && !isClaudeConnected)
-        .help("Switch which account Claude Code or Codex signs in with. Running sessions keep theirs until restarted.")
+        .disabled(!isClaudeConnected)
+        .help("Switch which account Claude Code signs in with. Running sessions keep theirs until restarted.")
     }
 }
 
@@ -753,6 +792,87 @@ private struct AIUsageSummary: View {
     }
 }
 
+/// Claude Code's saved logins, renamed like Time Zones: the name is plain text until you double-click it or use ✎.
+private struct ClaudeAccountsSection: View {
+    @AppStorage(showsAccountsKey) private var showsAccounts = true
+    @AppStorage(showsNotchAliasKey) private var showsNotchAlias = true
+    @State private var editingID: String?
+    @State private var aliasDraft = ""
+    @FocusState private var focusedAliasID: String?
+    private let store = AIUsageStore.shared
+
+    var body: some View {
+        Section {
+            Toggle("Show the account switcher", isOn: $showsAccounts)
+            if showsAccounts {
+                ForEach(store.savedAccounts) { account in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if editingID == account.id {
+                                TextField("Alias", text: $aliasDraft, prompt: Text(account.label))
+                                    .textFieldStyle(.roundedBorder)
+                                    .labelsHidden()
+                                    .focused($focusedAliasID, equals: account.id)
+                                    .onSubmit { finishEditing() }
+                                    .onAppear { focusedAliasID = account.id }
+                            } else {
+                                Text(account.name)
+                                    .onTapGesture(count: 2) { startEditing(account) }
+                            }
+                            // Names the real account, which an alias would otherwise hide.
+                            if account.alias != nil {
+                                Text(account.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 3)
+                        Spacer()
+                        Button("Rename", systemImage: "pencil") { startEditing(account) }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                            .help("Set an alias; leave it empty to use the email")
+                        Button("Forget", systemImage: "minus.circle") { store.forgetAccount(account) }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                    }
+                }
+                Toggle("Show the alias in the closed notch", isOn: $showsNotchAlias)
+            }
+        } header: {
+            Text("Claude Code Accounts")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(
+                    "Remember the account you're signed in with, sign in to another with claude /login, and remember that one too. Then switch between them from the AI Usage tab. Saved logins stay in your Keychain. Sessions already running keep their account until you restart them."
+                )
+                Text("Double-click a name or use ✎ to give it an alias.")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .onChange(of: focusedAliasID) { lost, gained in
+            if gained == nil, lost == editingID { finishEditing() }
+        }
+        .onDisappear { finishEditing() }
+    }
+
+    private func startEditing(_ account: SavedAccount) {
+        finishEditing()
+        aliasDraft = account.alias ?? ""
+        editingID = account.id
+    }
+
+    // Saved when editing ends, not per keystroke, since each save rewrites the Keychain item.
+    private func finishEditing() {
+        if let account = store.savedAccounts.first(where: { $0.id == editingID }) {
+            store.setAlias(aliasDraft, for: account)
+        }
+        editingID = nil
+    }
+}
+
 private struct AIUsageSettings: View {
     @AppStorage(showsClaudeKey) private var showsClaude = true
     @AppStorage(showsCodexKey) private var showsCodex = true
@@ -766,6 +886,7 @@ private struct AIUsageSettings: View {
     @AppStorage(showsNotchResetKey) private var showsNotchReset = true
     @AppStorage(idleShowsFullestKey) private var idleShowsFullest = false
     @AppStorage(showsAccountsKey) private var showsAccounts = true
+    @AppStorage(showsNotchAliasKey) private var showsNotchAlias = true
     private let store = AIUsageStore.shared
 
     var body: some View {
@@ -798,6 +919,8 @@ private struct AIUsageSettings: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            ClaudeAccountsSection()
+                .disabled(!showsClaude || !isClaudeConnected)
             Section {
                 Toggle(isOn: $showsCodex) {
                     Label {
@@ -811,17 +934,6 @@ private struct AIUsageSettings: View {
             } footer: {
                 Text(
                     "Codex records its limits in its session logs while you use it. CocoNotch reads the end of your latest logs in ~/.codex/sessions, keeps only those numbers, and sends nothing anywhere."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            Section {
-                Toggle("Show the account switcher", isOn: $showsAccounts)
-            } header: {
-                Text("Accounts")
-            } footer: {
-                Text(
-                    "Remember the account you're signed in with, sign in to another with claude /login or codex login, and remember that one too. Then switch between them from the AI Usage tab. Saved logins stay in your Keychain. Sessions already running keep their account until you restart them."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -861,6 +973,8 @@ private struct AIUsageSettings: View {
         .onChange(of: showsNotchReset) { store.updateHeadsUp() }
         .onChange(of: idleShowsFullest) { store.updateHeadsUp() }
         .onChange(of: showsAccounts) { store.refresh() }
+        .onChange(of: showsNotchAlias) { store.updateHeadsUp() }
+        .onAppear { if showsAccounts { store.reloadAccounts() } }
     }
 
     // Stores hidden kinds rather than shown ones, so limits Claude adds later appear by default.

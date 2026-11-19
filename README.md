@@ -38,7 +38,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | **Meetings** | Your next meeting with a countdown and a Join button for Meet, Zoom and Teams links, plus the rest of today. Reads every calendar on your Mac (Google, Outlook, iCloud) through macOS Calendar. Choose which calendars to show, hide all-day or declined events and get a heads-up before a meeting starts; once it starts, a big red card with Join and Dismiss buttons stays open under the notch until you use one of them (you can turn this off). When nothing else is in the closed notch, it shows your next meeting today (you can turn this off). |
 | **Clipboard** | A searchable history of copied text and images, with pinned items and apps to ignore. Click an item to copy it back, or to paste it straight into the app you're in. |
 | **Ask** | Quick answers from Apple Intelligence, made on your Mac so nothing leaves it, with past chats kept if you want them. Needs macOS 26 with Apple Intelligence turned on. |
-| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. Save several Claude Code or Codex logins and switch between them from the tab. |
+| **AI Usage** | How much of your Claude Code and Codex limits you've used, with a heads-up in the closed notch when one gets close, and the next limit to reset (or the fullest, if you prefer) there, with when it resets, whenever nothing else is showing. Save several Claude Code logins and switch between them from the tab. |
 | **Timer** | A Pomodoro with focus sessions, short and long breaks, a countdown timer with presets and a stopwatch with laps. All three keep running with the notch closed and show there, with a sound and a heads-up when time is up. Set the Pomodoro lengths, when the long break comes, whether the next phase starts on its own and the sound. |
 | **Weather** | Current conditions with hourly and daily forecasts from [Open-Meteo](https://open-meteo.com), for your location or a city you pick, in °C or °F. |
 | **Time Zones** | Your local time plus any cities you add, one row each with a day-and-night timeline, "Tomorrow" or "Yesterday" when the date differs and custom labels. Drag any timeline to look ahead or back. Country flags are optional. |
@@ -62,6 +62,25 @@ Open **Settings…** (⌘,) from the menu bar icon or the footer of the open not
 
 CocoNotch is in English, Spanish, Brazilian Portuguese, French, Italian, German, Japanese, Simplified Chinese and Korean, and follows your Mac's language. To use a different one for CocoNotch only, pick it in Settings → General → Language and restart CocoNotch.
 
+### Switching Claude Code accounts
+
+The AI Usage tab can keep several Claude Code logins and switch between them, for example a personal and a work subscription.
+
+1. Click **Enable** next to **Read Claude Code's login** in **Settings → Widgets → AI Usage**.
+2. In the AI Usage tab, open the **Accounts** menu on the Claude page and choose **Add Account…**. CocoNotch saves the account you're signed in with and opens Terminal running `claude /login`.
+3. Sign in to the other account there. CocoNotch saves it too the next time it refreshes, for example when you open the notch.
+4. Pick an account in the **Accounts** menu to switch to it.
+
+If you signed in to an account another way, choose **Remember Current Account** in the menu to save it.
+
+To name an account, choose **Set Alias…** in the **Accounts** menu, or go to **Settings → Widgets → AI Usage → Claude Code Accounts**. Double-click the account or use ✎, type an alias like "Work" and press Return. The menu shows the alias, and so does the closed notch in place of "Claude" (turn that off with **Show the alias in the closed notch**). The ⊖ button forgets an account.
+
+Good to know:
+
+- Claude Code sessions that are already running keep their account until you restart them.
+- Saved logins stay in your Keychain under `CocoNotch-saved-accounts`. Before each switch, CocoNotch saves the current login again, because its token changes as you use it.
+- Switching changes Claude Code's login in the Keychain and the account in `~/.claude.json`.
+
 ## Permissions
 
 macOS asks for each one the first time a widget needs it:
@@ -78,7 +97,7 @@ CocoNotch has no account and no analytics. It only goes online for:
 
 - **Weather**: forecasts and city search from [Open-Meteo](https://open-meteo.com). With your current location, Apple's geocoding service turns it into a city name.
 - **Music**: synced lyrics from [LRCLIB](https://lrclib.net), and album art from Spotify for Spotify tracks.
-- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs. Saved accounts for the switcher stay in your Keychain; switching rewrites Claude Code's login there and in `~/.claude.json`, or Codex's `~/.codex/auth.json`.
+- **AI Usage**: your Claude Code limits from Anthropic, using the login Claude Code keeps in your Keychain, only after you click Enable. Codex limits come from its local session logs. Saved accounts for the switcher stay in your Keychain; switching rewrites Claude Code's login there and in `~/.claude.json`.
 - **Updates**: checking for and installing new releases from GitHub.
 
 ## Build

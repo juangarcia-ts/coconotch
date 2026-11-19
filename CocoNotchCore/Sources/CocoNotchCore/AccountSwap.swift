@@ -3,24 +3,44 @@ import Foundation
 /// The Keychain item CocoNotch keeps saved logins in, so they're encrypted like the ones they were copied from.
 public let savedAccountsService = "CocoNotch-saved-accounts"
 
-/// A login copied aside so it can be put back later. `login` is the provider's own JSON, kept as is.
+/// A Claude Code login copied aside so it can be put back later, in Claude Code's own JSON.
 public struct SavedAccount: Codable, Equatable, Identifiable, Sendable {
-    public let provider: AIProvider
     /// Stays the same across token refreshes, so saving an account again replaces its old copy.
     public let id: String
     public let label: String
-    /// Claude's `claudeAiOauth` value from the Keychain item, or Codex's whole `auth.json`.
+    /// The `claudeAiOauth` value from Claude Code's Keychain item.
     public let login: Data
-    /// Claude's `oauthAccount` value from `~/.claude.json`, which names the account Claude Code shows.
-    public let profile: Data?
+    /// The `oauthAccount` value from `~/.claude.json`, which names the account Claude Code shows.
+    public let profile: Data
+    /// A name you pick, like "Work", shown instead of the email.
+    public var alias: String?
 
-    public init(provider: AIProvider, id: String, label: String, login: Data, profile: Data?) {
-        self.provider = provider
+    public var name: String { alias ?? label }
+
+    public init(id: String, label: String, login: Data, profile: Data, alias: String? = nil) {
         self.id = id
         self.label = label
         self.login = login
         self.profile = profile
+        self.alias = alias
     }
+}
+
+/// What `security find-generic-password -w` printed, as the stored bytes: it prints hex instead of text when the item
+/// holds anything outside ASCII, like the "·" in a saved label. Stored items are always JSON, which hex never starts as.
+public func decodeKeychainOutput(_ output: Data) -> Data? {
+    let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    if text.hasPrefix("{") || text.hasPrefix("[") { return Data(text.utf8) }
+    guard text.count.isMultiple(of: 2) else { return nil }
+    var bytes = Data()
+    var index = text.startIndex
+    while index < text.endIndex {
+        let next = text.index(index, offsetBy: 2)
+        guard let byte = UInt8(text[index..<next], radix: 16) else { return nil }
+        bytes.append(byte)
+        index = next
+    }
+    return bytes
 }
 
 /// The JSON value under a top-level key, re-encoded on its own.
@@ -58,61 +78,29 @@ public func getClaudeAccount(credentials: Data, config: Data) -> SavedAccount? {
         .compactMap { $0 }
         .joined(separator: " · ")
     return SavedAccount(
-        provider: .claude, id: "\(profile.accountUuid)/\(profile.organizationUuid ?? "")", label: label,
-        login: login, profile: profileData)
-}
-
-private struct CodexAuth: Decodable {
-    struct Tokens: Decodable {
-        let idToken: String?
-        let accountId: String?
-
-        enum CodingKeys: String, CodingKey {
-            case idToken = "id_token"
-            case accountId = "account_id"
-        }
-    }
-
-    let apiKey: String?
-    let tokens: Tokens?
-
-    enum CodingKeys: String, CodingKey {
-        case apiKey = "OPENAI_API_KEY"
-        case tokens
-    }
-}
-
-/// The email claim of a JWT, read without checking its signature since it only labels the account.
-func getJWTEmail(_ token: String) -> String? {
-    let parts = token.split(separator: ".")
-    guard parts.count == 3 else { return nil }
-    var base64 = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-    base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
-    guard let payload = Data(base64Encoded: base64),
-        let claims = try? JSONSerialization.jsonObject(with: payload) as? [String: Any]
-    else { return nil }
-    return claims["email"] as? String
-}
-
-/// The active Codex login from `~/.codex/auth.json`: a ChatGPT sign-in or an API key; nil when it has neither.
-public func getCodexAccount(auth: Data) -> SavedAccount? {
-    guard let parsed = try? JSONDecoder().decode(CodexAuth.self, from: auth) else { return nil }
-    if let accountID = parsed.tokens?.accountId {
-        let label = parsed.tokens?.idToken.flatMap(getJWTEmail) ?? accountID
-        return SavedAccount(provider: .codex, id: accountID, label: label, login: auth, profile: nil)
-    }
-    guard let apiKey = parsed.apiKey, apiKey.count > 4 else { return nil }
-    let suffix = String(apiKey.suffix(4))
-    return SavedAccount(
-        provider: .codex, id: "key-\(suffix)", label: "\(apiKey.prefix(3))…\(suffix)", login: auth, profile: nil)
+        id: "\(profile.accountUuid)/\(profile.organizationUuid ?? "")", label: label, login: login, profile: profileData
+    )
 }
 
 /// The saved accounts with this one added, or replacing its older copy in place.
 public func upsertSavedAccount(_ accounts: [SavedAccount], _ account: SavedAccount) -> [SavedAccount] {
-    guard let index = accounts.firstIndex(where: { $0.provider == account.provider && $0.id == account.id }) else {
+    guard let index = accounts.firstIndex(where: { $0.id == account.id }) else {
         return accounts + [account]
     }
     var updated = accounts
     updated[index] = account
+    // A login read fresh from Claude Code has no alias, so the one already given is kept.
+    updated[index].alias = account.alias ?? accounts[index].alias
     return updated
+}
+
+/// The saved accounts with one renamed; a blank alias goes back to the email.
+public func setAccountAlias(_ accounts: [SavedAccount], _ account: SavedAccount, alias: String) -> [SavedAccount] {
+    let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+    return accounts.map { saved in
+        guard saved.id == account.id else { return saved }
+        var renamed = saved
+        renamed.alias = trimmed.isEmpty ? nil : trimmed
+        return renamed
+    }
 }
