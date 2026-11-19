@@ -152,3 +152,17 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
     )
     #expect(isSameLogin(credentials: nil, credentialsAgain: nil, config: nil, configAgain: nil))
 }
+
+@Test func switchesIntoWhateverClaudeCodeHasOrNothing() throws {
+    let current = try #require(
+        getSwitchBase(credentialsExitCode: 0, credentials: credentials, config: config, isConfigMissing: false))
+    #expect(current.credentials == credentials && current.config == config)
+    // Signed out: no Keychain item and no config yet, so the saved login starts both.
+    let signedOut = try #require(
+        getSwitchBase(credentialsExitCode: 44, credentials: nil, config: nil, isConfigMissing: true))
+    #expect(signedOut.credentials == nil && signedOut.config == Data("{}".utf8))
+    // There but unreadable: a locked Keychain, garbled output, or a config that exists and can't be read.
+    #expect(getSwitchBase(credentialsExitCode: 36, credentials: nil, config: config, isConfigMissing: false) == nil)
+    #expect(getSwitchBase(credentialsExitCode: 0, credentials: nil, config: config, isConfigMissing: false) == nil)
+    #expect(getSwitchBase(credentialsExitCode: 44, credentials: nil, config: nil, isConfigMissing: false) == nil)
+}

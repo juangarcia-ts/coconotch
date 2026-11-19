@@ -74,11 +74,6 @@ nonisolated private func runSecurity(_ arguments: [String], input: Data? = nil) 
     return (process.terminationStatus, data)
 }
 
-nonisolated private func readKeychain(service: String) -> Data? {
-    let (status, data) = runSecurity(["find-generic-password", "-s", service, "-a", NSUserName(), "-w"])
-    return status == 0 ? decodeKeychainOutput(data) : nil
-}
-
 nonisolated private func writeKeychain(_ data: Data, service: String) -> Bool {
     guard let command = makeKeychainWriteCommand(data, service: service, account: NSUserName()) else { return false }
     return runSecurity(["-i"], input: Data(command.utf8)).status == 0
@@ -114,15 +109,26 @@ nonisolated private func readActiveLogin() -> ActiveLogin {
 
 nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
     // ponytail: Claude Code may write ~/.claude.json at the same moment; a lock would need its cooperation.
-    guard let credentials = readKeychain(service: claudeCredentialsService),
-        let config = try? Data(contentsOf: claudeConfigURL),
-        let newCredentials = replaceJSONValue(credentials, key: "claudeAiOauth", with: account.login),
-        let newConfig = replaceJSONValue(config, key: "oauthAccount", with: account.profile, isPretty: true),
+    let (status, output) = runSecurity([
+        "find-generic-password", "-s", claudeCredentialsService, "-a", NSUserName(), "-w",
+    ])
+    guard
+        let base = getSwitchBase(
+            credentialsExitCode: status, credentials: decodeKeychainOutput(output),
+            config: try? Data(contentsOf: claudeConfigURL),
+            isConfigMissing: !FileManager.default.fileExists(atPath: claudeConfigURL.path)),
+        let newCredentials = replaceJSONValue(
+            base.credentials ?? Data("{}".utf8), key: "claudeAiOauth", with: account.login),
+        let newConfig = replaceJSONValue(base.config, key: "oauthAccount", with: account.profile, isPretty: true),
         writeKeychain(newCredentials, service: claudeCredentialsService)
     else { return false }
     let isConfigWritten = (try? newConfig.write(to: claudeConfigURL, options: .atomic)) != nil
-    // Puts the old login back when the config can't follow, so the Keychain and ~/.claude.json name the same account.
-    let isRestored = isConfigWritten || writeKeychain(credentials, service: claudeCredentialsService)
+    // Puts the old login back, or removes the one just added, when the config can't follow, so the Keychain and
+    // ~/.claude.json name the same account.
+    let isRestored =
+        isConfigWritten
+        || base.credentials.map { writeKeychain($0, service: claudeCredentialsService) }
+            ?? (runSecurity(["delete-generic-password", "-s", claudeCredentialsService, "-a", NSUserName()]).status == 0)
     let defaults = UserDefaults.standard
     defaults.set(
         isLoginMismatched(
@@ -130,9 +136,10 @@ nonisolated private func activateAccount(_ account: SavedAccount) -> Bool {
             isRestored: isRestored),
         forKey: isLoginMismatchedKey)
     guard isConfigWritten else { return false }
-    // The file holds the login's profile, so it stays readable only by you, as Claude Code leaves it.
-    return (try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path))
-        != nil
+    // Readable only by you, as Claude Code leaves it. The switch has happened either way, so a failure here doesn't
+    // undo or hide it.
+    try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeConfigURL.path)
+    return true
 }
 
 // CocoNotch's own item, so it goes through the Security framework: no line limit, and no process to see the value.
@@ -267,6 +274,8 @@ final class AIUsageStore {
     @ObservationIgnored private var isSigningIn = false
     /// The account you were signed in with when that started; nil if you were signed out.
     @ObservationIgnored private var signingInFromID: String?
+    /// Bumped by each sign-in, so a refresh that started before it can't end it.
+    @ObservationIgnored private var signInGeneration = 0
     @ObservationIgnored private var accountsVersion = 0
 
     /// Starts over, so a new refresh interval applies now rather than after the old one runs out.
@@ -390,7 +399,7 @@ final class AIUsageStore {
     private func loadAccounts() async {
         guard readDefault(showsClaudeKey, default: true), UserDefaults.standard.bool(forKey: isClaudeConnectedKey)
         else { return }
-        let (isSigningIn, fromID) = (isSigningIn, signingInFromID)
+        let (isSigningIn, fromID, generation) = (isSigningIn, signingInFromID, signInGeneration)
         let snapshot = await AccountVault.shared.update { saved, active in
             guard let active,
                 shouldSaveActiveAccount(saved, activeID: active.id, isSigningIn: isSigningIn, signingInFromID: fromID)
@@ -398,7 +407,9 @@ final class AIUsageStore {
             return upsertSavedAccount(saved, active)
         }
         guard let snapshot else { return }
-        if isSigningIn, let activeID = snapshot.activeID, activeID != fromID { self.isSigningIn = false }
+        if isSigningIn, generation == signInGeneration, let activeID = snapshot.activeID, activeID != fromID {
+            self.isSigningIn = false
+        }
         publish(snapshot)
     }
 
@@ -439,6 +450,7 @@ final class AIUsageStore {
                 return
             }
             signingInFromID = activeAccountID
+            signInGeneration += 1
             isSigningIn = true
             NSWorkspace.shared.open(script)
         }

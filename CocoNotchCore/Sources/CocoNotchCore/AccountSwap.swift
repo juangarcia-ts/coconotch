@@ -129,6 +129,24 @@ public func isSameLogin(credentials: Data?, credentialsAgain: Data?, config: Dat
         && getJSONObject(config, key: "oauthAccount") == getJSONObject(configAgain, key: "oauthAccount")
 }
 
+/// What a switch writes the saved login into: Claude Code's Keychain JSON (nil when it has no item yet, so a rollback
+/// removes it) and `~/.claude.json`, empty when it doesn't exist. Signed out, Claude Code may have neither. nil when
+/// either is there but can't be read.
+public func getSwitchBase(credentialsExitCode: Int32, credentials: Data?, config: Data?, isConfigMissing: Bool)
+    -> (credentials: Data?, config: Data)?
+{
+    let current: Data?
+    switch credentialsExitCode {
+    case 0:
+        guard let credentials else { return nil }
+        current = credentials
+    case 44: current = nil
+    default: return nil
+    }
+    guard let config = config ?? (isConfigMissing ? Data("{}".utf8) : nil) else { return nil }
+    return (current, config)
+}
+
 /// Whether the Keychain and `~/.claude.json` may name different accounts after a switch, which writes the Keychain
 /// first: writing both fixes it, undoing the Keychain write leaves things as they were, and failing both causes it.
 public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRestored: Bool) -> Bool {
