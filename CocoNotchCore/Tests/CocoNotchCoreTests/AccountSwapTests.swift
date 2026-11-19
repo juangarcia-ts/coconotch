@@ -100,10 +100,12 @@ func tracksWhetherASwitchLeftTheLoginMismatched(wasMismatched: Bool) {
 @Test func savesTheActiveLoginOnRefreshOnlyWhenItBelongs() {
     let saved = [SavedAccount(id: "a", label: "a@example.com", login: Data(), profile: Data())]
     // Already saved: kept current.
-    #expect(shouldSaveActiveAccount(saved, activeID: "a", signingInFromID: nil))
+    #expect(shouldSaveActiveAccount(saved, activeID: "a", isSigningIn: false, signingInFromID: nil))
     // Never saved and not signing in: left alone.
-    #expect(!shouldSaveActiveAccount(saved, activeID: "b", signingInFromID: nil))
+    #expect(!shouldSaveActiveAccount(saved, activeID: "b", isSigningIn: false, signingInFromID: nil))
     // Signing in from "a": "b" is the new account; still "a" means you haven't signed in yet.
-    #expect(shouldSaveActiveAccount(saved, activeID: "b", signingInFromID: "a"))
-    #expect(!shouldSaveActiveAccount([], activeID: "a", signingInFromID: "a"))
+    #expect(shouldSaveActiveAccount(saved, activeID: "b", isSigningIn: true, signingInFromID: "a"))
+    #expect(!shouldSaveActiveAccount([], activeID: "a", isSigningIn: true, signingInFromID: "a"))
+    // Signing in while signed out: the first login to appear is the new account.
+    #expect(shouldSaveActiveAccount([], activeID: "b", isSigningIn: true, signingInFromID: nil))
 }

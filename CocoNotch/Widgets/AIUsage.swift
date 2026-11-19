@@ -243,7 +243,9 @@ final class AIUsageStore {
     private(set) var savedAccounts: [SavedAccount] = []
     private(set) var activeAccountID: String?
     private(set) var isAccountSwitchFailed = false
-    /// The account you were signed in with when Sign In to Another Account started; nil once the new one is saved.
+    /// Set by Sign In to Another Account until the new login shows up and is saved.
+    @ObservationIgnored private var isSigningIn = false
+    /// The account you were signed in with when that started; nil if you were signed out.
     @ObservationIgnored private var signingInFromID: String?
     @ObservationIgnored private var accountsVersion = 0
 
@@ -368,15 +370,15 @@ final class AIUsageStore {
     private func loadAccounts() async {
         guard readDefault(showsClaudeKey, default: true), UserDefaults.standard.bool(forKey: isClaudeConnectedKey)
         else { return }
-        let fromID = signingInFromID
+        let (isSigningIn, fromID) = (isSigningIn, signingInFromID)
         let snapshot = await AccountVault.shared.update { saved, active in
-            guard let active, shouldSaveActiveAccount(saved, activeID: active.id, signingInFromID: fromID) else {
-                return saved
-            }
+            guard let active,
+                shouldSaveActiveAccount(saved, activeID: active.id, isSigningIn: isSigningIn, signingInFromID: fromID)
+            else { return saved }
             return upsertSavedAccount(saved, active)
         }
         guard let snapshot else { return }
-        if let fromID, let activeID = snapshot.activeID, activeID != fromID { signingInFromID = nil }
+        if isSigningIn, let activeID = snapshot.activeID, activeID != fromID { self.isSigningIn = false }
         publish(snapshot)
     }
 
@@ -405,14 +407,19 @@ final class AIUsageStore {
     /// Saves the current login, then opens Terminal to sign in to another one, which the next refresh saves too.
     func signInToAnotherAccount() {
         Task {
-            // Signing in replaces the current login, so Terminal opens only once a copy of it is safely saved.
-            guard await saveActiveAccount() else { return }
-            signingInFromID = activeAccountID
+            // Signing in replaces the current login, so Terminal opens only once a copy of it is safely saved. Signed
+            // out, there's nothing to save.
+            guard await saveActiveAccount(requiresActive: false) else { return }
             let script = FileManager.default.temporaryDirectory.appending(path: "claude-login.command")
             // A login shell, so `claude` is on the PATH the way it is in your own terminal.
             guard (try? Data("#!/bin/zsh -l\nclaude /login\n".utf8).write(to: script)) != nil,
                 (try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)) != nil
-            else { return }
+            else {
+                isAccountSwitchFailed = true
+                return
+            }
+            signingInFromID = activeAccountID
+            isSigningIn = true
             NSWorkspace.shared.open(script)
         }
     }
@@ -433,11 +440,11 @@ final class AIUsageStore {
         Task { await saveActiveAccount() }
     }
 
-    @discardableResult private func saveActiveAccount() async -> Bool {
+    @discardableResult private func saveActiveAccount(requiresActive: Bool = true) async -> Bool {
         let snapshot = await AccountVault.shared.update { saved, active in
             active.map { upsertSavedAccount(saved, $0) } ?? saved
         }
-        return report(snapshot?.activeID == nil ? nil : snapshot)
+        return report(requiresActive && snapshot?.activeID == nil ? nil : snapshot)
     }
 
     func switchAccount(to account: SavedAccount) {
@@ -531,7 +538,8 @@ final class AIUsageStore {
     private func postActivity(_ provider: AIProvider, _ limit: UsageLimit, priority: ActivityPriority, isHeadsUp: Bool)
     {
         let alias =
-            provider == .claude && readDefault(showsNotchAliasKey, default: true)
+            provider == .claude && readDefault(showsAccountsKey, default: true)
+                && readDefault(showsNotchAliasKey, default: true)
             ? savedAccounts.first { $0.id == activeAccountID }?.alias : nil
         ActivityCenter.shared.post(
             NotchActivity(

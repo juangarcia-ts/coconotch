@@ -100,10 +100,11 @@ public func isLoginMismatched(wasMismatched: Bool, isConfigWritten: Bool, isRest
 }
 
 /// Whether a refresh saves the active login: always when it was saved before, which keeps its token and label current,
-/// and once you've started signing in to another account from `signingInFromID`, as soon as a different one shows up.
-public func shouldSaveActiveAccount(_ saved: [SavedAccount], activeID: String, signingInFromID: String?) -> Bool {
-    if saved.contains(where: { $0.id == activeID }) { return true }
-    return signingInFromID.map { $0 != activeID } ?? false
+/// and while signing in to another account, as soon as one other than `signingInFromID` (nil when signed out) shows up.
+public func shouldSaveActiveAccount(
+    _ saved: [SavedAccount], activeID: String, isSigningIn: Bool, signingInFromID: String?
+) -> Bool {
+    saved.contains { $0.id == activeID } || (isSigningIn && activeID != signingInFromID)
 }
 
 /// The saved accounts with this one added, or replacing its older copy in place.
