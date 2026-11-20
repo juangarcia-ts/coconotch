@@ -180,6 +180,23 @@ public func getHeadsUpMeeting(
     }
 }
 
+/// The next moment a heads-up appears or turns urgent, or nil when nothing is left to change today or heads-ups are off.
+public func getNextHeadsUpChange(
+    _ upcoming: [Meeting],
+    now: Date,
+    leadTime: TimeInterval,
+    alertLead: TimeInterval,
+    dismissedIDs: Set<String>
+) -> Date? {
+    guard leadTime > 0 else { return nil }
+    return
+        upcoming
+        .filter { !$0.isAllDay && !dismissedIDs.contains($0.id) }
+        .flatMap { [$0.start - leadTime, $0.start - alertLead] }
+        .filter { $0 > now }
+        .min()
+}
+
 /// The next meeting still to start, for the low-priority reminder shown before the heads-up; all-day events never count.
 public func getNextMeeting(_ upcoming: [Meeting], now: Date) -> Meeting? {
     upcoming.first { !$0.isAllDay && $0.start > now }
@@ -193,9 +210,10 @@ public func formatTimer(seconds: Int) -> String {
     return hours > 0 ? "\(hours):\(String(format: "%02d", minutes)):\(tail)" : "\(minutes):\(tail)"
 }
 
-/// A heads-up is urgent from the moment its meeting starts, so it beats other widgets' activities.
-public func getHeadsUpPriority(start: Date, now: Date) -> ActivityPriority {
-    start <= now ? .urgent : .normal
+/// A heads-up turns urgent `alertLead` before its meeting starts, so the started-meeting card is up on time and
+/// beats other widgets' activities.
+public func getHeadsUpPriority(start: Date, now: Date, alertLead: TimeInterval) -> ActivityPriority {
+    start.timeIntervalSince(now) <= alertLead ? .urgent : .normal
 }
 
 public struct MonthGrid: Equatable, Sendable {

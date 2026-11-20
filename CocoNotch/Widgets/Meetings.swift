@@ -22,6 +22,7 @@ private let compactTitleMinWidth: CGFloat = 50
 private let headsUpMinutesKey = "meetings.headsUpMinutes"
 private let showsPastEventsKey = "meetings.showsPastEvents"
 private let headsUpSticksKey = "meetings.headsUpSticks"
+private let alertLeadSecondsKey = "meetings.alertLeadSeconds"
 private let showsNextMeetingKey = "meetings.showsNextMeeting"
 private let homeCountKey = "meetings.homeCount"
 private let agendaLimit = 3
@@ -30,6 +31,7 @@ private let defaultHidesDeclined = true
 private let defaultHeadsUpMinutes = 10
 private let defaultShowsPastEvents = true
 private let defaultHeadsUpSticks = true
+private let defaultAlertLeadSeconds = 0
 private let defaultHomeCount = 2
 private let headsUpGrace: TimeInterval = 10 * 60
 private let headsUpActivityID = "meetings.headsUp"
@@ -70,13 +72,14 @@ final class MeetingsStore {
     private(set) var selectedDay: Date?
     private(set) var selectedDaysMeetings: [Meeting] = []
     private var refreshTask: Task<Void, Never>?
+    private var wakeTask: Task<Void, Never>?
     /// The meeting shown in the closed notch, if any.
     private(set) var headsUpMeetingID: String?
     private var dismissedHeadsUpIDs: Set<String> = []
     private(set) var isRefreshing = false
 
-    /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, so it turns urgent close to the
-    /// start time without querying EventKit that often. Never asks for access; that happens from the Meetings tab.
+    /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, without querying EventKit that
+    /// often; the heads-up and its card get their own wake-ups. Never asks for access; that happens from the Meetings tab.
     func start() {
         guard refreshTask == nil else { return }
         refreshTask = Task { [weak self] in
@@ -129,6 +132,7 @@ final class MeetingsStore {
             hiddenCalendarIDs: decodeIDSet(defaults.string(forKey: hiddenCalendarIDsKey) ?? "")
         )
         let leadMinutes = defaults.object(forKey: headsUpMinutesKey) as? Int ?? defaultHeadsUpMinutes
+        let alertLead = TimeInterval(defaults.object(forKey: alertLeadSecondsKey) as? Int ?? defaultAlertLeadSeconds)
         let sticks = defaults.object(forKey: headsUpSticksKey) as? Bool ?? defaultHeadsUpSticks
         let meeting = getHeadsUpMeeting(
             upcoming,
@@ -142,11 +146,22 @@ final class MeetingsStore {
         updateNextMeeting(
             meeting == nil && defaults.object(forKey: showsNextMeetingKey) as? Bool ?? true
                 ? getNextMeeting(upcoming, now: now) : nil)
+        wakeTask?.cancel()
+        if let wake = getNextHeadsUpChange(
+            upcoming, now: now, leadTime: TimeInterval(leadMinutes * 60), alertLead: alertLead,
+            dismissedIDs: dismissedHeadsUpIDs)
+        {
+            // The 15-second poll could be up to 15 seconds late, so wake right when the heads-up changes.
+            wakeTask = Task { [weak self] in
+                guard (try? await Task.sleep(for: .seconds(wake.timeIntervalSince(now)))) != nil else { return }
+                self?.updateHeadsUp()
+            }
+        }
         guard let meeting else {
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
         }
-        let priority = getHeadsUpPriority(start: meeting.start, now: now)
+        let priority = getHeadsUpPriority(start: meeting.start, now: now, alertLead: alertLead)
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,
@@ -164,7 +179,7 @@ final class MeetingsStore {
                         }
                     )
                 },
-                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting)) },
+                makeAlert: { AnyView(HeadsUpAlert(meeting: meeting, isUrgent: priority == .urgent)) },
                 isAlertSticky: sticks && priority == .urgent
             )
         )
@@ -565,6 +580,7 @@ private struct MeetingsSettings: View {
     @AppStorage(showsPastEventsKey) private var showsPastEvents = defaultShowsPastEvents
     @AppStorage(showsNextMeetingKey) private var showsNextMeeting = true
     @AppStorage(headsUpSticksKey) private var headsUpSticks = defaultHeadsUpSticks
+    @AppStorage(alertLeadSecondsKey) private var alertLeadSeconds = defaultAlertLeadSeconds
 
     var body: some View {
         Form {
@@ -582,6 +598,14 @@ private struct MeetingsSettings: View {
             Toggle("Keep the heads-up open once the meeting starts, until I dismiss it", isOn: $headsUpSticks)
                 .disabled(headsUpMinutes == 0)
                 .onChange(of: headsUpSticks) { MeetingsStore.shared.updateHeadsUp() }
+            Picker("Show the meeting card", selection: $alertLeadSeconds) {
+                Text("When it starts").tag(0)
+                ForEach([10, 30, 60], id: \.self) { seconds in
+                    Text("\(seconds) sec before").tag(seconds)
+                }
+            }
+            .disabled(headsUpMinutes == 0)
+            .onChange(of: alertLeadSeconds) { MeetingsStore.shared.updateHeadsUp() }
             Section("Calendars") {
                 if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
                     Text("Open the Meetings tab in the notch and allow calendar access to choose calendars here.")
@@ -680,9 +704,10 @@ private struct HeadsUpCountdown: View {
 /// Drops down under the heads-up when it appears and when the meeting starts, so it is hard to miss.
 private struct HeadsUpAlert: View {
     let meeting: Meeting
+    let isUrgent: Bool
 
     var body: some View {
-        if meeting.start <= .now {
+        if isUrgent {
             StartedMeetingAlert(meeting: meeting)
         } else {
             upcoming
