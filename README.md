@@ -45,7 +45,7 @@ Or download `CocoNotch-<version>.zip` from the [latest release](https://github.c
 | **System** | CPU, memory, disk and battery, with graphs of the last minute and a low battery heads-up. |
 | **Shelf** | Drop files on the notch, open or closed, and drag them back out later. Files stay put when the original moves, with Quick Look, AirDrop and Share. |
 | **Convert** | Drop images, videos or PDFs to convert them: images between HEIC, JPEG, PNG, TIFF, GIF and BMP; PDF pages to images, or images and PDFs combined into one PDF; videos to MP4, MOV, audio or a GIF. |
-| **Camera** | A mirrored preview from any camera, to check how you look before a call. |
+| **Camera** | A mirrored preview from any camera, to check how you look before a call. Switch cameras from the menu under the preview. |
 
 ## Usage
 
