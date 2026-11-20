@@ -14,6 +14,7 @@ enum PreferenceKey {
     static let selectedWidget = "selectedWidget"
     static let showsHome = "widgets.showsHome"
     static let notchDisplay = "behavior.notchDisplay"
+    static let hidesForFullScreenVideo = "behavior.hidesForFullScreenVideo"
     static let notchScale = "appearance.notchScale"
     static let showsActivities = "behavior.showsActivities"
     /// A widget ID whose activity always takes the left of the closed notch, or "" to rank them automatically.

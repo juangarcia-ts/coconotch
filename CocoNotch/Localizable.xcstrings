@@ -8745,6 +8745,58 @@
         }
       }
     },
+    "Hide the notch while a video plays full screen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notch ausblenden, während ein Video im Vollbild läuft"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar el notch mientras se reproduce un vídeo a pantalla completa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer le notch pendant la lecture d’une vidéo en plein écran"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi il notch durante la riproduzione di un video a schermo intero"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ビデオをフルスクリーンで再生中はノッチを隠す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "동영상을 전체 화면으로 재생하는 동안 노치 숨기기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar o notch enquanto um vídeo é reproduzido em tela cheia"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全屏播放视频时隐藏刘海"
+          }
+        }
+      }
+    },
     "Hide this meeting's reminder in the closed notch": {
       "localizations": {
         "de": {
