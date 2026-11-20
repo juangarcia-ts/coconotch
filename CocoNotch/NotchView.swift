@@ -90,9 +90,9 @@ struct NotchView: View {
         // Opening the notch would hide a sticky alert's buttons, so hover and click leave it closed.
         let isStickyAlertShowing = alertKey != nil && alertKey == alertingKey && activities.first?.isAlertSticky == true
 
-        let isHiddenForVideo =
-            !isExpanded && !isHovering && alertingKey == nil
-            && FullScreenVideoStore.shared.screenFrames.contains(screenFrame)
+        let isHiddenForVideo = isNotchHiddenForVideo(
+            on: screenFrame, videoScreens: FullScreenVideoStore.shared.screenFrames, isExpanded: isExpanded,
+            isHovering: isHovering, isAlerting: alertingKey != nil)
 
         ScaledLayout(scale: scale) {
             panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)

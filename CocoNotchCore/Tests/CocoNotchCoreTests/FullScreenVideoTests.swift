@@ -43,3 +43,32 @@ private func detectsFullScreenVideo(testCase: Case, expected: Bool) {
             on: screen, topInset: 38, windowList: [window], assertionsByPID: [testCase.holderPID: [assertion]])
             == expected)
 }
+
+@Test(
+    arguments: [
+        (CGPoint(x: 700, y: 982), true),
+        (CGPoint(x: 10, y: 950), true),
+        // Below the menu bar, over the video.
+        (CGPoint(x: 700, y: 900), false),
+        // At the top of the display to the right.
+        (CGPoint(x: 1600, y: 982), false),
+    ])
+func detectsPointerInMenuBar(pointer: CGPoint, expected: Bool) {
+    #expect(isPointerInMenuBar(pointer, screen: screen, menuBarHeight: 38) == expected)
+}
+
+@Test(
+    arguments: [
+        ([screen], false, false, false, true),
+        // Another display plays the video.
+        ([CGRect(x: 1512, y: 0, width: 1920, height: 1080)], false, false, false, false),
+        ([screen], true, false, false, false),
+        ([screen], false, true, false, false),
+        ([screen], false, false, true, false),
+    ] as [([CGRect], Bool, Bool, Bool, Bool)])
+func hidesNotchForVideo(videoScreens: [CGRect], isExpanded: Bool, isHovering: Bool, isAlerting: Bool, expected: Bool) {
+    #expect(
+        isNotchHiddenForVideo(
+            on: screen, videoScreens: videoScreens, isExpanded: isExpanded, isHovering: isHovering,
+            isAlerting: isAlerting) == expected)
+}

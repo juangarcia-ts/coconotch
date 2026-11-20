@@ -27,3 +27,17 @@ public func isPlayingFullScreenVideo(
             && bounds.minY <= screen.minY + topInset
     }
 }
+
+/// Whether the pointer is in the strip at the top of `screen` where a full-screen space slides the menu bar down. Both
+/// are in AppKit's bottom-left coordinates.
+public func isPointerInMenuBar(_ pointer: CGPoint, screen: CGRect, menuBarHeight: CGFloat) -> Bool {
+    pointer.x >= screen.minX && pointer.x < screen.maxX && pointer.y >= screen.maxY - menuBarHeight
+        && pointer.y <= screen.maxY
+}
+
+/// Whether the closed notch fades out on `screen`; opening it, hovering it or an alert brings it back.
+public func isNotchHiddenForVideo(
+    on screen: CGRect, videoScreens: [CGRect], isExpanded: Bool, isHovering: Bool, isAlerting: Bool
+) -> Bool {
+    videoScreens.contains(screen) && !isExpanded && !isHovering && !isAlerting
+}
