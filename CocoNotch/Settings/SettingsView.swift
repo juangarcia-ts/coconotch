@@ -146,6 +146,7 @@ private struct GeneralSettings: View {
     let updater: SPUUpdater
     @AppStorage(PreferenceKey.expandsOnClick) private var expandsOnClick = false
     @AppStorage(PreferenceKey.notchDisplay) private var notchDisplay = NotchDisplayChoice.main
+    @AppStorage(PreferenceKey.hidesForFullScreenVideo) private var hidesForFullScreenVideo = true
     @AppStorage(PreferenceKey.showsActivities) private var showsActivities = true
     @AppStorage(PreferenceKey.showsTwoActivities) private var showsTwoActivities = true
     @State private var launchAtLoginStatus = SMAppService.mainApp.status
@@ -207,6 +208,7 @@ private struct GeneralSettings: View {
                 Text("Built-in display").tag(NotchDisplayChoice.builtIn)
                 Text("All displays").tag(NotchDisplayChoice.all)
             }
+            Toggle("Hide the notch while a video plays full screen", isOn: $hidesForFullScreenVideo)
             Toggle("Show live activities in the closed notch", isOn: $showsActivities)
             Toggle("Show two activities side by side", isOn: $showsTwoActivities)
                 .disabled(!showsActivities)

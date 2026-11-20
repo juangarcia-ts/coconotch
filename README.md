@@ -55,7 +55,7 @@ The closed notch shows live activities, like a meeting about to start or the son
 
 Open **Settings…** (⌘,) from the menu bar icon or the footer of the open notch:
 
-- **General**: the app's language, open on hover or click, which displays show the notch, live activities and whether they split the notch two ways, launch at login, automatic update checks and a reset to defaults (privacy permissions stay as they are).
+- **General**: the app's language, open on hover or click, which displays show the notch, hiding it while a video plays full screen (hover to bring it back), live activities and whether they split the notch two ways, launch at login, automatic update checks and a reset to defaults (privacy permissions stay as they are).
 - **Shortcuts**: a system-wide shortcut to open or close the notch, one per widget, and the ⌘1… tab shortcuts (visible, hidden or off).
 - **Appearance**: solid or blurred background, its color and opacity, and the notch size.
 - **Widgets**: switch widgets on or off, drag to reorder them and pick which widget's activity takes the left or right of the camera in the closed notch (Automatic explains how it picks), plus a tab with each widget's options.

@@ -2,6 +2,7 @@ import CocoNotchCore
 import SwiftUI
 
 struct NotchView: View {
+    let screenFrame: NSRect
     let notchSize: CGSize
     let cameraHousingHeight: CGFloat
     /// The panel showing this view, so it reacts only to its own panel losing key status.
@@ -89,10 +90,17 @@ struct NotchView: View {
         // Opening the notch would hide a sticky alert's buttons, so hover and click leave it closed.
         let isStickyAlertShowing = alertKey != nil && alertKey == alertingKey && activities.first?.isAlertSticky == true
 
+        let isHiddenForVideo =
+            !isExpanded && !isHovering && alertingKey == nil
+            && FullScreenVideoStore.shared.screenFrames.contains(screenFrame)
+
         ScaledLayout(scale: scale) {
             panel(shape: shape, activities: activities, isAlerting: alertKey != nil && alertKey == alertingKey)
                 .scaleEffect(scale, anchor: .topLeading)
+                // Not 0: fully clear pixels let the pointer through, and hovering has to bring the notch back.
+                .opacity(isHiddenForVideo ? 0.02 : 1)
         }
+        .animation(.easeInOut(duration: 0.2), value: isHiddenForVideo)
         .animation(.spring(duration: 0.4, bounce: 0.25), value: activities.first?.id)
         .animation(.spring(duration: 0.5, bounce: 0.35), value: alertingKey)
         .onChange(of: alertKey, initial: true) { _, key in
