@@ -219,10 +219,12 @@ func formatsTimer(seconds: Int, expected: String) {
     #expect(formatTimer(seconds: seconds) == expected)
 }
 
-@Test(arguments: [(-1.0, ActivityPriority.urgent), (0, .urgent), (1, .normal)])
-func ranksHeadsUpByStart(secondsAgo: Double, expected: ActivityPriority) {
+@Test(arguments: [
+    (-1.0, 0.0, ActivityPriority.urgent), (0, 0, .urgent), (1, 0, .normal), (10, 10, .urgent), (11, 10, .normal),
+])
+func ranksHeadsUpByStart(startsIn: Double, alertLead: Double, expected: ActivityPriority) {
     let now = Date(timeIntervalSince1970: 100_000)
-    #expect(getHeadsUpPriority(start: now + secondsAgo, now: now) == expected)
+    #expect(getHeadsUpPriority(start: now + startsIn, now: now, alertLead: alertLead) == expected)
 }
 
 @Test func makesMonthGrid() throws {
