@@ -109,16 +109,32 @@ private struct CameraView: View {
         Group {
             switch status {
             case .authorized where cameras?.isEmpty != true:
-                CameraPreview(session: camera.session)
-                    .background(.black)
-                    .aspectRatio(16 / 9, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(alignment: .topTrailing) {
-                        if let cameras, cameras.count > 1 {
-                            CameraPicker(cameras: cameras).labelsHidden().controlSize(.small).fixedSize().padding(8)
+                VStack(alignment: .trailing, spacing: 8) {
+                    CameraPreview(session: camera.session)
+                        .background(.black)
+                        .aspectRatio(16 / 9, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(maxWidth: 360)
+                    if let cameras, cameras.count > 1 {
+                        Menu {
+                            CameraPicker(cameras: cameras).pickerStyle(.inline).labelsHidden()
+                        } label: {
+                            let id = resolveCameraID(pickedID: pickedID, cameras: cameras)
+                            HStack(spacing: 4) {
+                                Image(systemName: NotchWidget.camera.systemImage)
+                                Text(cameras.first { $0.uniqueID == id }?.localizedName ?? "").lineLimit(1)
+                                Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                            }
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
                         }
+                        .menuStyle(.button)
+                        .buttonStyle(.plain)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
                     }
-                    .frame(maxWidth: 360)
+                }
             case .authorized:
                 WidgetPrompt(
                     systemImage: NotchWidget.camera.systemImage, message: String(localized: "No camera found."))
