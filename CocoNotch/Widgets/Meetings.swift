@@ -72,14 +72,14 @@ final class MeetingsStore {
     private(set) var selectedDay: Date?
     private(set) var selectedDaysMeetings: [Meeting] = []
     private var refreshTask: Task<Void, Never>?
-    private var urgentTask: Task<Void, Never>?
+    private var wakeTask: Task<Void, Never>?
     /// The meeting shown in the closed notch, if any.
     private(set) var headsUpMeetingID: String?
     private var dismissedHeadsUpIDs: Set<String> = []
     private(set) var isRefreshing = false
 
     /// Reloads meetings once a minute and re-checks the heads-up every 15 seconds, without querying EventKit that
-    /// often; the urgent card gets its own wake-up. Never asks for access; that happens from the Meetings tab.
+    /// often; the heads-up and its card get their own wake-ups. Never asks for access; that happens from the Meetings tab.
     func start() {
         guard refreshTask == nil else { return }
         refreshTask = Task { [weak self] in
@@ -132,6 +132,7 @@ final class MeetingsStore {
             hiddenCalendarIDs: decodeIDSet(defaults.string(forKey: hiddenCalendarIDsKey) ?? "")
         )
         let leadMinutes = defaults.object(forKey: headsUpMinutesKey) as? Int ?? defaultHeadsUpMinutes
+        let alertLead = TimeInterval(defaults.object(forKey: alertLeadSecondsKey) as? Int ?? defaultAlertLeadSeconds)
         let sticks = defaults.object(forKey: headsUpSticksKey) as? Bool ?? defaultHeadsUpSticks
         let meeting = getHeadsUpMeeting(
             upcoming,
@@ -145,21 +146,22 @@ final class MeetingsStore {
         updateNextMeeting(
             meeting == nil && defaults.object(forKey: showsNextMeetingKey) as? Bool ?? true
                 ? getNextMeeting(upcoming, now: now) : nil)
-        urgentTask?.cancel()
+        wakeTask?.cancel()
+        if let wake = getNextHeadsUpChange(
+            upcoming, now: now, leadTime: TimeInterval(leadMinutes * 60), alertLead: alertLead,
+            dismissedIDs: dismissedHeadsUpIDs)
+        {
+            // The 15-second poll could be up to 15 seconds late, so wake right when the heads-up changes.
+            wakeTask = Task { [weak self] in
+                guard (try? await Task.sleep(for: .seconds(wake.timeIntervalSince(now)))) != nil else { return }
+                self?.updateHeadsUp()
+            }
+        }
         guard let meeting else {
             ActivityCenter.shared.remove(id: headsUpActivityID)
             return
         }
-        let alertLead = TimeInterval(defaults.object(forKey: alertLeadSecondsKey) as? Int ?? defaultAlertLeadSeconds)
         let priority = getHeadsUpPriority(start: meeting.start, now: now, alertLead: alertLead)
-        if priority != .urgent {
-            // The 15-second poll could show the card up to 15 seconds late, so wake right when it turns urgent.
-            let delay = meeting.start.timeIntervalSince(now) - alertLead
-            urgentTask = Task { [weak self] in
-                guard (try? await Task.sleep(for: .seconds(delay))) != nil else { return }
-                self?.updateHeadsUp()
-            }
-        }
         ActivityCenter.shared.post(
             NotchActivity(
                 id: headsUpActivityID,

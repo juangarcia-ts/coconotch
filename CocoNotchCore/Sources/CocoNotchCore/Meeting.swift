@@ -180,6 +180,23 @@ public func getHeadsUpMeeting(
     }
 }
 
+/// The next moment a heads-up appears or turns urgent, or nil when nothing is left to change today or heads-ups are off.
+public func getNextHeadsUpChange(
+    _ upcoming: [Meeting],
+    now: Date,
+    leadTime: TimeInterval,
+    alertLead: TimeInterval,
+    dismissedIDs: Set<String>
+) -> Date? {
+    guard leadTime > 0 else { return nil }
+    return
+        upcoming
+        .filter { !$0.isAllDay && !dismissedIDs.contains($0.id) }
+        .flatMap { [$0.start - leadTime, $0.start - alertLead] }
+        .filter { $0 > now }
+        .min()
+}
+
 /// The next meeting still to start, for the low-priority reminder shown before the heads-up; all-day events never count.
 public func getNextMeeting(_ upcoming: [Meeting], now: Date) -> Meeting? {
     upcoming.first { !$0.isAllDay && $0.start > now }

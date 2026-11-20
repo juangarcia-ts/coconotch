@@ -202,6 +202,26 @@ func getsAgendaMeetings(showsPastEvents: Bool, isPickedDay: Bool, expected: [Str
     #expect(sticky?.id == "long ago")
 }
 
+@Test func findsNextHeadsUpChange() {
+    let now = Date(timeIntervalSince1970: 100_000)
+    func meeting(_ id: String, startsIn seconds: Double, allDay: Bool = false) -> Meeting {
+        Meeting(id: id, title: id, start: now + seconds, end: now + seconds + 3600, isAllDay: allDay)
+    }
+    func change(_ meetings: [Meeting], leadTime: Double = 60, dismissed: Set<String> = []) -> Date? {
+        getNextHeadsUpChange(meetings, now: now, leadTime: leadTime, alertLead: 10, dismissedIDs: dismissed)
+    }
+
+    // Not shown yet: wake when it appears.
+    #expect(change([meeting("a", startsIn: 61)]) == now + 1)
+    // Already shown: wake when it turns urgent.
+    #expect(change([meeting("a", startsIn: 30)]) == now + 20)
+    // Already urgent: nothing left but the next meeting.
+    #expect(change([meeting("a", startsIn: 5), meeting("b", startsIn: 600)]) == now + 540)
+    #expect(change([meeting("a", startsIn: 61)], dismissed: ["a"]) == nil)
+    #expect(change([meeting("a", startsIn: 61, allDay: true)]) == nil)
+    #expect(change([meeting("a", startsIn: 61)], leadTime: 0) == nil)
+}
+
 @Test func picksNextMeeting() {
     let now = Date(timeIntervalSince1970: 100_000)
     func meeting(_ id: String, startsIn minutes: Double, allDay: Bool = false) -> Meeting {
