@@ -18,7 +18,7 @@ private let isMirroredKey = "camera.isMirrored"
 private func listCameras() -> [AVCaptureDevice] {
     AVCaptureDevice.DiscoverySession(
         deviceTypes: [.builtInWideAngleCamera, .external], mediaType: .video, position: .unspecified
-    ).devices
+    ).devices.filter { !$0.isSuspended }  // A closed lid suspends the built-in camera, which then shows only black.
 }
 
 private func resolveCameraID(pickedID: String, cameras: [AVCaptureDevice]) -> String? {
@@ -39,24 +39,37 @@ nonisolated private final class CameraSession: @unchecked Sendable {
     func start(deviceID: String, isMirrored: Bool) {
         queue.async {
             self.userCount += 1
-            let current = self.session.inputs.first as? AVCaptureDeviceInput
-            if current?.device.uniqueID != deviceID {
-                self.session.beginConfiguration()
-                self.session.inputs.forEach(self.session.removeInput)
-                if let device = AVCaptureDevice(uniqueID: deviceID),
-                    let input = try? AVCaptureDeviceInput(device: device), self.session.canAddInput(input)
-                {
-                    self.session.addInput(input)
-                }
-                self.session.commitConfiguration()
-            }
-            // Includes every preview layer's connection, so each view gets the setting.
-            for connection in self.session.connections where connection.isVideoMirroringSupported {
-                connection.automaticallyAdjustsVideoMirroring = false
-                connection.isVideoMirrored = isMirrored
-            }
-            self.session.startRunning()
+            self.show(deviceID: deviceID, isMirrored: isMirrored)
         }
+    }
+
+    /// Brings a stalled session back, such as after the camera is unplugged and plugged in again.
+    func keepShowing(deviceID: String, isMirrored: Bool) {
+        queue.async {
+            if self.userCount > 0 { self.show(deviceID: deviceID, isMirrored: isMirrored) }
+        }
+    }
+
+    private func show(deviceID: String, isMirrored: Bool) {
+        let current = self.session.inputs.first as? AVCaptureDeviceInput
+        // A camera that reconnects comes back as a new device, so the old input stays black.
+        if current?.device.uniqueID != deviceID || current?.device.isConnected != true {
+            self.session.beginConfiguration()
+            self.session.inputs.forEach(self.session.removeInput)
+            if let device = AVCaptureDevice(uniqueID: deviceID),
+                let input = try? AVCaptureDeviceInput(device: device), self.session.canAddInput(input)
+            {
+                self.session.addInput(input)
+            }
+            self.session.commitConfiguration()
+        }
+        // Includes every preview layer's connection, so each view gets the setting.
+        for connection in self.session.connections where connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = isMirrored
+        }
+        // Does nothing while running; restarts a session a runtime error stopped.
+        self.session.startRunning()
     }
 
     func stop() {
@@ -89,16 +102,22 @@ private struct CameraView: View {
     @AppStorage(isMirroredKey) private var isMirrored = true
     private let camera = CameraSession.shared
     @State private var status = AVCaptureDevice.authorizationStatus(for: .video)
-    @State private var hasCamera = true
+    // Nil until the first look, so "No camera found" doesn't flash on open.
+    @State private var cameras: [AVCaptureDevice]?
 
     var body: some View {
         Group {
             switch status {
-            case .authorized where hasCamera:
+            case .authorized where cameras?.isEmpty != true:
                 CameraPreview(session: camera.session)
                     .background(.black)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(alignment: .topTrailing) {
+                        if let cameras, cameras.count > 1 {
+                            CameraPicker(cameras: cameras).labelsHidden().controlSize(.small).fixedSize().padding(8)
+                        }
+                    }
                     .frame(maxWidth: 360)
             case .authorized:
                 WidgetPrompt(
@@ -126,12 +145,15 @@ private struct CameraView: View {
             var startedID: String?
             // ponytail: polls for plugged and unplugged cameras; use AVCaptureDevice connect notifications if it costs.
             while !Task.isCancelled {
-                let id = resolveCameraID(pickedID: pickedID, cameras: listCameras())
-                hasCamera = id != nil
+                let found = listCameras()
+                cameras = found
+                let id = resolveCameraID(pickedID: pickedID, cameras: found)
                 if id != startedID {
                     if startedID != nil { camera.stop() }
                     if let id { camera.start(deviceID: id, isMirrored: isMirrored) }
                     startedID = id
+                } else if let id {
+                    camera.keepShowing(deviceID: id, isMirrored: isMirrored)
                 }
                 try? await Task.sleep(for: .seconds(2))
             }
@@ -140,8 +162,23 @@ private struct CameraView: View {
     }
 }
 
-private struct CameraSettings: View {
+private struct CameraPicker: View {
+    let cameras: [AVCaptureDevice]
     @AppStorage(pickedIDKey) private var pickedID = ""
+
+    var body: some View {
+        Picker(
+            "Camera",
+            selection: Binding(
+                get: { resolveCameraID(pickedID: pickedID, cameras: cameras) ?? "" },
+                set: { pickedID = $0 })
+        ) {
+            ForEach(cameras, id: \.uniqueID) { Text($0.localizedName).tag($0.uniqueID) }
+        }
+    }
+}
+
+private struct CameraSettings: View {
     @AppStorage(isMirroredKey) private var isMirrored = true
     @State private var cameras: [AVCaptureDevice] = []
 
@@ -149,16 +186,7 @@ private struct CameraSettings: View {
         Form {
             Section("Preview") {
                 Toggle("Mirror the preview", isOn: $isMirrored)
-                if cameras.count > 1 {
-                    Picker(
-                        "Camera",
-                        selection: Binding(
-                            get: { resolveCameraID(pickedID: pickedID, cameras: cameras) ?? "" },
-                            set: { pickedID = $0 })
-                    ) {
-                        ForEach(cameras, id: \.uniqueID) { Text($0.localizedName).tag($0.uniqueID) }
-                    }
-                }
+                if cameras.count > 1 { CameraPicker(cameras: cameras) }
             }
         }
         .formStyle(.grouped)
