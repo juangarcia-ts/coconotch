@@ -23,8 +23,10 @@ public func isPlayingFullScreenVideo(
             let boundsDictionary = window[kCGWindowBounds as String] as? [String: Any],
             let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
         else { return false }
+        // ponytail: measured at default scaling, a 32pt camera housing leaves a 33pt strip; if another scaling
+        // misses by more, read the strip from the Window Server's menu bar window in `windowList`.
         return bounds.minX == screen.minX && bounds.width == screen.width && bounds.maxY == screen.maxY
-            && bounds.minY <= screen.minY + topInset
+            && bounds.minY <= screen.minY + topInset + 1
     }
 }
 

@@ -18,6 +18,8 @@ private struct Case: Sendable {
 @Test(
     arguments: [
         (Case(), true),
+        // A MacBook's 32pt camera housing leaves a 33pt strip above the full-screen window.
+        (Case(bounds: CGRect(x: 0, y: 39, width: 1512, height: 943)), true),
         // A helper process holds it for the browser.
         (Case(holderPID: 20, type: "NoDisplaySleepAssertion", onBehalfOfPID: playerPID), true),
         // Full screen, but nothing playing.
